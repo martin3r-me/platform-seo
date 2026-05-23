@@ -8,14 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Step 1: Drop foreign key first (MySQL requires FK dropped before its index)
         Schema::table('seo_keywords', function (Blueprint $table) {
-            // Drop old unique constraint and indexes that reference project_id
+            $table->dropForeign(['project_id']);
+        });
+
+        // Step 2: Now drop indexes and columns safely
+        Schema::table('seo_keywords', function (Blueprint $table) {
             $table->dropUnique(['project_id', 'keyword']);
             $table->dropIndex(['project_id', 'cluster_id']);
             $table->dropIndex(['project_id', 'search_intent']);
 
-            // Drop the foreign key + column for project_id
-            $table->dropForeign(['project_id']);
             $table->dropColumn([
                 'project_id',
                 'position',
