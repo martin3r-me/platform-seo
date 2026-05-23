@@ -25,8 +25,8 @@
             <x-ui-dashboard-tile title="Eigene URLs" :count="$urlCounts['own']" icon="home" variant="info" />
             <x-ui-dashboard-tile title="Wettbewerber" :count="$urlCounts['competitor']" icon="user-group" variant="warning" />
             <x-ui-dashboard-tile title="Keywords" :count="$keywordCount" icon="key" variant="neutral" />
-            <x-ui-dashboard-tile title="Sichtbarkeit" :count="$visibility['percentage'] . '%'" icon="eye" variant="success" />
-            <x-ui-dashboard-tile title="Budget" :count="$budgetSummary['percentage'] !== null ? $budgetSummary['percentage'] . '%' : '—'" icon="banknotes" variant="{{ ($budgetSummary['percentage'] ?? 0) > 80 ? 'danger' : 'neutral' }}" />
+            <x-ui-dashboard-tile title="Sichtbarkeit" :count="$visibility['percentage']" icon="eye" variant="success" description="%" />
+            <x-ui-dashboard-tile title="Budget" :count="$budgetSummary['percentage'] ?? 0" icon="banknotes" variant="{{ ($budgetSummary['percentage'] ?? 0) > 80 ? 'danger' : 'neutral' }}" description="{{ $budgetSummary['percentage'] !== null ? '%' : '—' }}" />
         </x-ui-stats-grid>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

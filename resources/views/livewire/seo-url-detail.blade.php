@@ -38,10 +38,10 @@
         {{-- Stats Grid --}}
         <x-ui-stats-grid :cols="5">
             <x-ui-dashboard-tile title="Keywords" :count="$seoUrl->keyword_count" icon="key" variant="primary" />
-            <x-ui-dashboard-tile title="Suchvolumen" :count="number_format($seoUrl->total_search_volume)" icon="magnifying-glass" variant="info" />
-            <x-ui-dashboard-tile title="Sichtbarkeit" :count="$urlVisibility['percentage'] . '%'" icon="eye" variant="success" />
+            <x-ui-dashboard-tile title="Suchvolumen" :count="$seoUrl->total_search_volume ?? 0" icon="magnifying-glass" variant="info" />
+            <x-ui-dashboard-tile title="Sichtbarkeit" :count="$urlVisibility['percentage']" icon="eye" variant="success" description="%" />
             <x-ui-dashboard-tile title="Backlinks" :count="$seoUrl->backlink_count ?? 0" icon="link" variant="warning" />
-            <x-ui-dashboard-tile title="On-Page Score" :count="$onPage?->overall_score !== null ? $onPage->overall_score . '%' : '—'" icon="document-check" variant="neutral" />
+            <x-ui-dashboard-tile title="On-Page Score" :count="$onPage?->overall_score ?? 0" icon="document-check" variant="neutral" description="{{ $onPage?->overall_score !== null ? '%' : '—' }}" />
         </x-ui-stats-grid>
 
         {{-- Sub-Tabs --}}

@@ -23,8 +23,8 @@
         <x-ui-stats-grid :cols="4">
             <x-ui-dashboard-tile title="Projekte" :count="$totalProjects" icon="folder" variant="primary" />
             <x-ui-dashboard-tile title="URLs gesamt" :count="$totalUrls" icon="globe-alt" variant="info" />
-            <x-ui-dashboard-tile title="Ø Sichtbarkeit" :count="$avgVisibility . '%'" icon="eye" variant="success" />
-            <x-ui-dashboard-tile title="Budget verbleibend" :count="'€' . number_format($totalBudgetRemaining / 100, 0)" icon="banknotes" variant="neutral" />
+            <x-ui-dashboard-tile title="Ø Sichtbarkeit" :count="$avgVisibility" icon="eye" variant="success" description="%" />
+            <x-ui-dashboard-tile title="Budget verbleibend" :count="round($totalBudgetRemaining / 100)" icon="banknotes" variant="neutral" description="€" />
         </x-ui-stats-grid>
 
         {{-- Project Cards --}}
