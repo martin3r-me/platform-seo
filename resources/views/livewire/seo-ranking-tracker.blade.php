@@ -5,15 +5,14 @@
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.projects.index'],
-            ['label' => $seoProject->name, 'route' => 'seo.projects.show', 'routeParams' => [$seoProject]],
+            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
             ['label' => 'Rankings'],
         ]" />
     </x-slot>
 
     <x-ui-page-container>
 
-        @include('seo::partials.project-tabs', ['projectId' => $seoProject, 'active' => 'rankings'])
+        @include('seo::partials.project-tabs', ['active' => 'rankings'])
 
         {{-- Period Selector --}}
         <div class="flex items-center gap-2 mb-6">
@@ -90,7 +89,7 @@
                         <tr wire:key="rank-{{ $entry->id }}" class="border-b border-gray-50 hover:bg-gray-50/50">
                             <td class="px-4 py-2.5">
                                 @if($entry->url)
-                                    <a href="{{ route('seo.projects.urls.show', [$seoProject, $entry->url]) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-[200px]">
+                                    <a href="{{ route('seo.urls.show', $entry->url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-[200px]">
                                         {{ $entry->url->path ?: '/' }}
                                     </a>
                                 @else

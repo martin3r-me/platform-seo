@@ -3,19 +3,19 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoScoringService;
-use Platform\Seo\Services\SeoUrlService;
 
 class SeoUrlDetail extends Component
 {
-    public SeoProject $seoProject;
+    use ResolvesTeamProject;
+
     public SeoUrl $seoUrl;
 
-    public function mount(SeoProject $seoProject, SeoUrl $seoUrl)
+    public function mount(SeoUrl $seoUrl)
     {
-        $this->seoProject = $seoProject;
+        $this->resolveProject();
         $this->seoUrl = $seoUrl;
     }
 

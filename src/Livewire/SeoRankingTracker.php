@@ -4,7 +4,7 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
 use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Services\SeoAnalysisService;
 use Platform\Seo\Services\SeoUrlService;
@@ -12,15 +12,14 @@ use Platform\Seo\Services\SeoUrlService;
 class SeoRankingTracker extends Component
 {
     use WithPagination;
-
-    public SeoProject $seoProject;
+    use ResolvesTeamProject;
 
     public int $periodDays = 30;
-    public string $filterType = 'all'; // all, winners, losers
+    public string $filterType = 'all';
 
-    public function mount(SeoProject $seoProject)
+    public function mount()
     {
-        $this->seoProject = $seoProject;
+        $this->resolveProject();
     }
 
     public function setPeriod(int $days)
@@ -40,14 +39,12 @@ class SeoRankingTracker extends Component
         $analysisService = app(SeoAnalysisService::class);
         $trends = $analysisService->getRankingTrendsForProject($this->seoProject, $this->periodDays);
 
-        // Position distribution for chart
         $urlService = app(SeoUrlService::class);
         $positionDistribution = $urlService->getVisibilitySummary(
             $this->seoProject->team_id,
             $this->seoProject->domain
         )['position_distribution'] ?? [];
 
-        // Ranking history table with URL+Keyword
         $query = SeoRankingHistory::whereHas('url', fn ($q) => $q->where('project_id', $this->seoProject->id)->where('is_own', true))
             ->with(['url', 'keyword'])
             ->where('tracked_at', '>=', now()->subDays($this->periodDays))

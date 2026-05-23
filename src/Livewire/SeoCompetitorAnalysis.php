@@ -4,20 +4,19 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Models\SeoProject;
-use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
 use Platform\Seo\Services\SeoAnalysisService;
 
 class SeoCompetitorAnalysis extends Component
 {
     use WithPagination;
+    use ResolvesTeamProject;
 
-    public SeoProject $seoProject;
     public ?string $filterDomain = null;
 
-    public function mount(SeoProject $seoProject)
+    public function mount()
     {
-        $this->seoProject = $seoProject;
+        $this->resolveProject();
     }
 
     public function setDomainFilter(?string $domain)
@@ -31,7 +30,6 @@ class SeoCompetitorAnalysis extends Component
         $analysisService = app(SeoAnalysisService::class);
         $gaps = $analysisService->getCompetitorGapsForProject($this->seoProject);
 
-        // Domain overview: group competitor URLs by domain
         $competitorDomains = $this->seoProject->urls()
             ->where('is_own', false)
             ->selectRaw('domain, COUNT(*) as url_count, AVG(visibility_score) as avg_visibility, SUM(keyword_count) as total_keywords')
@@ -39,7 +37,6 @@ class SeoCompetitorAnalysis extends Component
             ->orderByDesc('url_count')
             ->get();
 
-        // Competitor URLs table (filterable by domain)
         $competitorUrlQuery = $this->seoProject->urls()
             ->where('is_own', false)
             ->orderByDesc('visibility_score');

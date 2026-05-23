@@ -6,16 +6,14 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Models\SeoKeyword;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoKeywordService;
 
 class SeoKeywordExplorer extends Component
 {
     use WithPagination;
-
-    public SeoProject $seoProject;
+    use ResolvesTeamProject;
 
     public string $search = '';
     public ?string $filterIntent = null;
@@ -32,9 +30,9 @@ class SeoKeywordExplorer extends Component
 
     public ?int $expandedKeywordId = null;
 
-    public function mount(SeoProject $seoProject)
+    public function mount()
     {
-        $this->seoProject = $seoProject;
+        $this->resolveProject();
     }
 
     public function updatedSearch()

@@ -2,18 +2,16 @@
 
 namespace Platform\Seo\Livewire;
 
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoUrlService;
 
 class SeoUrlExplorer extends Component
 {
     use WithPagination;
-
-    public SeoProject $seoProject;
+    use ResolvesTeamProject;
 
     public string $search = '';
     public ?string $filterIsOwn = null;
@@ -28,9 +26,9 @@ class SeoUrlExplorer extends Component
     public array $selectedUrls = [];
     public bool $selectAll = false;
 
-    public function mount(SeoProject $seoProject)
+    public function mount()
     {
-        $this->seoProject = $seoProject;
+        $this->resolveProject();
     }
 
     public function updatedSearch()

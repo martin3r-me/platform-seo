@@ -9,7 +9,7 @@ return [
     'guard' => 'web',
 
     'navigation' => [
-        'route' => 'seo.projects.index',
+        'route' => 'seo.dashboard',
         'icon'  => 'heroicon-o-magnifying-glass-circle',
         'order' => 45,
     ],
@@ -19,9 +19,9 @@ return [
             'group' => 'SEO',
             'items' => [
                 [
-                    'label' => 'Projekte',
-                    'route' => 'seo.projects.index',
-                    'icon'  => 'heroicon-o-folder',
+                    'label' => 'Dashboard',
+                    'route' => 'seo.dashboard',
+                    'icon'  => 'heroicon-o-chart-bar-square',
                 ],
             ],
         ],

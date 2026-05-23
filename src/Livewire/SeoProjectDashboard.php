@@ -2,39 +2,36 @@
 
 namespace Platform\Seo\Livewire;
 
-use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
-use Platform\Seo\Models\SeoProject;
-use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
 use Platform\Seo\Models\SeoUrlSnapshot;
-use Platform\Seo\Services\SeoAnalysisService;
 use Platform\Seo\Services\SeoBudgetGuardService;
 use Platform\Seo\Services\SeoScoringService;
 use Platform\Seo\Services\SeoUrlService;
 
 class SeoProjectDashboard extends Component
 {
-    public SeoProject $seoProject;
+    use ResolvesTeamProject;
 
-    public bool $showEditModal = false;
+    public bool $showSettingsModal = false;
     public string $editName = '';
     public string $editDescription = '';
     public string $editDomain = '';
 
-    public function mount(SeoProject $seoProject)
+    public function mount()
     {
-        $this->seoProject = $seoProject;
+        $this->resolveProject();
     }
 
-    public function openEditModal()
+    public function openSettingsModal()
     {
         $this->editName = $this->seoProject->name;
         $this->editDescription = $this->seoProject->description ?? '';
         $this->editDomain = $this->seoProject->domain ?? '';
-        $this->showEditModal = true;
+        $this->showSettingsModal = true;
     }
 
-    public function saveProject()
+    public function saveSettings()
     {
         $this->validate([
             'editName' => 'required|string|max:255',
@@ -48,16 +45,7 @@ class SeoProjectDashboard extends Component
             'domain' => $this->editDomain ?: null,
         ]);
 
-        $this->showEditModal = false;
-        $this->dispatch('updateSidebar');
-    }
-
-    public function deleteProject()
-    {
-        $this->seoProject->delete();
-        $this->dispatch('updateSidebar');
-
-        return $this->redirect(route('seo.projects.index'), navigate: true);
+        $this->showSettingsModal = false;
     }
 
     public function render()

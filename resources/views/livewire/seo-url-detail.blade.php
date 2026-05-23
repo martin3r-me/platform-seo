@@ -5,9 +5,8 @@
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.projects.index'],
-            ['label' => $seoProject->name, 'route' => 'seo.projects.show', 'routeParams' => [$seoProject]],
-            ['label' => 'URLs', 'route' => 'seo.projects.urls', 'routeParams' => [$seoProject]],
+            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
+            ['label' => 'URLs', 'route' => 'seo.urls'],
             ['label' => Str::limit($seoUrl->path ?: '/', 30)],
         ]" />
     </x-slot>

@@ -5,15 +5,14 @@
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.projects.index'],
-            ['label' => $seoProject->name, 'route' => 'seo.projects.show', 'routeParams' => [$seoProject]],
+            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
             ['label' => 'Signale'],
         ]" />
     </x-slot>
 
     <x-ui-page-container>
 
-        @include('seo::partials.project-tabs', ['projectId' => $seoProject, 'active' => 'signals'])
+        @include('seo::partials.project-tabs', ['active' => 'signals'])
 
         {{-- Filters Row --}}
         <div class="flex items-center gap-4 mb-6 flex-wrap">
@@ -103,7 +102,7 @@
                                     <span>Keyword: <span class="text-gray-600">{{ $signal->keyword->keyword }}</span></span>
                                 @endif
                                 @if($signal->url)
-                                    <a href="{{ route('seo.projects.urls.show', [$seoProject, $signal->url]) }}" wire:navigate class="text-indigo-500 hover:underline truncate max-w-[200px]">
+                                    <a href="{{ route('seo.urls.show', $signal->url) }}" wire:navigate class="text-indigo-500 hover:underline truncate max-w-[200px]">
                                         {{ $signal->url->path ?: $signal->url->url }}
                                     </a>
                                 @endif

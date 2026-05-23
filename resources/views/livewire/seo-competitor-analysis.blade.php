@@ -5,15 +5,14 @@
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.projects.index'],
-            ['label' => $seoProject->name, 'route' => 'seo.projects.show', 'routeParams' => [$seoProject]],
+            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
             ['label' => 'Wettbewerber'],
         ]" />
     </x-slot>
 
     <x-ui-page-container>
 
-        @include('seo::partials.project-tabs', ['projectId' => $seoProject, 'active' => 'competitors'])
+        @include('seo::partials.project-tabs', ['active' => 'competitors'])
 
         {{-- Summary Stats --}}
         <x-ui-stats-grid :cols="3">
@@ -78,7 +77,7 @@
                             @foreach($competitorUrls as $url)
                                 <tr wire:key="comp-url-{{ $url->id }}" class="border-b border-gray-50 hover:bg-gray-50/50">
                                     <td class="px-4 py-2.5">
-                                        <a href="{{ route('seo.projects.urls.show', [$seoProject, $url]) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs">
+                                        <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs">
                                             {{ $url->path ?: '/' }}
                                         </a>
                                         <span class="text-xs text-gray-400">{{ $url->domain }}</span>

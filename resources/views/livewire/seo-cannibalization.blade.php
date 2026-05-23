@@ -5,15 +5,14 @@
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.projects.index'],
-            ['label' => $seoProject->name, 'route' => 'seo.projects.show', 'routeParams' => [$seoProject]],
+            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
             ['label' => 'Kannibalisierung'],
         ]" />
     </x-slot>
 
     <x-ui-page-container>
 
-        @include('seo::partials.project-tabs', ['projectId' => $seoProject, 'active' => 'cannibalization'])
+        @include('seo::partials.project-tabs', ['active' => 'cannibalization'])
 
         {{-- Summary --}}
         <x-ui-stats-grid :cols="2">
@@ -29,7 +28,6 @@
                         $urlCount = count($item['urls']);
                         $positions = array_column($item['urls'], 'position');
                         $positionSpread = count($positions) >= 2 ? max($positions) - min($positions) : 0;
-                        // Red: >2 URLs, or 2 URLs with <5 position difference
                         $severity = $urlCount > 2 ? 'red' : ($positionSpread < 5 ? 'red' : 'amber');
                     @endphp
                     <div class="bg-white rounded-xl border-l-4 {{ $severity === 'red' ? 'border-l-red-500' : 'border-l-amber-500' }} border border-gray-100 overflow-hidden">

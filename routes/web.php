@@ -1,6 +1,5 @@
 <?php
 
-use Platform\Seo\Livewire\SeoProjectIndex;
 use Platform\Seo\Livewire\SeoProjectDashboard;
 use Platform\Seo\Livewire\SeoUrlExplorer;
 use Platform\Seo\Livewire\SeoUrlDetail;
@@ -10,12 +9,11 @@ use Platform\Seo\Livewire\SeoCompetitorAnalysis;
 use Platform\Seo\Livewire\SeoCannibalization;
 use Platform\Seo\Livewire\SeoSignalIndex;
 
-Route::get('/', SeoProjectIndex::class)->name('seo.projects.index');
-Route::get('/projects/{seoProject}', SeoProjectDashboard::class)->name('seo.projects.show');
-Route::get('/projects/{seoProject}/urls', SeoUrlExplorer::class)->name('seo.projects.urls');
-Route::get('/projects/{seoProject}/urls/{seoUrl}', SeoUrlDetail::class)->name('seo.projects.urls.show');
-Route::get('/projects/{seoProject}/keywords', SeoKeywordExplorer::class)->name('seo.projects.keywords');
-Route::get('/projects/{seoProject}/rankings', SeoRankingTracker::class)->name('seo.projects.rankings');
-Route::get('/projects/{seoProject}/competitors', SeoCompetitorAnalysis::class)->name('seo.projects.competitors');
-Route::get('/projects/{seoProject}/cannibalization', SeoCannibalization::class)->name('seo.projects.cannibalization');
-Route::get('/projects/{seoProject}/signals', SeoSignalIndex::class)->name('seo.projects.signals');
+Route::get('/', SeoProjectDashboard::class)->name('seo.dashboard');
+Route::get('/urls', SeoUrlExplorer::class)->name('seo.urls');
+Route::get('/urls/{seoUrl}', SeoUrlDetail::class)->name('seo.urls.show');
+Route::get('/keywords', SeoKeywordExplorer::class)->name('seo.keywords');
+Route::get('/rankings', SeoRankingTracker::class)->name('seo.rankings');
+Route::get('/competitors', SeoCompetitorAnalysis::class)->name('seo.competitors');
+Route::get('/cannibalization', SeoCannibalization::class)->name('seo.cannibalization');
+Route::get('/signals', SeoSignalIndex::class)->name('seo.signals');

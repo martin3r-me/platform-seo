@@ -5,8 +5,7 @@
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.projects.index'],
-            ['label' => $seoProject->name, 'route' => 'seo.projects.show', 'routeParams' => [$seoProject]],
+            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
             ['label' => 'URLs'],
         ]">
             <x-ui-button variant="primary" size="sm" wire:click="$set('showAddModal', true)">
@@ -18,7 +17,7 @@
 
     <x-ui-page-container>
 
-        @include('seo::partials.project-tabs', ['projectId' => $seoProject, 'active' => 'urls'])
+        @include('seo::partials.project-tabs', ['active' => 'urls'])
 
         {{-- Filters --}}
         <div class="flex items-center gap-3 mb-6 flex-wrap">
@@ -97,7 +96,7 @@
                                     @if(!$url->is_own)
                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Wettbewerber"></span>
                                     @endif
-                                    <a href="{{ route('seo.projects.urls.show', [$seoProject, $url]) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs">
+                                    <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs">
                                         {{ $url->path ?: '/' }}
                                     </a>
                                 </div>

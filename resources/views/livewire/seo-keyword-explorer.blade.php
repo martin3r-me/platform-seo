@@ -5,8 +5,7 @@
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.projects.index'],
-            ['label' => $seoProject->name, 'route' => 'seo.projects.show', 'routeParams' => [$seoProject]],
+            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
             ['label' => 'Keywords'],
         ]">
             <x-ui-button variant="secondary" size="sm" wire:click="fetchMetrics">
@@ -22,7 +21,7 @@
 
     <x-ui-page-container>
 
-        @include('seo::partials.project-tabs', ['projectId' => $seoProject, 'active' => 'keywords'])
+        @include('seo::partials.project-tabs', ['active' => 'keywords'])
 
         @if(session('success'))
             <div class="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg">{{ session('success') }}</div>
@@ -150,7 +149,7 @@
                                         <div class="space-y-1">
                                             @foreach($this->expandedUrls as $url)
                                                 <div class="flex items-center gap-3">
-                                                    <a href="{{ route('seo.projects.urls.show', [$seoProject, $url]) }}" wire:navigate class="text-indigo-600 hover:underline text-sm truncate">{{ $url->path ?: '/' }}</a>
+                                                    <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline text-sm truncate">{{ $url->path ?: '/' }}</a>
                                                     <span class="text-xs text-gray-400">{{ $url->domain }}</span>
                                                     @include('seo::partials.position-badge', ['position' => $url->keywords->first()?->pivot->position, 'change' => null])
                                                 </div>

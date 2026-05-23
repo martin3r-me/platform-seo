@@ -3,16 +3,16 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
 use Platform\Seo\Services\SeoUrlService;
 
 class SeoCannibalization extends Component
 {
-    public SeoProject $seoProject;
+    use ResolvesTeamProject;
 
-    public function mount(SeoProject $seoProject)
+    public function mount()
     {
-        $this->seoProject = $seoProject;
+        $this->resolveProject();
     }
 
     public function render()
@@ -20,7 +20,6 @@ class SeoCannibalization extends Component
         $urlService = app(SeoUrlService::class);
         $cannibalization = $urlService->getCannibalization($this->seoProject->team_id);
 
-        // Sort by URL count descending, then by search volume
         usort($cannibalization, function ($a, $b) {
             $countDiff = count($b['urls']) - count($a['urls']);
             if ($countDiff !== 0) {

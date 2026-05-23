@@ -4,23 +4,22 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Services\SeoSignalService;
 
 class SeoSignalIndex extends Component
 {
     use WithPagination;
-
-    public SeoProject $seoProject;
+    use ResolvesTeamProject;
 
     public string $filterStatus = 'new';
     public ?string $filterType = null;
     public ?string $filterSeverity = null;
 
-    public function mount(SeoProject $seoProject)
+    public function mount()
     {
-        $this->seoProject = $seoProject;
+        $this->resolveProject();
     }
 
     public function setFilterStatus(string $status)

@@ -1,23 +1,23 @@
 <x-ui-page>
     <x-slot name="navbar">
-        <x-ui-page-navbar title="{{ $seoProject->name }}" icon="heroicon-o-magnifying-glass-circle" />
+        <x-ui-page-navbar title="SEO Dashboard" icon="heroicon-o-magnifying-glass-circle" />
     </x-slot>
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
-            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.projects.index'],
-            ['label' => $seoProject->name],
+            ['label' => 'SEO', 'icon' => 'magnifying-glass-circle'],
+            ['label' => 'Dashboard'],
         ]">
-            <x-ui-button variant="secondary" size="sm" wire:click="openEditModal">
-                @svg('heroicon-o-pencil', 'w-4 h-4')
-                <span>Bearbeiten</span>
+            <x-ui-button variant="secondary" size="sm" wire:click="openSettingsModal">
+                @svg('heroicon-o-cog-6-tooth', 'w-4 h-4')
+                <span>Einstellungen</span>
             </x-ui-button>
         </x-ui-page-actionbar>
     </x-slot>
 
     <x-ui-page-container>
 
-        @include('seo::partials.project-tabs', ['projectId' => $seoProject, 'active' => 'dashboard'])
+        @include('seo::partials.project-tabs', ['active' => 'dashboard'])
 
         {{-- Stats Grid --}}
         <x-ui-stats-grid :cols="6">
@@ -74,7 +74,7 @@
             <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                     <h3 class="text-sm font-medium text-gray-700">Top URLs nach Sichtbarkeit</h3>
-                    <a href="{{ route('seo.projects.urls', $seoProject) }}" wire:navigate class="text-xs text-indigo-600 hover:underline">Alle URLs</a>
+                    <a href="{{ route('seo.urls') }}" wire:navigate class="text-xs text-indigo-600 hover:underline">Alle URLs</a>
                 </div>
                 <table class="w-full text-sm">
                     <thead>
@@ -89,7 +89,7 @@
                         @foreach($topUrls as $url)
                             <tr class="border-b border-gray-50 hover:bg-gray-50/50">
                                 <td class="px-6 py-3">
-                                    <a href="{{ route('seo.projects.urls.show', [$seoProject, $url]) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-md">
+                                    <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-md">
                                         {{ $url->path ?: '/' }}
                                     </a>
                                     <span class="text-xs text-gray-400">{{ $url->domain }}</span>
@@ -113,7 +113,7 @@
             <div>
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-medium text-gray-700">Aktuelle Signale</h3>
-                    <a href="{{ route('seo.projects.signals', $seoProject) }}" wire:navigate class="text-xs text-indigo-600 hover:underline">Alle anzeigen</a>
+                    <a href="{{ route('seo.signals') }}" wire:navigate class="text-xs text-indigo-600 hover:underline">Alle anzeigen</a>
                 </div>
                 <div class="space-y-2">
                     @foreach($recentSignals as $signal)
@@ -129,7 +129,7 @@
                                 <div class="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                                     <span>{{ $signal->detected_at->format('d.m.Y') }}</span>
                                     @if($signal->url)
-                                        <a href="{{ route('seo.projects.urls.show', [$seoProject, $signal->url]) }}" wire:navigate class="text-indigo-500 hover:underline truncate">{{ $signal->url->path }}</a>
+                                        <a href="{{ route('seo.urls.show', $signal->url) }}" wire:navigate class="text-indigo-500 hover:underline truncate">{{ $signal->url->path }}</a>
                                     @endif
                                 </div>
                             </div>
@@ -142,9 +142,9 @@
 
     </x-ui-page-container>
 
-    {{-- Edit Modal --}}
-    <x-ui-modal wire:model="showEditModal" title="Projekt bearbeiten">
-        <form wire:submit="saveProject">
+    {{-- Settings Modal --}}
+    <x-ui-modal wire:model="showSettingsModal" title="SEO Einstellungen">
+        <form wire:submit="saveSettings">
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
@@ -161,9 +161,7 @@
                 </div>
             </div>
             <x-slot name="footer">
-                <x-ui-button variant="danger" size="sm" wire:click="deleteProject" wire:confirm="Projekt wirklich löschen?">Löschen</x-ui-button>
-                <div class="flex-1"></div>
-                <x-ui-button variant="secondary" size="sm" wire:click="$set('showEditModal', false)">Abbrechen</x-ui-button>
+                <x-ui-button variant="secondary" size="sm" wire:click="$set('showSettingsModal', false)">Abbrechen</x-ui-button>
                 <x-ui-button variant="primary" size="sm" type="submit">Speichern</x-ui-button>
             </x-slot>
         </form>
