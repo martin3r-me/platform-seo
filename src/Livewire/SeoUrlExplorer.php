@@ -4,14 +4,14 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoUrlService;
 
 class SeoUrlExplorer extends Component
 {
     use WithPagination;
-    use ResolvesTeamProject;
+    use ResolvesTeamSettings;
 
     public string $search = '';
     public ?string $filterIsOwn = null;
@@ -28,7 +28,7 @@ class SeoUrlExplorer extends Component
 
     public function mount()
     {
-        $this->resolveProject();
+        $this->resolveSettings();
     }
 
     public function updatedSearch()
@@ -54,9 +54,9 @@ class SeoUrlExplorer extends Component
         }
 
         $urlService = app(SeoUrlService::class);
+        $teamId = $this->seoSettings->team_id;
         foreach ($lines as $line) {
-            $urlService->register($this->seoProject->team_id, $line, [
-                'project_id' => $this->seoProject->id,
+            $urlService->register($teamId, $line, [
                 'is_own' => $this->newUrlsIsOwn,
                 'reason' => 'manual',
             ]);
@@ -73,10 +73,11 @@ class SeoUrlExplorer extends Component
         }
 
         $urlService = app(SeoUrlService::class);
+        $teamId = $this->seoSettings->team_id;
         foreach ($this->selectedUrls as $urlId) {
             $url = SeoUrl::find($urlId);
             if ($url) {
-                $urlService->enrich($this->seoProject->team_id, $url->url);
+                $urlService->enrich($teamId, $url->url);
             }
         }
 
@@ -91,7 +92,7 @@ class SeoUrlExplorer extends Component
         }
 
         SeoUrl::whereIn('id', $this->selectedUrls)
-            ->where('project_id', $this->seoProject->id)
+            ->where('team_id', $this->seoSettings->team_id)
             ->delete();
 
         $this->selectedUrls = [];
@@ -100,7 +101,7 @@ class SeoUrlExplorer extends Component
 
     public function render()
     {
-        $query = $this->seoProject->urls()->with('onPage');
+        $query = SeoUrl::where('team_id', $this->seoSettings->team_id)->with('onPage');
 
         if ($this->search) {
             $query->where('url', 'like', "%{$this->search}%");

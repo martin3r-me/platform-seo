@@ -4,7 +4,7 @@ namespace Platform\Seo\Services;
 
 use Illuminate\Support\Collection;
 use Platform\Seo\Contracts\SeoCollectorInterface;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 
 class SeoUrlPipelineService
@@ -35,11 +35,11 @@ class SeoUrlPipelineService
     }
 
     /**
-     * Run the full pipeline for a project.
+     * Run the full pipeline for a team's settings.
      *
      * @return array{urls_processed: int, collectors_run: array, total_cost_cents: int, errors: array}
      */
-    public function runPipeline(SeoProject $project, array $options = []): array
+    public function runPipeline(SeoTeamSettings $settings, array $options = []): array
     {
         $dryRun = $options['dry_run'] ?? false;
         $force = $options['force'] ?? false;
@@ -47,7 +47,7 @@ class SeoUrlPipelineService
         $onlyCollectors = $options['collectors'] ?? [];
 
         // Load active URLs, sorted by priority DESC
-        $allUrls = SeoUrl::where('project_id', $project->id)
+        $allUrls = SeoUrl::where('team_id', $settings->team_id)
             ->where('status', 'active')
             ->where('is_own', true)
             ->orderByDesc('priority')
@@ -75,7 +75,7 @@ class SeoUrlPipelineService
         $collectorsRun = [];
         $allErrors = [];
         $urlsProcessed = 0;
-        $maxBudgetPerRun = $this->getMaxBudgetPerRun($project);
+        $maxBudgetPerRun = $this->getMaxBudgetPerRun($settings);
 
         foreach ($sortedCollectors as $collector) {
             // Filter URLs due for refresh
@@ -116,7 +116,7 @@ class SeoUrlPipelineService
                 }
             }
 
-            if (! $dryRun && ! $this->budgetGuard->canFetch($project, $estimatedCost)) {
+            if (! $dryRun && ! $this->budgetGuard->canFetch($settings, $estimatedCost)) {
                 $collectorsRun[] = [
                     'collector' => $collector->key(),
                     'name' => $collector->name(),
@@ -144,12 +144,12 @@ class SeoUrlPipelineService
             }
 
             // Execute collector
-            $result = $collector->collect($project, $dueUrls);
+            $result = $collector->collect($settings, $dueUrls);
 
             // Record cost
             if ($result['cost_cents'] > 0) {
                 $this->budgetGuard->recordCost(
-                    $project,
+                    $settings,
                     'pipeline_'.$collector->key(),
                     $result['processed'],
                     $result['cost_cents'],
@@ -177,7 +177,7 @@ class SeoUrlPipelineService
 
         // Check for budget pressure
         if (! $dryRun) {
-            $this->checkBudgetPressure($project);
+            $this->checkBudgetPressure($settings);
         }
 
         return [
@@ -191,24 +191,24 @@ class SeoUrlPipelineService
     /**
      * Run the pipeline for a single URL.
      */
-    public function runForUrl(SeoProject $project, SeoUrl $url, array $collectorKeys = []): array
+    public function runForUrl(SeoTeamSettings $settings, SeoUrl $url, array $collectorKeys = []): array
     {
-        return $this->runPipeline($project, [
+        return $this->runPipeline($settings, [
             'max_urls' => 1,
             'collectors' => $collectorKeys,
             'force' => true,
         ]);
     }
 
-    protected function getMaxBudgetPerRun(SeoProject $project): int
+    protected function getMaxBudgetPerRun(SeoTeamSettings $settings): int
     {
-        if ($project->budget_limit_cents === null) {
+        if ($settings->budget_limit_cents === null) {
             return 0; // No limit
         }
 
         $percentage = config('seo.pipeline.max_budget_percentage_per_run', 25);
 
-        return (int) ($project->budget_limit_cents * $percentage / 100);
+        return (int) ($settings->budget_limit_cents * $percentage / 100);
     }
 
     protected function reduceUrlsToBudget(SeoCollectorInterface $collector, Collection $urls, int $remainingBudget): Collection
@@ -233,26 +233,26 @@ class SeoUrlPipelineService
         return $selected;
     }
 
-    protected function checkBudgetPressure(SeoProject $project): void
+    protected function checkBudgetPressure(SeoTeamSettings $settings): void
     {
-        if ($project->budget_limit_cents === null) {
+        if ($settings->budget_limit_cents === null) {
             return;
         }
 
         $threshold = config('seo.pipeline.budget_pressure_threshold', 0.8);
-        $project->refresh();
+        $settings->refresh();
 
-        if ($project->budget_spent_cents >= ($project->budget_limit_cents * $threshold)) {
+        if ($settings->budget_spent_cents >= ($settings->budget_limit_cents * $threshold)) {
             // Emit a signal for budget pressure
-            app(SeoSignalService::class)->createSignal($project, [
+            app(SeoSignalService::class)->createSignal($settings->team_id, [
                 'signal_type' => 'budget_pressure',
                 'severity' => 'warning',
                 'title' => 'Budget-Warnung',
                 'description' => sprintf(
                     'Das SEO-Budget ist zu %.0f%% ausgeschoepft (%d/%d Cents).',
-                    ($project->budget_spent_cents / $project->budget_limit_cents) * 100,
-                    $project->budget_spent_cents,
-                    $project->budget_limit_cents,
+                    ($settings->budget_spent_cents / $settings->budget_limit_cents) * 100,
+                    $settings->budget_spent_cents,
+                    $settings->budget_limit_cents,
                 ),
             ]);
         }

@@ -6,14 +6,16 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoKeyword;
+use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoKeywordService;
 
 class SeoKeywordExplorer extends Component
 {
     use WithPagination;
-    use ResolvesTeamProject;
+    use ResolvesTeamSettings;
 
     public string $search = '';
     public ?string $filterIntent = null;
@@ -32,7 +34,7 @@ class SeoKeywordExplorer extends Component
 
     public function mount()
     {
-        $this->resolveProject();
+        $this->resolveSettings();
     }
 
     public function updatedSearch()
@@ -65,7 +67,7 @@ class SeoKeywordExplorer extends Component
 
         $keywordService = app(SeoKeywordService::class);
         $data = array_map(fn ($line) => ['keyword' => strtolower($line)], $lines);
-        $keywordService->addKeywords($this->seoProject, $data, Auth::user());
+        $keywordService->addKeywords($this->seoSettings->team_id, $data, Auth::user());
 
         $this->newKeywords = '';
         $this->showAddModal = false;
@@ -77,7 +79,9 @@ class SeoKeywordExplorer extends Component
             return;
         }
 
-        $this->seoProject->keywords()->detach($this->selectedKeywords);
+        SeoKeyword::where('team_id', $this->seoSettings->team_id)
+            ->whereIn('id', $this->selectedKeywords)
+            ->delete();
 
         $this->selectedKeywords = [];
         $this->selectAll = false;
@@ -86,7 +90,7 @@ class SeoKeywordExplorer extends Component
     public function fetchMetrics()
     {
         $keywordService = app(SeoKeywordService::class);
-        $result = $keywordService->fetchMetrics($this->seoProject->team_id, $this->seoProject->id, Auth::user());
+        $result = $keywordService->fetchMetrics($this->seoSettings->team_id, null, Auth::user());
 
         if (isset($result['error'])) {
             session()->flash('error', $result['error']);
@@ -98,13 +102,13 @@ class SeoKeywordExplorer extends Component
     #[Computed]
     public function clusters()
     {
-        return $this->seoProject->clusters()->get();
+        return SeoKeywordCluster::where('team_id', $this->seoSettings->team_id)->get();
     }
 
     #[Computed]
     public function topics()
     {
-        return $this->seoProject->keywords()
+        return SeoKeyword::where('team_id', $this->seoSettings->team_id)
             ->whereNotNull('topic')
             ->distinct()
             ->pluck('topic');
@@ -117,7 +121,7 @@ class SeoKeywordExplorer extends Component
             return collect();
         }
 
-        return SeoUrl::where('project_id', $this->seoProject->id)
+        return SeoUrl::where('team_id', $this->seoSettings->team_id)
             ->whereHas('keywords', fn ($q) => $q->where('seo_keywords.id', $this->expandedKeywordId))
             ->with(['keywords' => fn ($q) => $q->where('seo_keywords.id', $this->expandedKeywordId)])
             ->get();
@@ -125,7 +129,7 @@ class SeoKeywordExplorer extends Component
 
     public function render()
     {
-        $query = $this->seoProject->keywords()
+        $query = SeoKeyword::where('team_id', $this->seoSettings->team_id)
             ->with('cluster')
             ->withCount('urls');
 
@@ -149,12 +153,7 @@ class SeoKeywordExplorer extends Component
             }
         }
 
-        $pivotFields = ['position', 'content_status', 'priority'];
-        if (in_array($this->sortField, $pivotFields)) {
-            $query->orderByPivot($this->sortField, $this->sortDirection);
-        } else {
-            $query->orderBy($this->sortField, $this->sortDirection);
-        }
+        $query->orderBy($this->sortField, $this->sortDirection);
 
         $keywords = $query->paginate(50);
 

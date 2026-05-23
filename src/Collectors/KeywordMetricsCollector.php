@@ -5,7 +5,7 @@ namespace Platform\Seo\Collectors;
 use Illuminate\Support\Collection;
 use Platform\Integrations\Services\DataForSeoApiService;
 use Platform\Seo\Contracts\SeoCollectorInterface;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 
 class KeywordMetricsCollector implements SeoCollectorInterface
@@ -50,9 +50,9 @@ class KeywordMetricsCollector implements SeoCollectorInterface
         return (int) config('seo.refresh_intervals.keyword_metrics', 168);
     }
 
-    public function collect(SeoProject $project, Collection $urls): array
+    public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
-        $api = $this->dataForSeoApi->forConnection($project->dataforseo_connection_id);
+        $api = $this->dataForSeoApi->forConnection($settings->dataforseo_connection_id);
         $processed = 0;
         $totalCost = 0;
         $errors = [];
@@ -76,10 +76,10 @@ class KeywordMetricsCollector implements SeoCollectorInterface
 
         try {
             $volumeResults = $api->getSearchVolume(
-                $project->user,
+                null,
                 $keywordTexts,
-                $project->location_code,
-                $project->language_code,
+                $settings->location_code,
+                $settings->language_code,
             );
         } catch (\Throwable $e) {
             return ['processed' => 0, 'cost_cents' => 0, 'errors' => [$e->getMessage()]];

@@ -4,14 +4,14 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Services\SeoSignalService;
 
 class SeoSignalIndex extends Component
 {
     use WithPagination;
-    use ResolvesTeamProject;
+    use ResolvesTeamSettings;
 
     public string $filterStatus = 'new';
     public ?string $filterType = null;
@@ -19,7 +19,7 @@ class SeoSignalIndex extends Component
 
     public function mount()
     {
-        $this->resolveProject();
+        $this->resolveSettings();
     }
 
     public function setFilterStatus(string $status)
@@ -42,7 +42,9 @@ class SeoSignalIndex extends Component
 
     public function render()
     {
-        $query = $this->seoProject->signals()
+        $teamId = $this->seoSettings->team_id;
+
+        $query = SeoSignal::where('team_id', $teamId)
             ->with(['keyword', 'url'])
             ->orderByDesc('detected_at');
 
@@ -60,7 +62,7 @@ class SeoSignalIndex extends Component
 
         $signals = $query->paginate(25);
 
-        $statusCounts = $this->seoProject->signals()
+        $statusCounts = SeoSignal::where('team_id', $teamId)
             ->selectRaw('status, count(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status')

@@ -4,23 +4,23 @@ namespace Platform\Seo\Services;
 
 use Platform\Core\Models\User;
 use Platform\Seo\Models\SeoBudgetLog;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 
 class SeoBudgetGuardService
 {
-    public function canFetch(SeoProject $project, int $estimatedCostCents): bool
+    public function canFetch(SeoTeamSettings $settings, int $estimatedCostCents): bool
     {
-        if ($project->budget_limit_cents === null) {
+        if ($settings->budget_limit_cents === null) {
             return true;
         }
 
-        return ($project->budget_spent_cents + $estimatedCostCents) <= $project->budget_limit_cents;
+        return ($settings->budget_spent_cents + $estimatedCostCents) <= $settings->budget_limit_cents;
     }
 
-    public function recordCost(SeoProject $project, string $action, int $count, int $costCents, ?User $user = null, ?string $collector = null): SeoBudgetLog
+    public function recordCost(SeoTeamSettings $settings, string $action, int $count, int $costCents, ?User $user = null, ?string $collector = null): SeoBudgetLog
     {
         $log = SeoBudgetLog::create([
-            'project_id' => $project->id,
+            'team_id' => $settings->team_id,
             'action' => $action,
             'collector' => $collector,
             'keyword_count' => $count,
@@ -28,38 +28,38 @@ class SeoBudgetGuardService
             'user_id' => $user?->id,
         ]);
 
-        $project->increment('budget_spent_cents', $costCents);
+        $settings->increment('budget_spent_cents', $costCents);
 
         return $log;
     }
 
-    public function resetMonthlyBudget(SeoProject $project): void
+    public function resetMonthlyBudget(SeoTeamSettings $settings): void
     {
-        $project->update([
+        $settings->update([
             'budget_spent_cents' => 0,
         ]);
     }
 
-    public function getBudgetSummary(SeoProject $project): array
+    public function getBudgetSummary(SeoTeamSettings $settings): array
     {
         return [
-            'limit_cents' => $project->budget_limit_cents,
-            'spent_cents' => $project->budget_spent_cents,
-            'remaining_cents' => $project->budget_remaining_cents,
-            'percentage' => $project->budget_percentage,
+            'limit_cents' => $settings->budget_limit_cents,
+            'spent_cents' => $settings->budget_spent_cents,
+            'remaining_cents' => $settings->budget_remaining_cents,
+            'percentage' => $settings->budget_percentage,
         ];
     }
 
     /**
      * Calculate how many items can be afforded at a given cost per item.
      */
-    public function affordableItemCount(SeoProject $project, int $costPerItem): int
+    public function affordableItemCount(SeoTeamSettings $settings, int $costPerItem): int
     {
-        if ($project->budget_limit_cents === null || $costPerItem <= 0) {
+        if ($settings->budget_limit_cents === null || $costPerItem <= 0) {
             return PHP_INT_MAX;
         }
 
-        $remaining = $project->budget_remaining_cents;
+        $remaining = $settings->budget_remaining_cents;
 
         return max(0, (int) floor($remaining / $costPerItem));
     }

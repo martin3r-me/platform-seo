@@ -10,7 +10,6 @@ use Platform\Core\PlatformCore;
 use Platform\Core\Routing\ModuleRouter;
 use Platform\Seo\Contracts\SeoCollectorInterface;
 use Platform\Seo\Services\SeoBudgetGuardService;
-use Platform\Seo\Services\SeoProjectService;
 use Platform\Seo\Services\SeoKeywordService;
 use Platform\Seo\Services\SeoClusteringService;
 use Platform\Seo\Services\SeoKeywordCurationService;
@@ -35,12 +34,12 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\SnapshotUrls::class,
                 \Platform\Seo\Console\Commands\DetectSignals::class,
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
+                \Platform\Seo\Console\Commands\MigrateFromSyltjunkie::class,
             ]);
         }
 
-        // Existing services
+        // Services
         $this->app->singleton(SeoBudgetGuardService::class);
-        $this->app->singleton(SeoProjectService::class);
         $this->app->singleton(SeoKeywordService::class);
         $this->app->singleton(SeoClusteringService::class);
         $this->app->singleton(SeoKeywordCurationService::class);
@@ -48,7 +47,7 @@ class SeoServiceProvider extends ServiceProvider
         $this->app->singleton(SeoSignalService::class);
         $this->app->singleton(SeoScoringService::class);
 
-        // New URL-centric services
+        // URL-centric services
         $this->app->singleton(SeoUrlPipelineService::class, function ($app) {
             $pipeline = new SeoUrlPipelineService($app->make(SeoBudgetGuardService::class));
 
@@ -68,13 +67,13 @@ class SeoServiceProvider extends ServiceProvider
 
         $this->app->singleton(SeoUrlService::class);
 
-        // Core-Contracts: neuer URL-Service
+        // Core-Contracts: URL-Service
         $this->app->singleton(
             \Platform\Core\Contracts\SeoUrlServiceInterface::class,
             fn ($app) => $app->make(SeoUrlService::class)
         );
 
-        // Core-Contracts: bestehende (deprecated, fuer UI-Uebergang)
+        // Core-Contracts
         $this->app->singleton(
             \Platform\Core\Contracts\SeoKeywordServiceInterface::class,
             fn ($app) => $app->make(SeoKeywordService::class)

@@ -3,7 +3,6 @@
 namespace Platform\Seo\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -19,7 +18,6 @@ class SeoUrl extends Model
     protected $fillable = [
         'uuid',
         'team_id',
-        'project_id',
         'url',
         'url_hash',
         'domain',
@@ -96,11 +94,6 @@ class SeoUrl extends Model
         return hash('sha256', self::normalizeUrl($url));
     }
 
-    public function project(): BelongsTo
-    {
-        return $this->belongsTo(SeoProject::class, 'project_id');
-    }
-
     public function registrations(): HasMany
     {
         return $this->hasMany(SeoUrlRegistration::class, 'url_id');
@@ -141,6 +134,11 @@ class SeoUrl extends Model
     public function signals(): HasMany
     {
         return $this->hasMany(SeoSignal::class, 'url_id');
+    }
+
+    public function pageChanges(): HasMany
+    {
+        return $this->hasMany(SeoPageChange::class, 'url_id');
     }
 
     public function sourceRelationships(): HasMany

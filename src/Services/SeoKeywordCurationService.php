@@ -5,18 +5,18 @@ namespace Platform\Seo\Services;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Platform\Seo\Models\SeoKeyword;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 
 class SeoKeywordCurationService
 {
     /**
-     * Curate keywords for a project.
+     * Curate keywords for a team.
      *
      * Two stages:
      * 1. BLACKLIST — rules that exclude keywords
      * 2. WHITELIST — relevance_topics: keywords MUST match at least one topic
      */
-    public function curate(SeoProject $project, array $options = []): array
+    public function curate(SeoTeamSettings $settings, array $options = []): array
     {
         $excludeJobs = $options['exclude_jobs'] ?? true;
         $excludePersons = $options['exclude_persons'] ?? true;
@@ -29,7 +29,7 @@ class SeoKeywordCurationService
         $relevanceTopics = $options['relevance_topics'] ?? [];
         $dryRun = $options['dry_run'] ?? true;
 
-        $keywords = $project->keywords()->get();
+        $keywords = SeoKeyword::where('team_id', $settings->team_id)->get();
 
         if ($keywords->isEmpty()) {
             return [

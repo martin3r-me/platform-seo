@@ -3,25 +3,31 @@
 namespace Platform\Seo\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Symfony\Component\Uid\UuidV7;
 
-class SeoKeywordCluster extends Model
+class SeoPageChange extends Model
 {
-    protected $table = 'seo_keyword_clusters';
+    protected $table = 'seo_page_changes';
 
     protected $fillable = [
         'uuid',
         'team_id',
-        'name',
-        'description',
-        'color',
-        'order',
+        'url_id',
+        'detected_at',
+        'change_type',
+        'severity',
+        'old_value',
+        'new_value',
+        'delta',
+        'context',
     ];
 
     protected $casts = [
         'uuid' => 'string',
-        'order' => 'integer',
+        'detected_at' => 'date',
+        'delta' => 'integer',
+        'context' => 'array',
     ];
 
     protected static function booted(): void
@@ -33,8 +39,8 @@ class SeoKeywordCluster extends Model
         });
     }
 
-    public function keywords(): HasMany
+    public function url(): BelongsTo
     {
-        return $this->hasMany(SeoKeyword::class, 'cluster_id');
+        return $this->belongsTo(SeoUrl::class, 'url_id');
     }
 }

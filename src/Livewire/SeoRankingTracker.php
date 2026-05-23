@@ -4,22 +4,23 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoRankingHistory;
+use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoAnalysisService;
 use Platform\Seo\Services\SeoUrlService;
 
 class SeoRankingTracker extends Component
 {
     use WithPagination;
-    use ResolvesTeamProject;
+    use ResolvesTeamSettings;
 
     public int $periodDays = 30;
     public string $filterType = 'all';
 
     public function mount()
     {
-        $this->resolveProject();
+        $this->resolveSettings();
     }
 
     public function setPeriod(int $days)
@@ -37,15 +38,18 @@ class SeoRankingTracker extends Component
     public function render()
     {
         $analysisService = app(SeoAnalysisService::class);
-        $trends = $analysisService->getRankingTrendsForProject($this->seoProject, $this->periodDays);
+        $teamId = $this->seoSettings->team_id;
+        $trends = $analysisService->getRankingTrendsForTeam($teamId, $this->periodDays);
 
         $urlService = app(SeoUrlService::class);
         $positionDistribution = $urlService->getVisibilitySummary(
-            $this->seoProject->team_id,
-            $this->seoProject->domain
+            $teamId,
+            $this->seoSettings->domain
         )['position_distribution'] ?? [];
 
-        $query = SeoRankingHistory::whereHas('url', fn ($q) => $q->where('project_id', $this->seoProject->id)->where('is_own', true))
+        $ownUrlIds = SeoUrl::where('team_id', $teamId)->where('is_own', true)->pluck('id');
+
+        $query = SeoRankingHistory::whereIn('url_id', $ownUrlIds)
             ->with(['url', 'keyword'])
             ->where('tracked_at', '>=', now()->subDays($this->periodDays))
             ->orderByDesc('tracked_at');

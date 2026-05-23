@@ -9,14 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Platform\Core\Contracts\HasDisplayName;
 use Symfony\Component\Uid\UuidV7;
 
-/**
- * Team-level keyword entity.
- *
- * Keywords are shared across projects and linked to URLs via the seo_url_keywords pivot.
- * Project-specific keyword data now lives in the seo_project_keyword pivot (deprecated)
- * or in seo_url_keywords (new URL-centric model).
- */
-
 class SeoKeyword extends Model implements HasDisplayName
 {
     protected $table = 'seo_keywords';
@@ -67,13 +59,6 @@ class SeoKeyword extends Model implements HasDisplayName
                 $model->uuid = UuidV7::generate();
             }
         });
-    }
-
-    public function projects(): BelongsToMany
-    {
-        return $this->belongsToMany(SeoProject::class, 'seo_project_keyword', 'keyword_id', 'project_id')
-            ->withPivot(['position', 'ranked_url', 'target_url', 'content_status', 'priority', 'notes'])
-            ->withTimestamps();
     }
 
     public function cluster(): BelongsTo

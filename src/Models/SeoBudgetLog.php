@@ -10,7 +10,7 @@ class SeoBudgetLog extends Model
     protected $table = 'seo_budget_logs';
 
     protected $fillable = [
-        'project_id',
+        'team_id',
         'user_id',
         'action',
         'collector',
@@ -23,8 +23,8 @@ class SeoBudgetLog extends Model
         'cost_cents' => 'integer',
     ];
 
-    public function project(): BelongsTo
+    public function team(): BelongsTo
     {
-        return $this->belongsTo(SeoProject::class, 'project_id');
+        return $this->belongsTo(\Platform\Core\Models\Team::class);
     }
 }

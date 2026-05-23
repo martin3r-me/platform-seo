@@ -4,19 +4,20 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Platform\Seo\Livewire\Concerns\ResolvesTeamProject;
+use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoAnalysisService;
 
 class SeoCompetitorAnalysis extends Component
 {
     use WithPagination;
-    use ResolvesTeamProject;
+    use ResolvesTeamSettings;
 
     public ?string $filterDomain = null;
 
     public function mount()
     {
-        $this->resolveProject();
+        $this->resolveSettings();
     }
 
     public function setDomainFilter(?string $domain)
@@ -28,16 +29,17 @@ class SeoCompetitorAnalysis extends Component
     public function render()
     {
         $analysisService = app(SeoAnalysisService::class);
-        $gaps = $analysisService->getCompetitorGapsForProject($this->seoProject);
+        $teamId = $this->seoSettings->team_id;
+        $gaps = $analysisService->getCompetitorGapsForTeam($teamId);
 
-        $competitorDomains = $this->seoProject->urls()
+        $competitorDomains = SeoUrl::where('team_id', $teamId)
             ->where('is_own', false)
             ->selectRaw('domain, COUNT(*) as url_count, AVG(visibility_score) as avg_visibility, SUM(keyword_count) as total_keywords')
             ->groupBy('domain')
             ->orderByDesc('url_count')
             ->get();
 
-        $competitorUrlQuery = $this->seoProject->urls()
+        $competitorUrlQuery = SeoUrl::where('team_id', $teamId)
             ->where('is_own', false)
             ->orderByDesc('visibility_score');
 

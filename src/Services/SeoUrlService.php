@@ -5,7 +5,7 @@ namespace Platform\Seo\Services;
 use Illuminate\Support\Collection;
 use Platform\Core\Contracts\SeoUrlServiceInterface;
 use Platform\Seo\Models\SeoKeyword;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
@@ -21,7 +21,6 @@ class SeoUrlService implements SeoUrlServiceInterface
         $normalized = SeoUrl::normalizeUrl($url);
         $hash = SeoUrl::hashUrl($url);
 
-        $projectId = $options['project_id'] ?? null;
         $isOwn = $options['is_own'] ?? true;
         $priority = $options['priority'] ?? ($isOwn
             ? config('seo.priority.own_url_default', 70)
@@ -34,7 +33,6 @@ class SeoUrlService implements SeoUrlServiceInterface
                 'url' => $normalized,
                 'domain' => parse_url($normalized, PHP_URL_HOST) ?? '',
                 'path' => parse_url($normalized, PHP_URL_PATH) ?? '/',
-                'project_id' => $projectId,
                 'is_own' => $isOwn,
                 'priority' => $priority,
                 'status' => 'active',
@@ -150,9 +148,6 @@ class SeoUrlService implements SeoUrlServiceInterface
     {
         $query = SeoUrl::where('team_id', $teamId);
 
-        if (isset($filters['project_id'])) {
-            $query->where('project_id', $filters['project_id']);
-        }
         if (isset($filters['is_own'])) {
             $query->where('is_own', $filters['is_own']);
         }
@@ -238,8 +233,8 @@ class SeoUrlService implements SeoUrlServiceInterface
 
     public function enrich(int $teamId, ?string $url = null, array $collectors = []): array
     {
-        $project = SeoProject::where('team_id', $teamId)->first();
-        if (! $project) {
+        $settings = SeoTeamSettings::where('team_id', $teamId)->first();
+        if (! $settings) {
             return ['urls_processed' => 0, 'collectors_run' => [], 'cost_cents' => 0];
         }
 
@@ -250,7 +245,7 @@ class SeoUrlService implements SeoUrlServiceInterface
                 return ['urls_processed' => 0, 'collectors_run' => [], 'cost_cents' => 0];
             }
 
-            $result = $this->pipeline->runForUrl($project, $seoUrl, $collectors);
+            $result = $this->pipeline->runForUrl($settings, $seoUrl, $collectors);
 
             return [
                 'urls_processed' => $result['urls_processed'],
@@ -259,7 +254,7 @@ class SeoUrlService implements SeoUrlServiceInterface
             ];
         }
 
-        $result = $this->pipeline->runPipeline($project, [
+        $result = $this->pipeline->runPipeline($settings, [
             'collectors' => $collectors,
         ]);
 

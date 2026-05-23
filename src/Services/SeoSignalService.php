@@ -5,17 +5,16 @@ namespace Platform\Seo\Services;
 use Carbon\Carbon;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordPosition;
-use Platform\Seo\Models\SeoProject;
-use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoSignal;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 
 class SeoSignalService
 {
     /**
-     * Detect signals for a project based on keyword data changes.
+     * Detect signals for a team based on keyword data changes.
      */
-    public function detectSignals(SeoProject $project): array
+    public function detectSignals(SeoTeamSettings $settings): array
     {
         $today = Carbon::today();
         $totalSpikes = 0;
@@ -24,7 +23,7 @@ class SeoSignalService
         $totalPositionDrops = 0;
         $totalOpportunities = 0;
 
-        $keywords = $project->keywords()->get();
+        $keywords = SeoKeyword::where('team_id', $settings->team_id)->get();
 
         $spikeThreshold = config('seo.signals.volume_spike_threshold', 1.0);
         $dropThreshold = config('seo.signals.volume_drop_threshold', -0.5);
@@ -41,7 +40,7 @@ class SeoSignalService
                     $change = ($keyword->search_volume - $previousVolume) / $previousVolume;
 
                     if ($change >= $spikeThreshold) {
-                        $totalSpikes += $this->createKeywordSignal($project, $keyword, [
+                        $totalSpikes += $this->createKeywordSignal($settings->team_id, $keyword, [
                             'signal_type' => 'volume_spike',
                             'severity' => 'watch',
                             'title' => "Volume Spike: \"{$keyword->keyword}\" {$previousVolume} → {$keyword->search_volume}",
@@ -54,7 +53,7 @@ class SeoSignalService
                     }
 
                     if ($change <= $dropThreshold) {
-                        $totalDrops += $this->createKeywordSignal($project, $keyword, [
+                        $totalDrops += $this->createKeywordSignal($settings->team_id, $keyword, [
                             'signal_type' => 'volume_drop',
                             'severity' => 'warning',
                             'title' => "Volume Drop: \"{$keyword->keyword}\" {$previousVolume} → {$keyword->search_volume}",
@@ -80,7 +79,7 @@ class SeoSignalService
                 $positionDelta = $previous->position - $current->position; // positive = improved
 
                 if ($positionDelta >= $positionRiseThreshold) {
-                    $totalPositionRises += $this->createKeywordSignal($project, $keyword, [
+                    $totalPositionRises += $this->createKeywordSignal($settings->team_id, $keyword, [
                         'signal_type' => 'position_rise',
                         'severity' => 'info',
                         'title' => "Ranking-Anstieg: \"{$keyword->keyword}\" Pos. {$previous->position} → {$current->position}",
@@ -93,7 +92,7 @@ class SeoSignalService
                 }
 
                 if ($positionDelta <= $positionDropThreshold) {
-                    $totalPositionDrops += $this->createKeywordSignal($project, $keyword, [
+                    $totalPositionDrops += $this->createKeywordSignal($settings->team_id, $keyword, [
                         'signal_type' => 'position_drop',
                         'severity' => 'warning',
                         'title' => "Ranking-Verlust: \"{$keyword->keyword}\" Pos. {$previous->position} → {$current->position}",
@@ -106,13 +105,16 @@ class SeoSignalService
                 }
             }
 
-            // Keyword opportunity: high volume, no ranking
+            // Keyword opportunity: high volume, no ranking via URL pivot
+            $hasRanking = $keyword->urls()
+                ->wherePivotNotNull('position')
+                ->exists();
+
             if (
                 ($keyword->search_volume ?? 0) >= $opportunityMinVolume
-                && ($keyword->pivot->position ?? null) === null
-                && ($keyword->pivot->target_url ?? null) === null
+                && !$hasRanking
             ) {
-                $totalOpportunities += $this->createKeywordSignal($project, $keyword, [
+                $totalOpportunities += $this->createKeywordSignal($settings->team_id, $keyword, [
                     'signal_type' => 'keyword_opportunity',
                     'severity' => 'info',
                     'title' => "Keyword Opportunity: \"{$keyword->keyword}\" ({$keyword->search_volume} Searches)",
@@ -148,21 +150,22 @@ class SeoSignalService
     /**
      * Detect URL-level signals (redirect, error, on-page regression, backlink loss).
      */
-    public function detectUrlSignals(SeoProject $project): array
+    public function detectUrlSignals(SeoTeamSettings $settings): array
     {
         $today = Carbon::today();
+        $teamId = $settings->team_id;
         $signals = [
             'redirect_detected' => 0,
             'url_error' => 0,
             'cannibalization_detected' => 0,
         ];
 
-        $urls = SeoUrl::where('project_id', $project->id)->where('is_own', true)->get();
+        $urls = SeoUrl::where('team_id', $teamId)->where('is_own', true)->get();
 
         foreach ($urls as $url) {
             // Redirect detection
             if ($url->status === 'redirected' && $url->redirect_url) {
-                $signals['redirect_detected'] += $this->createSignalForUrl($project, $url, [
+                $signals['redirect_detected'] += $this->createSignalForUrl($teamId, $url, [
                     'signal_type' => 'redirect_detected',
                     'severity' => 'warning',
                     'title' => "Redirect: {$url->url}",
@@ -173,7 +176,7 @@ class SeoSignalService
 
             // URL error detection
             if ($url->status === 'error' && $url->http_status) {
-                $signals['url_error'] += $this->createSignalForUrl($project, $url, [
+                $signals['url_error'] += $this->createSignalForUrl($teamId, $url, [
                     'signal_type' => 'url_error',
                     'severity' => $url->http_status >= 500 ? 'critical' : 'warning',
                     'title' => "URL Fehler {$url->http_status}: {$url->url}",
@@ -185,10 +188,10 @@ class SeoSignalService
         }
 
         // Cannibalization detection
-        $cannibalization = app(SeoUrlService::class)->getCannibalization($project->team_id);
+        $cannibalization = app(SeoUrlService::class)->getCannibalization($teamId);
         foreach ($cannibalization as $entry) {
             $urlTexts = implode(', ', array_column($entry['urls'], 'url'));
-            $signals['cannibalization_detected'] += $this->createSignalForProject($project, [
+            $signals['cannibalization_detected'] += $this->createSignal($teamId, [
                 'signal_type' => 'cannibalization_detected',
                 'severity' => 'watch',
                 'title' => "Kannibalisierung: \"{$entry['keyword']}\"",
@@ -201,25 +204,26 @@ class SeoSignalService
     }
 
     /**
-     * Create a signal for a project (without keyword/URL reference).
+     * Generic signal creation.
      */
-    public function createSignalForProject(SeoProject $project, array $data): int
+    public function createSignal(int $teamId, array $data): int
     {
         $exists = SeoSignal::where('signal_type', $data['signal_type'])
-            ->where('project_id', $project->id)
-            ->whereNull('keyword_id')
-            ->whereNull('url_id')
-            ->where('detected_at', $data['detected_at'])
+            ->where('team_id', $teamId)
+            ->where('detected_at', $data['detected_at'] ?? Carbon::today())
+            ->when(isset($data['keyword_id']), fn ($q) => $q->where('keyword_id', $data['keyword_id']))
+            ->when(isset($data['url_id']), fn ($q) => $q->where('url_id', $data['url_id']))
+            ->when(!isset($data['keyword_id']) && !isset($data['url_id']), fn ($q) => $q->whereNull('keyword_id')->whereNull('url_id'))
             ->exists();
 
         if ($exists) {
             return 0;
         }
 
-        SeoSignal::create(array_merge($data, [
-            'team_id' => $project->team_id,
-            'project_id' => $project->id,
-        ]));
+        SeoSignal::create(array_merge([
+            'team_id' => $teamId,
+            'detected_at' => Carbon::today(),
+        ], $data));
 
         return 1;
     }
@@ -227,7 +231,7 @@ class SeoSignalService
     /**
      * Create a signal linked to a URL.
      */
-    public function createSignalForUrl(SeoProject $project, SeoUrl $url, array $data): int
+    public function createSignalForUrl(int $teamId, SeoUrl $url, array $data): int
     {
         $exists = SeoSignal::where('signal_type', $data['signal_type'])
             ->where('url_id', $url->id)
@@ -239,40 +243,14 @@ class SeoSignalService
         }
 
         SeoSignal::create(array_merge($data, [
-            'team_id' => $project->team_id,
-            'project_id' => $project->id,
+            'team_id' => $teamId,
             'url_id' => $url->id,
         ]));
 
         return 1;
     }
 
-    /**
-     * Generic signal creation from pipeline or other callers.
-     */
-    public function createSignal(SeoProject $project, array $data): int
-    {
-        $exists = SeoSignal::where('signal_type', $data['signal_type'])
-            ->where('project_id', $project->id)
-            ->where('detected_at', $data['detected_at'] ?? Carbon::today())
-            ->when(isset($data['keyword_id']), fn ($q) => $q->where('keyword_id', $data['keyword_id']))
-            ->when(isset($data['url_id']), fn ($q) => $q->where('url_id', $data['url_id']))
-            ->exists();
-
-        if ($exists) {
-            return 0;
-        }
-
-        SeoSignal::create(array_merge([
-            'team_id' => $project->team_id,
-            'project_id' => $project->id,
-            'detected_at' => Carbon::today(),
-        ], $data));
-
-        return 1;
-    }
-
-    protected function createKeywordSignal(SeoProject $project, SeoKeyword $keyword, array $data): int
+    protected function createKeywordSignal(int $teamId, SeoKeyword $keyword, array $data): int
     {
         $exists = SeoSignal::where('signal_type', $data['signal_type'])
             ->where('keyword_id', $keyword->id)
@@ -284,8 +262,7 @@ class SeoSignalService
         }
 
         SeoSignal::create(array_merge($data, [
-            'team_id' => $project->team_id,
-            'project_id' => $project->id,
+            'team_id' => $teamId,
             'keyword_id' => $keyword->id,
         ]));
 

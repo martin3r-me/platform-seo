@@ -6,7 +6,6 @@ use Illuminate\Support\Collection;
 use Platform\Core\Contracts\SeoKeywordServiceInterface;
 use Platform\Core\Models\Team;
 use Platform\Core\Models\User;
-use Platform\Seo\Models\SeoProject;
 
 /**
  * @deprecated Adapter that bridges the old SeoKeywordServiceInterface to the new SeoUrlService.
@@ -34,18 +33,18 @@ class SeoKeywordServiceAdapter implements SeoKeywordServiceInterface
         return $this->keywordService->fetchMetrics($teamId, $projectId, $user);
     }
 
-    public function fetchRankings(int $projectId, ?User $user = null): array
+    public function fetchRankings(int $teamId, ?User $user = null): array
     {
-        return $this->keywordService->fetchRankings($projectId, $user);
+        return $this->keywordService->fetchRankings($teamId, $user);
     }
 
-    public function getKeywordsForProject(int $projectId): Collection
+    public function getKeywordsForProject(int $teamId): Collection
     {
-        return $this->keywordService->getKeywordsForProject($projectId);
+        return $this->keywordService->getKeywordsForProject($teamId);
     }
 
-    public function getKeywordSummary(int $projectId): array
+    public function getKeywordSummary(int $teamId): array
     {
-        return $this->keywordService->getKeywordSummary($projectId);
+        return $this->keywordService->getKeywordSummary($teamId);
     }
 }

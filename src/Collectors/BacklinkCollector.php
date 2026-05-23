@@ -4,7 +4,7 @@ namespace Platform\Seo\Collectors;
 
 use Illuminate\Support\Collection;
 use Platform\Seo\Contracts\SeoCollectorInterface;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 
 /**
@@ -44,18 +44,15 @@ class BacklinkCollector implements SeoCollectorInterface
         return (int) config('seo.refresh_intervals.backlinks', 336);
     }
 
-    public function collect(SeoProject $project, Collection $urls): array
+    public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
         // TODO: Implement backlink API integration
-        // 1. Fetch backlinks per URL from DataForSEO or similar
-        // 2. Store in SeoUrlBacklink
-        // 3. Update url->backlink_count
         return ['processed' => 0, 'cost_cents' => 0, 'errors' => ['Backlink collector not yet implemented']];
     }
 
     public function isEnabled(): bool
     {
-        return false; // Disabled until backlink API is integrated
+        return false;
     }
 
     public function order(): int

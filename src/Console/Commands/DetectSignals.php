@@ -3,43 +3,43 @@
 namespace Platform\Seo\Console\Commands;
 
 use Illuminate\Console\Command;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Services\SeoSignalService;
 
 class DetectSignals extends Command
 {
     protected $signature = 'seo:detect-signals
-                            {--project= : Specific project ID}';
+                            {--team= : Specific team ID}';
 
     protected $description = 'Detect SEO signals (volume spikes, ranking changes, opportunities)';
 
     public function handle(SeoSignalService $signalService): int
     {
-        $projectId = $this->option('project');
+        $teamId = $this->option('team');
 
-        $query = SeoProject::query();
+        $query = SeoTeamSettings::query();
 
-        if ($projectId) {
-            $query->where('id', $projectId);
+        if ($teamId) {
+            $query->where('team_id', $teamId);
         }
 
-        $projects = $query->get();
+        $settingsList = $query->get();
 
-        if ($projects->isEmpty()) {
-            $this->info('Keine Projekte gefunden.');
+        if ($settingsList->isEmpty()) {
+            $this->info('Keine Teams gefunden.');
             return self::SUCCESS;
         }
 
-        $this->info("Signal-Detection für {$projects->count()} Projekt(e)...");
+        $this->info("Signal-Detection für {$settingsList->count()} Team(s)...");
         $this->newLine();
 
         $totalSignals = 0;
 
-        foreach ($projects as $project) {
-            $this->info("Projekt: {$project->name} (ID: {$project->id})");
+        foreach ($settingsList as $settings) {
+            $this->info("Team ID: {$settings->team_id} | Domain: {$settings->domain}");
 
             // Keyword-based signals
-            $result = $signalService->detectSignals($project);
+            $result = $signalService->detectSignals($settings);
 
             $this->line("  Volume Spikes: {$result['volume_spikes']}");
             $this->line("  Volume Drops: {$result['volume_drops']}");
@@ -49,7 +49,7 @@ class DetectSignals extends Command
             $this->line("  Keyword Signals: {$result['total_signals']}");
 
             // URL-based signals
-            $urlResult = $signalService->detectUrlSignals($project);
+            $urlResult = $signalService->detectUrlSignals($settings);
 
             $this->line("  Redirects: {$urlResult['redirect_detected']}");
             $this->line("  URL Errors: {$urlResult['url_error']}");

@@ -4,7 +4,7 @@ namespace Platform\Seo\Collectors;
 
 use Illuminate\Support\Collection;
 use Platform\Seo\Contracts\SeoCollectorInterface;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 
 /**
@@ -44,18 +44,15 @@ class OnPageCollector implements SeoCollectorInterface
         return (int) config('seo.refresh_intervals.on_page', 336);
     }
 
-    public function collect(SeoProject $project, Collection $urls): array
+    public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
         // TODO: Implement on-page crawling
-        // 1. Crawl each URL (or use DataForSEO On-Page API)
-        // 2. Extract title, meta description, h1, headings, word count
-        // 3. Store in SeoUrlOnPage
         return ['processed' => 0, 'cost_cents' => 0, 'errors' => ['On-page collector not yet implemented']];
     }
 
     public function isEnabled(): bool
     {
-        return false; // Disabled until on-page crawling is implemented
+        return false;
     }
 
     public function order(): int

@@ -13,7 +13,6 @@ class SeoSignal extends Model
     protected $fillable = [
         'uuid',
         'team_id',
-        'project_id',
         'keyword_id',
         'url_id',
         'signal_type',
@@ -44,11 +43,6 @@ class SeoSignal extends Model
                 $model->uuid = UuidV7::generate();
             }
         });
-    }
-
-    public function project(): BelongsTo
-    {
-        return $this->belongsTo(SeoProject::class, 'project_id');
     }
 
     public function keyword(): BelongsTo

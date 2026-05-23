@@ -3,7 +3,7 @@
 namespace Platform\Seo\Contracts;
 
 use Illuminate\Support\Collection;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 
 interface SeoCollectorInterface
 {
@@ -37,7 +37,7 @@ interface SeoCollectorInterface
      *
      * @return array{processed: int, cost_cents: int, errors: array}
      */
-    public function collect(SeoProject $project, Collection $urls): array;
+    public function collect(SeoTeamSettings $settings, Collection $urls): array;
 
     /**
      * Whether this collector is enabled.

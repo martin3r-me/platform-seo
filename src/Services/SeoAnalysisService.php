@@ -3,63 +3,62 @@
 namespace Platform\Seo\Services;
 
 use Platform\Core\Contracts\SeoAnalysisServiceInterface;
+use Platform\Seo\Models\SeoKeyword;
+use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
+use Platform\Seo\Models\SeoUrl;
 
 class SeoAnalysisService implements SeoAnalysisServiceInterface
 {
     // =========================================================================
-    // Contract: SeoAnalysisServiceInterface (projectId-based)
+    // Contract: SeoAnalysisServiceInterface (teamId-based)
     // =========================================================================
 
-    public function getRankingTrends(int $projectId, int $days = 30): array
+    public function getRankingTrends(int $teamId, int $days = 30): array
     {
-        $project = SeoProject::findOrFail($projectId);
-        return $this->getRankingTrendsForProject($project, $days);
+        return $this->getRankingTrendsForTeam($teamId, $days);
     }
 
-    public function getCompetitorGaps(int $projectId): array
+    public function getCompetitorGaps(int $teamId): array
     {
-        $project = SeoProject::findOrFail($projectId);
-        return $this->getCompetitorGapsForProject($project);
+        return $this->getCompetitorGapsForTeam($teamId);
     }
 
-    public function getVisibilityScore(int $projectId): array
+    public function getVisibilityScore(int $teamId): array
     {
-        $project = SeoProject::findOrFail($projectId);
-        return $this->getVisibilityScoreForProject($project);
+        return $this->getVisibilityScoreForTeam($teamId);
     }
 
-    public function getQuickWins(int $projectId): array
+    public function getQuickWins(int $teamId): array
     {
-        $project = SeoProject::findOrFail($projectId);
-        return $this->getQuickWinsForProject($project);
+        return $this->getQuickWinsForTeam($teamId);
     }
 
     // =========================================================================
-    // Internal methods (project-model based, used by UI)
+    // Internal methods (team-based, used by UI)
     // =========================================================================
 
-    public function getKeywordSummary(SeoProject $project): array
+    public function getKeywordSummary(int $teamId): array
     {
-        $keywords = $project->keywords;
+        $keywords = SeoKeyword::where('team_id', $teamId)->get();
+        $clustersCount = SeoKeywordCluster::where('team_id', $teamId)->count();
 
         return [
             'total_keywords' => $keywords->count(),
-            'clusters_count' => $project->clusters()->count(),
+            'clusters_count' => $clustersCount,
             'avg_search_volume' => (int) $keywords->avg('search_volume'),
             'avg_difficulty' => (int) $keywords->avg('keyword_difficulty'),
             'total_search_volume' => (int) $keywords->sum('search_volume'),
             'intents' => $keywords->pluck('search_intent')->filter()->countBy()->toArray(),
-            'priorities' => $keywords->pluck('pivot.priority')->filter()->countBy()->toArray(),
             'with_metrics' => $keywords->whereNotNull('search_volume')->count(),
             'without_metrics' => $keywords->whereNull('search_volume')->count(),
         ];
     }
 
-    public function getRankingTrendsForProject(SeoProject $project, int $days = 30): array
+    public function getRankingTrendsForTeam(int $teamId, int $days = 30): array
     {
-        $keywords = $project->keywords()->with('cluster')->get();
+        $keywords = SeoKeyword::where('team_id', $teamId)->with('cluster')->get();
         $since = now()->subDays($days);
 
         $trends = [
@@ -72,16 +71,23 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
 
         foreach ($keywords as $keyword) {
             $snapshots = SeoKeywordPosition::where('keyword_id', $keyword->id)
-                ->where('project_id', $project->id)
+                ->where('team_id', $teamId)
                 ->where('tracked_at', '>=', $since)
                 ->orderBy('tracked_at')
                 ->get();
+
+            // Get best position from URL pivot
+            $bestUrl = $keyword->urls()
+                ->wherePivotNotNull('position')
+                ->orderBy('seo_url_keywords.position')
+                ->first();
+            $currentPosition = $bestUrl?->pivot->position;
 
             if ($snapshots->isEmpty()) {
                 $trends['no_data'][] = [
                     'keyword' => $keyword->keyword,
                     'cluster' => $keyword->cluster?->name,
-                    'current_position' => $keyword->pivot->position,
+                    'current_position' => $currentPosition,
                 ];
                 continue;
             }
@@ -132,9 +138,11 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
         ];
     }
 
-    public function getCompetitorGapsForProject(SeoProject $project): array
+    public function getCompetitorGapsForTeam(int $teamId): array
     {
-        $keywords = $project->keywords()->with(['cluster', 'competitors'])->get();
+        $keywords = SeoKeyword::where('team_id', $teamId)
+            ->with(['cluster', 'competitors', 'urls' => fn ($q) => $q->where('seo_urls.is_own', true)])
+            ->get();
 
         $gaps = [];
         $domains = [];
@@ -144,7 +152,10 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
                 continue;
             }
 
-            $isGap = empty($keyword->pivot->target_url) || $keyword->pivot->position === null;
+            // Check if any own URL ranks for this keyword
+            $ownUrl = $keyword->urls->first();
+            $ownPosition = $ownUrl?->pivot->position;
+            $isGap = !$ownUrl || $ownPosition === null;
 
             foreach ($keyword->competitors as $comp) {
                 $domains[$comp->domain] = ($domains[$comp->domain] ?? 0) + 1;
@@ -157,8 +168,7 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
                     'cluster' => $keyword->cluster?->name,
                     'search_volume' => $keyword->search_volume,
                     'keyword_difficulty' => $keyword->keyword_difficulty,
-                    'our_position' => $keyword->pivot->position,
-                    'target_url' => $keyword->pivot->target_url,
+                    'our_position' => $ownPosition,
                     'competitors' => $keyword->competitors->map(fn ($c) => [
                         'domain' => $c->domain,
                         'url' => $c->url,
@@ -182,44 +192,37 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
         ];
     }
 
-    public function getVisibilityScoreForProject(SeoProject $project): array
+    public function getVisibilityScoreForTeam(int $teamId): array
     {
-        $keywords = $project->keywords()
-            ->wherePivotNotNull('position')
-            ->whereNotNull('search_volume')
+        $urls = SeoUrl::where('team_id', $teamId)
+            ->where('is_own', true)
+            ->where('status', 'active')
+            ->with(['keywords' => fn ($q) => $q->whereNotNull('seo_url_keywords.position')->whereNotNull('search_volume')])
             ->get();
-
-        if ($keywords->isEmpty()) {
-            return [
-                'score' => 0,
-                'max_score' => 0,
-                'percentage' => 0,
-                'keywords_with_position' => 0,
-                'breakdown' => [],
-            ];
-        }
 
         $totalScore = 0;
         $maxScore = 0;
         $breakdown = [];
 
-        foreach ($keywords as $keyword) {
-            $position = $keyword->pivot->position;
-            $ctr = $this->estimateCtr($position);
-            $keywordScore = ($keyword->search_volume * $ctr);
-            $maxKeywordScore = ($keyword->search_volume * $this->estimateCtr(1));
+        foreach ($urls as $url) {
+            foreach ($url->keywords as $keyword) {
+                $position = $keyword->pivot->position;
+                $ctr = $this->estimateCtr($position);
+                $keywordScore = ($keyword->search_volume * $ctr);
+                $maxKeywordScore = ($keyword->search_volume * $this->estimateCtr(1));
 
-            $totalScore += $keywordScore;
-            $maxScore += $maxKeywordScore;
+                $totalScore += $keywordScore;
+                $maxScore += $maxKeywordScore;
 
-            $breakdown[] = [
-                'keyword' => $keyword->keyword,
-                'position' => $position,
-                'search_volume' => $keyword->search_volume,
-                'ctr' => round($ctr, 4),
-                'score' => round($keywordScore, 2),
-                'max_score' => round($maxKeywordScore, 2),
-            ];
+                $breakdown[] = [
+                    'keyword' => $keyword->keyword,
+                    'position' => $position,
+                    'search_volume' => $keyword->search_volume,
+                    'ctr' => round($ctr, 4),
+                    'score' => round($keywordScore, 2),
+                    'max_score' => round($maxKeywordScore, 2),
+                ];
+            }
         }
 
         usort($breakdown, fn($a, $b) => $b['score'] <=> $a['score']);
@@ -228,36 +231,43 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
             'score' => round($totalScore, 2),
             'max_score' => round($maxScore, 2),
             'percentage' => $maxScore > 0 ? round(($totalScore / $maxScore) * 100, 1) : 0,
-            'keywords_with_position' => $keywords->count(),
+            'keywords_with_position' => count($breakdown),
             'breakdown' => array_slice($breakdown, 0, 20),
         ];
     }
 
-    public function getQuickWinsForProject(SeoProject $project): array
+    public function getQuickWinsForTeam(int $teamId): array
     {
-        $keywords = $project->keywords()->with('cluster')
+        $keywords = SeoKeyword::where('team_id', $teamId)
+            ->with('cluster')
             ->whereNotNull('search_volume')
             ->where('search_volume', '>', 0)
             ->where(function ($q) {
                 $q->where('keyword_difficulty', '<', 40)
                     ->orWhereNull('keyword_difficulty');
             })
-            ->wherePivot('content_status', null)
-            ->orWherePivot('content_status', 'none')
             ->orderByDesc('search_volume')
             ->get();
 
+        // Filter to keywords without a ranking
         $quickWins = [];
         foreach ($keywords as $keyword) {
-            $quickWins[] = [
-                'keyword' => $keyword->keyword,
-                'keyword_id' => $keyword->id,
-                'cluster' => $keyword->cluster?->name,
-                'search_volume' => $keyword->search_volume,
-                'keyword_difficulty' => $keyword->keyword_difficulty,
-                'search_intent' => $keyword->search_intent,
-                'opportunity_score' => $this->calculateOpportunityScore($keyword),
-            ];
+            $hasRanking = $keyword->urls()
+                ->where('seo_urls.is_own', true)
+                ->wherePivotNotNull('position')
+                ->exists();
+
+            if (!$hasRanking) {
+                $quickWins[] = [
+                    'keyword' => $keyword->keyword,
+                    'keyword_id' => $keyword->id,
+                    'cluster' => $keyword->cluster?->name,
+                    'search_volume' => $keyword->search_volume,
+                    'keyword_difficulty' => $keyword->keyword_difficulty,
+                    'search_intent' => $keyword->search_intent,
+                    'opportunity_score' => $this->calculateOpportunityScore($keyword),
+                ];
+            }
         }
 
         usort($quickWins, fn($a, $b) => ($b['opportunity_score'] ?? 0) <=> ($a['opportunity_score'] ?? 0));
@@ -269,18 +279,22 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
         ];
     }
 
-    public function getContentGaps(SeoProject $project): array
+    public function getContentGaps(int $teamId): array
     {
-        $keywords = $project->keywords()->with('cluster')
-            ->where(function ($q) {
-                $q->wherePivot('content_status', 'none')
-                    ->orWherePivot('content_status', 'planned')
-                    ->orWherePivotNull('content_status');
-            })
+        $keywords = SeoKeyword::where('team_id', $teamId)
+            ->with('cluster')
             ->get();
 
+        // Filter keywords without own URL rankings
+        $gapKeywords = $keywords->filter(function ($keyword) {
+            return !$keyword->urls()
+                ->where('seo_urls.is_own', true)
+                ->wherePivotNotNull('position')
+                ->exists();
+        });
+
         $clusterGaps = [];
-        foreach ($keywords as $keyword) {
+        foreach ($gapKeywords as $keyword) {
             $clusterName = $keyword->cluster?->name ?? '(Ohne Cluster)';
             if (!isset($clusterGaps[$clusterName])) {
                 $clusterGaps[$clusterName] = [
@@ -295,7 +309,6 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
                 'keyword_id' => $keyword->id,
                 'search_volume' => $keyword->search_volume,
                 'keyword_difficulty' => $keyword->keyword_difficulty,
-                'content_status' => $keyword->pivot->content_status ?? 'none',
                 'search_intent' => $keyword->search_intent,
             ];
             $clusterGaps[$clusterName]['total_search_volume'] += ($keyword->search_volume ?? 0);
@@ -307,13 +320,13 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
         return [
             'clusters' => $clusterGaps,
             'clusters_with_gaps' => count($clusterGaps),
-            'total_gaps' => $keywords->count(),
+            'total_gaps' => $gapKeywords->count(),
         ];
     }
 
-    public function getClusterHealth(SeoProject $project): array
+    public function getClusterHealth(int $teamId): array
     {
-        $clusters = $project->clusters()->with('keywords')->get();
+        $clusters = SeoKeywordCluster::where('team_id', $teamId)->with('keywords')->get();
 
         $health = [];
         foreach ($clusters as $cluster) {
@@ -331,18 +344,18 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
                 continue;
             }
 
-            // For cluster health we need to check content_status via pivot
-            // But clusters still have a direct hasMany to keywords via cluster_id
-            // The content_status now lives in pivot, so we need project context
-            $contentStatuses = [];
+            // Check how many keywords have own URL rankings
+            $withContent = 0;
             foreach ($keywords as $kw) {
-                // Since cluster->keywords is a hasMany on SeoKeyword via cluster_id,
-                // we don't have pivot data here. We need to check the project pivot.
-                $status = 'none';
-                $contentStatuses[$status] = ($contentStatuses[$status] ?? 0) + 1;
+                $hasOwnRanking = $kw->urls()
+                    ->where('seo_urls.is_own', true)
+                    ->wherePivotNotNull('position')
+                    ->exists();
+                if ($hasOwnRanking) {
+                    $withContent++;
+                }
             }
 
-            $withContent = ($contentStatuses['published'] ?? 0) + ($contentStatuses['optimized'] ?? 0);
             $coverageScore = round(($withContent / $total) * 100, 1);
 
             $healthStatus = match (true) {
@@ -359,7 +372,6 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
                 'coverage_score' => $coverageScore,
                 'avg_search_volume' => (int) $keywords->avg('search_volume'),
                 'total_search_volume' => (int) $keywords->sum('search_volume'),
-                'content_status_distribution' => $contentStatuses,
                 'health' => $healthStatus,
             ];
         }
@@ -372,31 +384,45 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
         ];
     }
 
-    public function getDefend(SeoProject $project): array
+    public function getDefend(int $teamId): array
     {
-        $keywords = $project->keywords()->with('cluster')
-            ->wherePivot('position', '>=', 1)
-            ->wherePivot('position', '<=', 3)
-            ->orderByDesc('search_volume')
+        // Find keywords where own URLs rank in top 3
+        $urls = SeoUrl::where('team_id', $teamId)
+            ->where('is_own', true)
+            ->with(['keywords' => fn ($q) => $q
+                ->whereNotNull('seo_url_keywords.position')
+                ->where('seo_url_keywords.position', '>=', 1)
+                ->where('seo_url_keywords.position', '<=', 3)
+                ->whereNotNull('search_volume')
+                ->orderByDesc('search_volume')
+            ])
             ->get();
 
         $defend = [];
-        foreach ($keywords as $keyword) {
-            $position = $keyword->pivot->position;
-            $defend[] = [
-                'keyword' => $keyword->keyword,
-                'keyword_id' => $keyword->id,
-                'cluster' => $keyword->cluster?->name,
-                'search_volume' => $keyword->search_volume,
-                'position' => $position,
-                'keyword_difficulty' => $keyword->keyword_difficulty,
-                'content_status' => $keyword->pivot->content_status,
-                'target_url' => $keyword->pivot->target_url,
-                'traffic_value' => $keyword->search_volume && $keyword->cpc_cents
-                    ? round(($keyword->search_volume * $keyword->cpc_cents / 100) * $this->estimateCtr($position), 2)
-                    : null,
-            ];
+        $seen = [];
+        foreach ($urls as $url) {
+            foreach ($url->keywords as $keyword) {
+                if (isset($seen[$keyword->id])) {
+                    continue;
+                }
+                $seen[$keyword->id] = true;
+
+                $position = $keyword->pivot->position;
+                $defend[] = [
+                    'keyword' => $keyword->keyword,
+                    'keyword_id' => $keyword->id,
+                    'cluster' => $keyword->cluster?->name,
+                    'search_volume' => $keyword->search_volume,
+                    'position' => $position,
+                    'keyword_difficulty' => $keyword->keyword_difficulty,
+                    'traffic_value' => $keyword->search_volume && $keyword->cpc_cents
+                        ? round(($keyword->search_volume * $keyword->cpc_cents / 100) * $this->estimateCtr($position), 2)
+                        : null,
+                ];
+            }
         }
+
+        usort($defend, fn($a, $b) => ($b['search_volume'] ?? 0) <=> ($a['search_volume'] ?? 0));
 
         return [
             'defend' => $defend,

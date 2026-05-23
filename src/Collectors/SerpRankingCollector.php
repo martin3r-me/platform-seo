@@ -5,8 +5,8 @@ namespace Platform\Seo\Collectors;
 use Illuminate\Support\Collection;
 use Platform\Integrations\Services\DataForSeoApiService;
 use Platform\Seo\Contracts\SeoCollectorInterface;
-use Platform\Seo\Models\SeoProject;
 use Platform\Seo\Models\SeoRankingHistory;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRelationship;
 
@@ -52,10 +52,10 @@ class SerpRankingCollector implements SeoCollectorInterface
         return (int) config('seo.refresh_intervals.serp_ranking', 168);
     }
 
-    public function collect(SeoProject $project, Collection $urls): array
+    public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
-        $api = $this->dataForSeoApi->forConnection($project->dataforseo_connection_id);
-        $projectDomain = $project->domain ? parse_url($project->domain, PHP_URL_HOST) ?? $project->domain : null;
+        $api = $this->dataForSeoApi->forConnection($settings->dataforseo_connection_id);
+        $projectDomain = $settings->domain ? parse_url($settings->domain, PHP_URL_HOST) ?? $settings->domain : null;
         $processed = 0;
         $totalCost = 0;
         $errors = [];
@@ -69,10 +69,10 @@ class SerpRankingCollector implements SeoCollectorInterface
             foreach ($keywords as $keyword) {
                 try {
                     $serpResults = $api->getSerpOrganic(
-                        $project->user,
+                        null,
                         $keyword->keyword,
-                        $project->location_code,
-                        $project->language_code,
+                        $settings->location_code,
+                        $settings->language_code,
                     );
                 } catch (\Throwable $e) {
                     $errors[] = "SERP fuer '{$keyword->keyword}': {$e->getMessage()}";
@@ -128,7 +128,7 @@ class SerpRankingCollector implements SeoCollectorInterface
                 // Detect competitor URLs from SERP
                 foreach (array_slice($serpResults, 0, 10) as $serpResult) {
                     if ($serpResult->url && $serpResult->domain !== $projectDomain) {
-                        $this->trackCompetitorUrl($project, $url, $serpResult);
+                        $this->trackCompetitorUrl($settings, $url, $serpResult);
                     }
                 }
 
@@ -158,11 +158,11 @@ class SerpRankingCollector implements SeoCollectorInterface
         return 20;
     }
 
-    protected function trackCompetitorUrl(SeoProject $project, SeoUrl $ownUrl, object $serpResult): void
+    protected function trackCompetitorUrl(SeoTeamSettings $settings, SeoUrl $ownUrl, object $serpResult): void
     {
         $competitorUrl = SeoUrl::firstOrCreate(
             [
-                'team_id' => $project->team_id,
+                'team_id' => $settings->team_id,
                 'url_hash' => SeoUrl::hashUrl($serpResult->url),
             ],
             [
@@ -170,7 +170,6 @@ class SerpRankingCollector implements SeoCollectorInterface
                 'domain' => $serpResult->domain,
                 'is_own' => false,
                 'priority' => config('seo.priority.competitor_url_default', 30),
-                'project_id' => $project->id,
             ],
         );
 
@@ -181,7 +180,7 @@ class SerpRankingCollector implements SeoCollectorInterface
                 'type' => 'competitor',
             ],
             [
-                'team_id' => $project->team_id,
+                'team_id' => $settings->team_id,
                 'detected_at' => now(),
             ],
         );

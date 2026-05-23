@@ -11,7 +11,7 @@ class SeoKeywordPosition extends Model
 
     protected $fillable = [
         'keyword_id',
-        'project_id',
+        'team_id',
         'position',
         'previous_position',
         'ranked_url',
@@ -32,11 +32,6 @@ class SeoKeywordPosition extends Model
     public function keyword(): BelongsTo
     {
         return $this->belongsTo(SeoKeyword::class, 'keyword_id');
-    }
-
-    public function project(): BelongsTo
-    {
-        return $this->belongsTo(\Platform\Seo\Models\SeoProject::class, 'project_id');
     }
 
     public function getPositionDeltaAttribute(): ?int

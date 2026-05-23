@@ -3,26 +3,26 @@
 namespace Platform\Seo\Console\Commands;
 
 use Illuminate\Console\Command;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Services\SeoKeywordService;
 
 class RefreshKeywords extends Command
 {
     protected $signature = 'seo:refresh-keywords
-                            {--project= : Specific project ID}
+                            {--team= : Specific team ID}
                             {--force : Refresh even if not due}';
 
-    protected $description = 'Refresh keyword metrics and rankings for SEO projects';
+    protected $description = 'Refresh keyword metrics and rankings for SEO teams';
 
     public function handle(SeoKeywordService $keywordService): int
     {
-        $projectId = $this->option('project');
+        $teamId = $this->option('team');
         $force = $this->option('force');
 
-        $query = SeoProject::query();
+        $query = SeoTeamSettings::query();
 
-        if ($projectId) {
-            $query->where('id', $projectId);
+        if ($teamId) {
+            $query->where('team_id', $teamId);
         } elseif (!$force) {
             $query->where(function ($q) {
                 $q->whereNull('next_refresh_at')
@@ -30,27 +30,21 @@ class RefreshKeywords extends Command
             });
         }
 
-        $projects = $query->get();
+        $settingsList = $query->get();
 
-        if ($projects->isEmpty()) {
-            $this->info('Keine Projekte zum Aktualisieren.');
+        if ($settingsList->isEmpty()) {
+            $this->info('Keine Teams zum Aktualisieren.');
             return self::SUCCESS;
         }
 
-        $this->info("Aktualisiere {$projects->count()} Projekt(e)...");
+        $this->info("Aktualisiere {$settingsList->count()} Team(s)...");
         $this->newLine();
 
-        foreach ($projects as $project) {
-            $this->info("Projekt: {$project->name} (ID: {$project->id})");
-
-            $user = $project->user;
-            if (!$user) {
-                $this->warn("  Kein User zugeordnet, überspringe.");
-                continue;
-            }
+        foreach ($settingsList as $settings) {
+            $this->info("Team ID: {$settings->team_id} | Domain: {$settings->domain}");
 
             // Fetch metrics
-            $metricsResult = $keywordService->fetchMetrics($project->team_id, $project->id, $user);
+            $metricsResult = $keywordService->fetchMetrics($settings->team_id, null, null);
             $this->line("  Metriken: {$metricsResult['fetched']} Keywords aktualisiert ({$metricsResult['cost_cents']} Cent)");
 
             if (isset($metricsResult['error'])) {
@@ -59,7 +53,7 @@ class RefreshKeywords extends Command
             }
 
             // Fetch rankings
-            $rankingsResult = $keywordService->fetchRankings($project->id, $user);
+            $rankingsResult = $keywordService->fetchRankings($settings->team_id);
             $this->line("  Rankings: {$rankingsResult['fetched']} Keywords, {$rankingsResult['position_snapshots']} Snapshots ({$rankingsResult['cost_cents']} Cent)");
 
             if (isset($rankingsResult['error'])) {

@@ -10,7 +10,7 @@ use Platform\Integrations\Services\DataForSeoApiService;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 
 class SeoKeywordService implements SeoKeywordServiceInterface
 {
@@ -25,23 +25,20 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
     public function createProject(Team $team, User $user, array $data): ?object
     {
-        return SeoProject::create([
-            'team_id' => $team->id,
-            'user_id' => $user->id,
-            'name' => $data['name'] ?? $team->name . ' SEO',
-            'domain' => $data['domain'] ?? null,
-            'description' => $data['description'] ?? null,
-            'industry_preset' => $data['industry_preset'] ?? null,
-            'budget_limit_cents' => $data['budget_limit_cents'] ?? null,
-            'refresh_interval_hours' => $data['refresh_interval_hours'] ?? 168,
-            'location_code' => $data['location_code'] ?? 2276,
-            'language_code' => $data['language_code'] ?? null,
-        ]);
+        return SeoTeamSettings::firstOrCreate(
+            ['team_id' => $team->id],
+            [
+                'domain' => $data['domain'] ?? null,
+                'budget_limit_cents' => $data['budget_limit_cents'] ?? null,
+                'refresh_interval_hours' => $data['refresh_interval_hours'] ?? 168,
+                'location_code' => $data['location_code'] ?? 2276,
+                'language_code' => $data['language_code'] ?? null,
+            ]
+        );
     }
 
     public function attachKeywords(int $teamId, int $projectId, array $keywords): array
     {
-        $project = SeoProject::findOrFail($projectId);
         $attached = [];
 
         foreach ($keywords as $kw) {
@@ -52,7 +49,6 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
             $keywordText = strtolower(trim($keywordText));
 
-            // Team-level: firstOrCreate
             $keyword = SeoKeyword::firstOrCreate(
                 ['team_id' => $teamId, 'keyword' => $keywordText],
                 [
@@ -61,17 +57,6 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                 ]
             );
 
-            // Pivot: project-specific data
-            $pivotData = [];
-            if (is_array($kw)) {
-                foreach (['priority', 'notes', 'content_status', 'target_url'] as $field) {
-                    if (isset($kw[$field])) {
-                        $pivotData[$field] = $kw[$field];
-                    }
-                }
-            }
-
-            $project->keywords()->syncWithoutDetaching([$keyword->id => $pivotData]);
             $attached[] = $keyword;
         }
 
@@ -80,15 +65,9 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
     public function fetchMetrics(int $teamId, ?int $projectId = null, ?User $user = null): array
     {
-        $project = $projectId ? SeoProject::findOrFail($projectId) : null;
+        $settings = SeoTeamSettings::where('team_id', $teamId)->first();
 
-        // Get keywords: either for the project or all team keywords
-        if ($project) {
-            $keywords = $project->keywords;
-            $user = $user ?? $project->user;
-        } else {
-            $keywords = SeoKeyword::where('team_id', $teamId)->get();
-        }
+        $keywords = SeoKeyword::where('team_id', $teamId)->get();
 
         if ($keywords->isEmpty()) {
             return ['fetched' => 0, 'cost_cents' => 0];
@@ -103,19 +82,19 @@ class SeoKeywordService implements SeoKeywordServiceInterface
             return ['fetched' => 0, 'cost_cents' => 0, 'skipped' => $keywords->count()];
         }
 
-        if (!$project) {
-            return ['fetched' => 0, 'cost_cents' => 0, 'error' => 'Project required for budget + API resolution'];
+        if (!$settings) {
+            return ['fetched' => 0, 'cost_cents' => 0, 'error' => 'Team settings required for budget + API resolution'];
         }
 
         $keywordTexts = $staleKeywords->pluck('keyword')->toArray();
         $estimatedCost = $this->estimateCost('search_volume', count($keywordTexts));
 
-        if (!$this->budgetGuard->canFetch($project, $estimatedCost)) {
+        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
             return ['fetched' => 0, 'cost_cents' => 0, 'error' => 'Budget limit exceeded'];
         }
 
-        $api = $this->resolveApiService($project);
-        $volumeResults = $api->getSearchVolume($user, $keywordTexts, $project->location_code, $project->language_code);
+        $api = $this->resolveApiService($settings);
+        $volumeResults = $api->getSearchVolume($user, $keywordTexts, $settings->location_code, $settings->language_code);
 
         if (empty($volumeResults)) {
             return ['fetched' => 0, 'cost_cents' => 0];
@@ -143,37 +122,36 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         }
 
         $actualCost = $this->estimateCost('search_volume', $fetchedCount);
-        $this->budgetGuard->recordCost($project, 'fetch_metrics', $fetchedCount, $actualCost, $user);
+        $this->budgetGuard->recordCost($settings, 'fetch_metrics', $fetchedCount, $actualCost, $user);
 
-        $project->update(['next_refresh_at' => now()->addHours($project->refresh_interval_hours)]);
+        $settings->update(['next_refresh_at' => now()->addHours($settings->refresh_interval_hours)]);
 
         return ['fetched' => $fetchedCount, 'cost_cents' => $actualCost];
     }
 
-    public function fetchRankings(int $projectId, ?User $user = null): array
+    public function fetchRankings(int $teamId, ?User $user = null): array
     {
-        $project = SeoProject::findOrFail($projectId);
-        $keywords = $project->keywords;
+        $settings = SeoTeamSettings::where('team_id', $teamId)->firstOrFail();
+        $keywords = SeoKeyword::where('team_id', $teamId)->get();
 
         if ($keywords->isEmpty()) {
             return ['fetched' => 0, 'cost_cents' => 0, 'position_snapshots' => 0];
         }
 
-        $user = $user ?? $project->user;
         $estimatedCost = $this->estimateCost('serp', $keywords->count());
 
-        if (!$this->budgetGuard->canFetch($project, $estimatedCost)) {
+        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
             return ['fetched' => 0, 'cost_cents' => 0, 'position_snapshots' => 0, 'error' => 'Budget limit exceeded'];
         }
 
-        $api = $this->resolveApiService($project);
-        $projectDomain = $project->domain ? parse_url($project->domain, PHP_URL_HOST) ?? $project->domain : null;
+        $api = $this->resolveApiService($settings);
+        $projectDomain = $settings->domain ? parse_url($settings->domain, PHP_URL_HOST) ?? $settings->domain : null;
         $fetchedCount = 0;
         $positionSnapshots = 0;
         $competitorEntries = [];
 
         foreach ($keywords as $keyword) {
-            $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $project->location_code, $project->language_code);
+            $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->language_code);
 
             if (empty($serpResults)) {
                 continue;
@@ -192,7 +170,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
             if ($ownPosition !== null) {
                 $lastSnapshot = SeoKeywordPosition::where('keyword_id', $keyword->id)
-                    ->where('project_id', $project->id)
+                    ->where('team_id', $teamId)
                     ->where('search_engine', 'google')
                     ->where('device', 'desktop')
                     ->orderByDesc('tracked_at')
@@ -200,7 +178,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
                 SeoKeywordPosition::create([
                     'keyword_id' => $keyword->id,
-                    'project_id' => $project->id,
+                    'team_id' => $teamId,
                     'position' => $ownPosition,
                     'previous_position' => $lastSnapshot?->position,
                     'ranked_url' => $ownUrl,
@@ -210,12 +188,6 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                     'device' => 'desktop',
                 ]);
                 $positionSnapshots++;
-
-                // Update pivot with current position
-                $project->keywords()->updateExistingPivot($keyword->id, [
-                    'position' => $ownPosition,
-                    'ranked_url' => $ownUrl,
-                ]);
             }
 
             foreach (array_slice($serpResults, 0, 10) as $serpResult) {
@@ -228,9 +200,9 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         }
 
         $actualCost = $this->estimateCost('serp', $fetchedCount);
-        $this->budgetGuard->recordCost($project, 'fetch_rankings', $fetchedCount, $actualCost, $user);
+        $this->budgetGuard->recordCost($settings, 'fetch_rankings', $fetchedCount, $actualCost, $user);
 
-        $project->update(['next_refresh_at' => now()->addHours($project->refresh_interval_hours)]);
+        $settings->update(['next_refresh_at' => now()->addHours($settings->refresh_interval_hours)]);
 
         return [
             'fetched' => $fetchedCount,
@@ -245,26 +217,23 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         ];
     }
 
-    public function getKeywordsForProject(int $projectId): Collection
+    public function getKeywordsForProject(int $teamId): Collection
     {
-        $project = SeoProject::findOrFail($projectId);
-
-        return $project->keywords()->with('cluster')->get();
+        return SeoKeyword::where('team_id', $teamId)->with('cluster')->get();
     }
 
-    public function getKeywordSummary(int $projectId): array
+    public function getKeywordSummary(int $teamId): array
     {
-        $project = SeoProject::findOrFail($projectId);
-        $keywords = $project->keywords;
+        $keywords = SeoKeyword::where('team_id', $teamId)->get();
+        $clustersCount = SeoKeywordCluster::where('team_id', $teamId)->count();
 
         return [
             'total_keywords' => $keywords->count(),
-            'clusters_count' => $project->clusters()->count(),
+            'clusters_count' => $clustersCount,
             'avg_search_volume' => (int) $keywords->avg('search_volume'),
             'avg_difficulty' => (int) $keywords->avg('keyword_difficulty'),
             'total_search_volume' => (int) $keywords->sum('search_volume'),
             'intents' => $keywords->pluck('search_intent')->filter()->countBy()->toArray(),
-            'priorities' => $keywords->pluck('pivot.priority')->filter()->countBy()->toArray(),
             'with_metrics' => $keywords->whereNotNull('search_volume')->count(),
             'without_metrics' => $keywords->whereNull('search_volume')->count(),
         ];
@@ -274,13 +243,12 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     // Internal methods (not part of contract)
     // =========================================================================
 
-    public function addKeyword(SeoProject $project, array $data, ?User $user = null): SeoKeyword
+    public function addKeyword(int $teamId, array $data, ?User $user = null): SeoKeyword
     {
         $keywordText = strtolower(trim($data['keyword']));
 
-        // Create or get team-level keyword
-        $keyword = SeoKeyword::firstOrCreate(
-            ['team_id' => $project->team_id, 'keyword' => $keywordText],
+        return SeoKeyword::firstOrCreate(
+            ['team_id' => $teamId, 'keyword' => $keywordText],
             [
                 'cluster_id' => $data['cluster_id'] ?? null,
                 'search_volume' => $data['search_volume'] ?? null,
@@ -291,25 +259,14 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                 'topic' => $data['topic'] ?? null,
             ]
         );
-
-        // Attach to project via pivot with project-specific data
-        $pivotData = [];
-        foreach (['priority', 'notes', 'content_status', 'target_url'] as $field) {
-            if (isset($data[$field])) {
-                $pivotData[$field] = $data[$field];
-            }
-        }
-        $project->keywords()->syncWithoutDetaching([$keyword->id => $pivotData]);
-
-        return $keyword;
     }
 
-    public function addKeywords(SeoProject $project, array $keywordsData, ?User $user = null): Collection
+    public function addKeywords(int $teamId, array $keywordsData, ?User $user = null): Collection
     {
         $keywords = collect();
 
         foreach ($keywordsData as $data) {
-            $keywords->push($this->addKeyword($project, $data, $user));
+            $keywords->push($this->addKeyword($teamId, $data, $user));
         }
 
         return $keywords;
@@ -318,9 +275,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     public function updateKeyword(SeoKeyword $keyword, array $data): SeoKeyword
     {
         $keywordFields = [];
-        $pivotFields = [];
 
-        // Keyword-level fields
         foreach ([
             'keyword', 'cluster_id', 'search_volume', 'keyword_difficulty',
             'cpc_cents', 'competition', 'search_intent', 'topic',
@@ -337,20 +292,6 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         return $keyword->fresh();
     }
 
-    public function updateKeywordPivot(SeoProject $project, int $keywordId, array $pivotData): void
-    {
-        $update = [];
-        foreach (['priority', 'notes', 'content_status', 'target_url', 'position', 'ranked_url'] as $field) {
-            if (array_key_exists($field, $pivotData)) {
-                $update[$field] = $pivotData[$field];
-            }
-        }
-
-        if (!empty($update)) {
-            $project->keywords()->updateExistingPivot($keywordId, $update);
-        }
-    }
-
     public function moveToCluster(SeoKeyword $keyword, ?int $clusterId): SeoKeyword
     {
         $keyword->update(['cluster_id' => $clusterId]);
@@ -362,16 +303,10 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         $keyword->delete();
     }
 
-    public function detachKeywordFromProject(SeoProject $project, int $keywordId): void
-    {
-        $project->keywords()->detach($keywordId);
-    }
-
-    public function createCluster(SeoProject $project, array $data, ?User $user = null): SeoKeywordCluster
+    public function createCluster(int $teamId, array $data, ?User $user = null): SeoKeywordCluster
     {
         return SeoKeywordCluster::create([
-            'project_id' => $project->id,
-            'team_id' => $project->team_id,
+            'team_id' => $teamId,
             'name' => $data['name'] ?? 'Neuer Cluster',
             'description' => $data['description'] ?? null,
             'color' => $data['color'] ?? null,
@@ -403,26 +338,25 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     /**
      * Discover keyword suggestions via Labs API.
      */
-    public function discoverKeywords(SeoProject $project, array $seedKeywords, ?User $user = null, int $limit = 100): array
+    public function discoverKeywords(SeoTeamSettings $settings, array $seedKeywords, ?User $user = null, int $limit = 100): array
     {
         if (empty($seedKeywords)) {
             return ['keywords' => [], 'cost_cents' => 0];
         }
 
-        $user = $user ?? $project->user;
         $estimatedCost = $this->estimateCost('labs_suggestions', 1);
 
-        if (!$this->budgetGuard->canFetch($project, $estimatedCost)) {
+        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
             return ['keywords' => [], 'cost_cents' => 0, 'error' => 'Budget limit exceeded'];
         }
 
-        $api = $this->resolveApiService($project);
-        $labsResults = $api->getLabsKeywordSuggestions($user, $seedKeywords, $project->location_code, $project->language_code, $limit);
+        $api = $this->resolveApiService($settings);
+        $labsResults = $api->getLabsKeywordSuggestions($user, $seedKeywords, $settings->location_code, $settings->language_code, $limit);
 
         $keywords = array_map(fn($r) => $r->toArray(), $labsResults);
 
         $actualCost = $this->estimateCost('labs_suggestions', 1);
-        $this->budgetGuard->recordCost($project, 'discover_keywords', count($keywords), $actualCost, $user);
+        $this->budgetGuard->recordCost($settings, 'discover_keywords', count($keywords), $actualCost, $user);
 
         return ['keywords' => $keywords, 'cost_cents' => $actualCost];
     }
@@ -430,22 +364,21 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     /**
      * Discover keywords a domain ranks for.
      */
-    public function discoverFromDomain(SeoProject $project, string $domain, ?User $user = null, int $limit = 100): array
+    public function discoverFromDomain(SeoTeamSettings $settings, string $domain, ?User $user = null, int $limit = 100): array
     {
-        $user = $user ?? $project->user;
         $estimatedCost = $this->estimateCost('labs_ranked', 1);
 
-        if (!$this->budgetGuard->canFetch($project, $estimatedCost)) {
+        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
             return ['keywords' => [], 'cost_cents' => 0, 'error' => 'Budget limit exceeded'];
         }
 
-        $api = $this->resolveApiService($project);
-        $rankedResults = $api->getRankedKeywords($user, $domain, $project->location_code, $project->language_code, $limit);
+        $api = $this->resolveApiService($settings);
+        $rankedResults = $api->getRankedKeywords($user, $domain, $settings->location_code, $settings->language_code, $limit);
 
         $keywords = array_map(fn($r) => $r->toArray(), $rankedResults);
 
         $actualCost = $this->estimateCost('labs_ranked', 1);
-        $this->budgetGuard->recordCost($project, 'discover_from_domain', count($keywords), $actualCost, $user);
+        $this->budgetGuard->recordCost($settings, 'discover_from_domain', count($keywords), $actualCost, $user);
 
         return ['keywords' => $keywords, 'cost_cents' => $actualCost];
     }
@@ -454,9 +387,9 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     // HELPERS
     // =========================================================================
 
-    protected function resolveApiService(SeoProject $project): DataForSeoApiService
+    protected function resolveApiService(SeoTeamSettings $settings): DataForSeoApiService
     {
-        $connectionId = $project->dataforseo_connection_id;
+        $connectionId = $settings->dataforseo_connection_id;
 
         return $this->dataForSeoApi->forConnection($connectionId);
     }

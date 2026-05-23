@@ -4,7 +4,7 @@ namespace Platform\Seo\Collectors;
 
 use Illuminate\Support\Collection;
 use Platform\Seo\Contracts\SeoCollectorInterface;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 
 /**
@@ -42,18 +42,15 @@ class GscCollector implements SeoCollectorInterface
         return (int) config('seo.refresh_intervals.gsc', 24);
     }
 
-    public function collect(SeoProject $project, Collection $urls): array
+    public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
         // TODO: Implement GSC API integration
-        // 1. Resolve GSC connection from project settings
-        // 2. Fetch performance data per URL
-        // 3. Store in SeoUrlGscData
         return ['processed' => 0, 'cost_cents' => 0, 'errors' => ['GSC collector not yet implemented']];
     }
 
     public function isEnabled(): bool
     {
-        return false; // Disabled until GSC API is integrated
+        return false;
     }
 
     public function order(): int

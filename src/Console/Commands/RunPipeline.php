@@ -3,13 +3,13 @@
 namespace Platform\Seo\Console\Commands;
 
 use Illuminate\Console\Command;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Services\SeoUrlPipelineService;
 
 class RunPipeline extends Command
 {
     protected $signature = 'seo:pipeline
-                            {--project= : Specific project ID}
+                            {--team= : Specific team ID}
                             {--collector= : Run only a specific collector}
                             {--max-urls= : Max URLs to process per run}
                             {--force : Refresh even if not due}
@@ -19,35 +19,35 @@ class RunPipeline extends Command
 
     public function handle(SeoUrlPipelineService $pipeline): int
     {
-        $projectId = $this->option('project');
+        $teamId = $this->option('team');
         $collector = $this->option('collector');
         $maxUrls = $this->option('max-urls');
         $force = $this->option('force');
         $dryRun = $this->option('dry-run');
 
-        $query = SeoProject::query();
+        $query = SeoTeamSettings::query();
 
-        if ($projectId) {
-            $query->where('id', $projectId);
+        if ($teamId) {
+            $query->where('team_id', $teamId);
         }
 
-        $projects = $query->get();
+        $settingsList = $query->get();
 
-        if ($projects->isEmpty()) {
-            $this->info('Keine Projekte gefunden.');
+        if ($settingsList->isEmpty()) {
+            $this->info('Keine Teams gefunden.');
 
             return self::SUCCESS;
         }
 
         $mode = $dryRun ? ' (DRY RUN)' : '';
-        $this->info("SEO Pipeline{$mode} fuer {$projects->count()} Projekt(e)...");
+        $this->info("SEO Pipeline{$mode} fuer {$settingsList->count()} Team(s)...");
         $this->newLine();
 
         $totalCost = 0;
         $totalUrlsProcessed = 0;
 
-        foreach ($projects as $project) {
-            $this->info("Projekt: {$project->name} (ID: {$project->id})");
+        foreach ($settingsList as $settings) {
+            $this->info("Team ID: {$settings->team_id} | Domain: {$settings->domain}");
 
             $options = [
                 'dry_run' => $dryRun,
@@ -61,7 +61,7 @@ class RunPipeline extends Command
                 $options['max_urls'] = (int) $maxUrls;
             }
 
-            $result = $pipeline->runPipeline($project, $options);
+            $result = $pipeline->runPipeline($settings, $options);
 
             $this->line("  URLs verarbeitet: {$result['urls_processed']}");
             $this->line("  Gesamtkosten: {$result['total_cost_cents']} Cent");

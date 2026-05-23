@@ -3,42 +3,42 @@
 namespace Platform\Seo\Console\Commands;
 
 use Illuminate\Console\Command;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlSnapshot;
 
 class SnapshotUrls extends Command
 {
     protected $signature = 'seo:snapshot-urls
-                            {--project= : Specific project ID}';
+                            {--team= : Specific team ID}';
 
     protected $description = 'Create daily snapshots of URL metrics for time-series tracking';
 
     public function handle(): int
     {
-        $projectId = $this->option('project');
+        $teamId = $this->option('team');
         $today = now()->toDateString();
 
-        $query = SeoProject::query();
-        if ($projectId) {
-            $query->where('id', $projectId);
+        $query = SeoTeamSettings::query();
+        if ($teamId) {
+            $query->where('team_id', $teamId);
         }
 
-        $projects = $query->get();
+        $settingsList = $query->get();
 
-        if ($projects->isEmpty()) {
-            $this->info('Keine Projekte gefunden.');
+        if ($settingsList->isEmpty()) {
+            $this->info('Keine Teams gefunden.');
 
             return self::SUCCESS;
         }
 
-        $this->info("Erstelle URL-Snapshots fuer {$projects->count()} Projekt(e)...");
+        $this->info("Erstelle URL-Snapshots fuer {$settingsList->count()} Team(s)...");
         $totalSnapshots = 0;
 
-        foreach ($projects as $project) {
-            $this->info("Projekt: {$project->name}");
+        foreach ($settingsList as $settings) {
+            $this->info("Team ID: {$settings->team_id} | Domain: {$settings->domain}");
 
-            $urls = SeoUrl::where('project_id', $project->id)
+            $urls = SeoUrl::where('team_id', $settings->team_id)
                 ->where('is_own', true)
                 ->where('status', 'active')
                 ->get();

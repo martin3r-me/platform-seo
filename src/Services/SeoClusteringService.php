@@ -5,7 +5,8 @@ namespace Platform\Seo\Services;
 use Illuminate\Support\Facades\Log;
 use Platform\Core\Models\User;
 use Platform\Integrations\Services\DataForSeoApiService;
-use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoKeyword;
+use Platform\Seo\Models\SeoTeamSettings;
 
 class SeoClusteringService
 {
@@ -24,9 +25,10 @@ class SeoClusteringService
     /**
      * Auto-cluster keywords based on SERP overlap.
      */
-    public function autoCluster(SeoProject $project, User $user, int $minOverlap = 3): array
+    public function autoCluster(SeoTeamSettings $settings, User $user, int $minOverlap = 3): array
     {
-        $keywords = $project->keywords()->whereNull('cluster_id')->get();
+        $teamId = $settings->team_id;
+        $keywords = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id')->get();
 
         if ($keywords->count() < 2) {
             return [
@@ -40,7 +42,7 @@ class SeoClusteringService
         }
 
         $estimatedCost = $this->estimateCost('serp', $keywords->count());
-        if (!$this->budgetGuard->canFetch($project, $estimatedCost)) {
+        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
             return [
                 'clusters_created' => 0,
                 'keywords_clustered' => 0,
@@ -51,9 +53,9 @@ class SeoClusteringService
             ];
         }
 
-        $project->update(['clustering_status' => 'running']);
+        $settings->update(['clustering_status' => 'running']);
 
-        $api = $this->resolveApiService($project);
+        $api = $this->resolveApiService($settings);
 
         // 1. Fetch SERP data for each keyword
         $serpMap = [];
@@ -61,7 +63,7 @@ class SeoClusteringService
 
         foreach ($keywords as $keyword) {
             try {
-                $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $project->location_code, $project->language_code);
+                $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->language_code);
 
                 if (empty($serpResults)) {
                     continue;
@@ -91,7 +93,7 @@ class SeoClusteringService
         }
 
         if (count($serpMap) < 2) {
-            $project->update([
+            $settings->update([
                 'clustering_status' => 'completed',
                 'clustering_result' => [
                     'clusters_created' => 0,
@@ -119,13 +121,13 @@ class SeoClusteringService
 
         // 4. Create clusters
         $keywordsById = $keywords->keyBy('id');
-        $result = $this->createClusters($project, $user, $components, $keywordsById);
+        $result = $this->createClusters($teamId, $user, $components, $keywordsById);
 
         // 5. Record cost
         $actualCost = $this->estimateCost('serp', $fetchedCount);
-        $this->budgetGuard->recordCost($project, 'auto_cluster', $fetchedCount, $actualCost, $user);
+        $this->budgetGuard->recordCost($settings, 'auto_cluster', $fetchedCount, $actualCost, $user);
 
-        $singletonsRemaining = $project->keywords()->whereNull('cluster_id')->count();
+        $singletonsRemaining = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id')->count();
 
         $clusteringResult = [
             'clusters_created' => $result['clusters_created'],
@@ -136,7 +138,7 @@ class SeoClusteringService
             'clusters' => $result['clusters'],
         ];
 
-        $project->update([
+        $settings->update([
             'clustering_status' => 'completed',
             'clustering_result' => $clusteringResult,
         ]);
@@ -222,7 +224,7 @@ class SeoClusteringService
         return $components;
     }
 
-    protected function createClusters(SeoProject $project, User $user, array $components, $keywordsById): array
+    protected function createClusters(int $teamId, User $user, array $components, $keywordsById): array
     {
         $clustersCreated = 0;
         $keywordsClustered = 0;
@@ -253,7 +255,7 @@ class SeoClusteringService
 
             $color = self::CLUSTER_COLORS[$index % count(self::CLUSTER_COLORS)];
 
-            $cluster = $this->keywordService->createCluster($project, [
+            $cluster = $this->keywordService->createCluster($teamId, [
                 'name' => $bestKeyword->keyword,
                 'color' => $color,
             ], $user);
@@ -282,9 +284,9 @@ class SeoClusteringService
         ];
     }
 
-    protected function resolveApiService(SeoProject $project): DataForSeoApiService
+    protected function resolveApiService(SeoTeamSettings $settings): DataForSeoApiService
     {
-        return $this->dataForSeoApi->forConnection($project->dataforseo_connection_id);
+        return $this->dataForSeoApi->forConnection($settings->dataforseo_connection_id);
     }
 
     protected function estimateCost(string $action, int $count): int
