@@ -10,14 +10,19 @@ return new class extends Migration
     public function up(): void
     {
         // 1a. Rename seo_projects → seo_team_settings and drop unused columns
-        Schema::rename('seo_projects', 'seo_team_settings');
+        if (Schema::hasTable('seo_projects') && ! Schema::hasTable('seo_team_settings')) {
+            Schema::rename('seo_projects', 'seo_team_settings');
+        }
 
         Schema::table('seo_team_settings', function (Blueprint $table) {
-            // Drop soft deletes
-            $table->dropSoftDeletes();
+            $columnsToDrop = array_filter(
+                ['deleted_at', 'user_id', 'uuid', 'name', 'description', 'industry_preset'],
+                fn ($col) => Schema::hasColumn('seo_team_settings', $col)
+            );
 
-            // Drop columns no longer relevant
-            $table->dropColumn(['user_id', 'uuid', 'name', 'description', 'industry_preset']);
+            if (! empty($columnsToDrop)) {
+                $table->dropColumn($columnsToDrop);
+            }
         });
 
         // 1b. Add team_id to tables that only have project_id, backfill from seo_team_settings
@@ -29,52 +34,42 @@ return new class extends Migration
         ];
 
         foreach ($tablesNeedingTeamId as $tableName) {
-            Schema::table($tableName, function (Blueprint $table) {
-                $table->unsignedBigInteger('team_id')->nullable()->after('id');
-            });
+            if (! Schema::hasColumn($tableName, 'team_id')) {
+                Schema::table($tableName, function (Blueprint $table) {
+                    $table->unsignedBigInteger('team_id')->nullable()->after('id');
+                });
+            }
 
             // Backfill team_id from seo_team_settings via project_id
-            DB::statement("
-                UPDATE {$tableName}
-                SET team_id = (
-                    SELECT team_id FROM seo_team_settings
-                    WHERE seo_team_settings.id = {$tableName}.project_id
-                )
-                WHERE project_id IS NOT NULL
-            ");
+            if (Schema::hasColumn($tableName, 'project_id')) {
+                DB::statement("
+                    UPDATE {$tableName}
+                    SET team_id = (
+                        SELECT team_id FROM seo_team_settings
+                        WHERE seo_team_settings.id = {$tableName}.project_id
+                    )
+                    WHERE project_id IS NOT NULL AND team_id IS NULL
+                ");
+            }
         }
 
-        // 1c. Drop project_id FK from all tables
+        // 1c. Drop project_id from all tables that still have it
+        $tablesWithProjectId = [
+            'seo_urls',
+            'seo_signals',
+            'seo_keyword_positions',
+            'seo_keyword_competitors',
+            'seo_budget_logs',
+            'seo_keyword_clusters',
+        ];
 
-        // seo_urls — drop project_id
-        Schema::table('seo_urls', function (Blueprint $table) {
-            $table->dropColumn('project_id');
-        });
-
-        // seo_signals — drop project_id (has team_id already)
-        Schema::table('seo_signals', function (Blueprint $table) {
-            $table->dropColumn('project_id');
-        });
-
-        // seo_keyword_positions — drop project_id (now has team_id)
-        Schema::table('seo_keyword_positions', function (Blueprint $table) {
-            $table->dropColumn('project_id');
-        });
-
-        // seo_keyword_competitors — drop project_id (now has team_id)
-        Schema::table('seo_keyword_competitors', function (Blueprint $table) {
-            $table->dropColumn('project_id');
-        });
-
-        // seo_budget_logs — drop project_id (now has team_id)
-        Schema::table('seo_budget_logs', function (Blueprint $table) {
-            $table->dropColumn('project_id');
-        });
-
-        // seo_keyword_clusters — drop project_id (now has team_id)
-        Schema::table('seo_keyword_clusters', function (Blueprint $table) {
-            $table->dropColumn('project_id');
-        });
+        foreach ($tablesWithProjectId as $tableName) {
+            if (Schema::hasColumn($tableName, 'project_id')) {
+                Schema::table($tableName, function (Blueprint $table) {
+                    $table->dropColumn('project_id');
+                });
+            }
+        }
 
         // 1d. Drop deprecated pivot table
         Schema::dropIfExists('seo_project_keyword');
