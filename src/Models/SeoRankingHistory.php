@@ -5,20 +5,18 @@ namespace Platform\Seo\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SeoKeywordPosition extends Model
+class SeoRankingHistory extends Model
 {
-    protected $table = 'seo_keyword_positions';
+    protected $table = 'seo_ranking_history';
 
     protected $fillable = [
+        'url_id',
         'keyword_id',
-        'project_id',
         'position',
         'previous_position',
-        'ranked_url',
-        'serp_features',
         'search_engine',
         'device',
-        'location',
+        'serp_features',
         'tracked_at',
     ];
 
@@ -29,19 +27,19 @@ class SeoKeywordPosition extends Model
         'tracked_at' => 'date',
     ];
 
+    public function url(): BelongsTo
+    {
+        return $this->belongsTo(SeoUrl::class, 'url_id');
+    }
+
     public function keyword(): BelongsTo
     {
         return $this->belongsTo(SeoKeyword::class, 'keyword_id');
     }
 
-    public function project(): BelongsTo
-    {
-        return $this->belongsTo(\Platform\Seo\Models\SeoProject::class, 'project_id');
-    }
-
     public function getPositionDeltaAttribute(): ?int
     {
-        if ($this->previous_position === null) {
+        if ($this->previous_position === null || $this->position === null) {
             return null;
         }
 

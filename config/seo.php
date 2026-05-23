@@ -109,6 +109,56 @@ return [
         'labs_ranked' => 10,
         'competitors' => 10,
         'on_page' => 15,
+        'backlinks' => 15,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Collectors — registered data collectors for the URL pipeline
+    |--------------------------------------------------------------------------
+    */
+    'collectors' => [
+        \Platform\Seo\Collectors\KeywordMetricsCollector::class,
+        \Platform\Seo\Collectors\GscCollector::class,
+        \Platform\Seo\Collectors\SerpRankingCollector::class,
+        \Platform\Seo\Collectors\BacklinkCollector::class,
+        \Platform\Seo\Collectors\OnPageCollector::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pipeline — URL pipeline orchestrator settings
+    |--------------------------------------------------------------------------
+    */
+    'pipeline' => [
+        'max_urls_per_run' => 50,
+        'max_budget_percentage_per_run' => 25,
+        'deprioritize_error_urls' => true,
+        'budget_pressure_threshold' => 0.8,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Refresh Intervals — base intervals in hours per collector
+    |--------------------------------------------------------------------------
+    */
+    'refresh_intervals' => [
+        'keyword_metrics' => 168,    // weekly
+        'gsc' => 24,                 // daily
+        'serp_ranking' => 168,       // weekly
+        'backlinks' => 336,          // bi-weekly
+        'on_page' => 336,            // bi-weekly
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Priority — default priority values for auto-created URLs
+    |--------------------------------------------------------------------------
+    */
+    'priority' => [
+        'own_url_default' => 70,
+        'competitor_url_default' => 30,
+        'auto_discovered_default' => 20,
     ],
 
     /*

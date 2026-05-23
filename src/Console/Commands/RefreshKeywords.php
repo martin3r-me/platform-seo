@@ -50,7 +50,7 @@ class RefreshKeywords extends Command
             }
 
             // Fetch metrics
-            $metricsResult = $keywordService->fetchMetrics($project, null, $user);
+            $metricsResult = $keywordService->fetchMetrics($project->team_id, $project->id, $user);
             $this->line("  Metriken: {$metricsResult['fetched']} Keywords aktualisiert ({$metricsResult['cost_cents']} Cent)");
 
             if (isset($metricsResult['error'])) {
@@ -59,7 +59,7 @@ class RefreshKeywords extends Command
             }
 
             // Fetch rankings
-            $rankingsResult = $keywordService->fetchRankings($project, $user);
+            $rankingsResult = $keywordService->fetchRankings($project->id, $user);
             $this->line("  Rankings: {$rankingsResult['fetched']} Keywords, {$rankingsResult['position_snapshots']} Snapshots ({$rankingsResult['cost_cents']} Cent)");
 
             if (isset($rankingsResult['error'])) {

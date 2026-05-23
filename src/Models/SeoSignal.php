@@ -15,6 +15,7 @@ class SeoSignal extends Model
         'team_id',
         'project_id',
         'keyword_id',
+        'url_id',
         'signal_type',
         'severity',
         'title',
@@ -53,5 +54,10 @@ class SeoSignal extends Model
     public function keyword(): BelongsTo
     {
         return $this->belongsTo(SeoKeyword::class, 'keyword_id');
+    }
+
+    public function url(): BelongsTo
+    {
+        return $this->belongsTo(SeoUrl::class, 'url_id');
     }
 }

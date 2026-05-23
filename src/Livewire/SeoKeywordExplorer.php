@@ -70,9 +70,8 @@ class SeoKeywordExplorer extends Component
             return;
         }
 
-        SeoKeyword::where('project_id', $this->seoProject->id)
-            ->whereIn('id', $this->selectedKeywords)
-            ->delete();
+        // Detach from project (don't delete team-level keywords)
+        $this->seoProject->keywords()->detach($this->selectedKeywords);
 
         $this->selectedKeywords = [];
         $this->selectAll = false;
@@ -81,7 +80,7 @@ class SeoKeywordExplorer extends Component
     public function fetchMetrics()
     {
         $keywordService = app(SeoKeywordService::class);
-        $result = $keywordService->fetchMetrics($this->seoProject, null, Auth::user());
+        $result = $keywordService->fetchMetrics($this->seoProject->team_id, $this->seoProject->id, Auth::user());
 
         if (isset($result['error'])) {
             session()->flash('error', $result['error']);
@@ -117,7 +116,13 @@ class SeoKeywordExplorer extends Component
             }
         }
 
-        $query->orderBy($this->sortField, $this->sortDirection);
+        // Sort: pivot fields use pivot prefix, keyword fields sort directly
+        $pivotFields = ['position', 'content_status', 'priority'];
+        if (in_array($this->sortField, $pivotFields)) {
+            $query->orderByPivot($this->sortField, $this->sortDirection);
+        } else {
+            $query->orderBy($this->sortField, $this->sortDirection);
+        }
 
         $keywords = $query->paginate(50);
 

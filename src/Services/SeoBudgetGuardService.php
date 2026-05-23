@@ -17,11 +17,12 @@ class SeoBudgetGuardService
         return ($project->budget_spent_cents + $estimatedCostCents) <= $project->budget_limit_cents;
     }
 
-    public function recordCost(SeoProject $project, string $action, int $count, int $costCents, ?User $user = null): SeoBudgetLog
+    public function recordCost(SeoProject $project, string $action, int $count, int $costCents, ?User $user = null, ?string $collector = null): SeoBudgetLog
     {
         $log = SeoBudgetLog::create([
             'project_id' => $project->id,
             'action' => $action,
+            'collector' => $collector,
             'keyword_count' => $count,
             'cost_cents' => $costCents,
             'user_id' => $user?->id,
@@ -47,5 +48,19 @@ class SeoBudgetGuardService
             'remaining_cents' => $project->budget_remaining_cents,
             'percentage' => $project->budget_percentage,
         ];
+    }
+
+    /**
+     * Calculate how many items can be afforded at a given cost per item.
+     */
+    public function affordableItemCount(SeoProject $project, int $costPerItem): int
+    {
+        if ($project->budget_limit_cents === null || $costPerItem <= 0) {
+            return PHP_INT_MAX;
+        }
+
+        $remaining = $project->budget_remaining_cents;
+
+        return max(0, (int) floor($remaining / $costPerItem));
     }
 }

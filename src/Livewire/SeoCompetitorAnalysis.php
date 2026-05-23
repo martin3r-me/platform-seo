@@ -18,7 +18,7 @@ class SeoCompetitorAnalysis extends Component
     public function render()
     {
         $analysisService = app(SeoAnalysisService::class);
-        $gaps = $analysisService->getCompetitorGaps($this->seoProject);
+        $gaps = $analysisService->getCompetitorGapsForProject($this->seoProject);
 
         return view('seo::livewire.seo-competitor-analysis', [
             'gaps' => $gaps,

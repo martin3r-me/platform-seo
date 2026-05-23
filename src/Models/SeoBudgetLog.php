@@ -13,6 +13,7 @@ class SeoBudgetLog extends Model
         'project_id',
         'user_id',
         'action',
+        'collector',
         'keyword_count',
         'cost_cents',
     ];

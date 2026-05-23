@@ -4,9 +4,18 @@ namespace Platform\Seo\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Platform\Core\Contracts\HasDisplayName;
 use Symfony\Component\Uid\UuidV7;
+
+/**
+ * Team-level keyword entity.
+ *
+ * Keywords are shared across projects and linked to URLs via the seo_url_keywords pivot.
+ * Project-specific keyword data now lives in the seo_project_keyword pivot (deprecated)
+ * or in seo_url_keywords (new URL-centric model).
+ */
 
 class SeoKeyword extends Model implements HasDisplayName
 {
@@ -15,7 +24,6 @@ class SeoKeyword extends Model implements HasDisplayName
     protected $fillable = [
         'uuid',
         'team_id',
-        'project_id',
         'cluster_id',
         'keyword',
         'search_volume',
@@ -31,13 +39,6 @@ class SeoKeyword extends Model implements HasDisplayName
         'trends_average_interest',
         'trends_peak_interest',
         'trends_fetched_at',
-        'position',
-        'ranked_url',
-        'priority',
-        'notes',
-        'content_status',
-        'target_url',
-        'published_url',
         'dataforseo_raw',
         'last_fetched_at',
     ];
@@ -55,7 +56,6 @@ class SeoKeyword extends Model implements HasDisplayName
         'trends_average_interest' => 'integer',
         'trends_peak_interest' => 'integer',
         'trends_fetched_at' => 'datetime',
-        'position' => 'integer',
         'dataforseo_raw' => 'array',
         'last_fetched_at' => 'datetime',
     ];
@@ -69,9 +69,11 @@ class SeoKeyword extends Model implements HasDisplayName
         });
     }
 
-    public function project(): BelongsTo
+    public function projects(): BelongsToMany
     {
-        return $this->belongsTo(SeoProject::class, 'project_id');
+        return $this->belongsToMany(SeoProject::class, 'seo_project_keyword', 'keyword_id', 'project_id')
+            ->withPivot(['position', 'ranked_url', 'target_url', 'content_status', 'priority', 'notes'])
+            ->withTimestamps();
     }
 
     public function cluster(): BelongsTo
@@ -89,13 +91,40 @@ class SeoKeyword extends Model implements HasDisplayName
         return $this->hasMany(SeoKeywordCompetitor::class, 'keyword_id')->orderByDesc('tracked_at');
     }
 
+    /** @deprecated Use SeoUrlRegistration instead */
     public function contexts(): HasMany
     {
         return $this->hasMany(SeoKeywordContext::class, 'keyword_id')->orderByDesc('created_at');
     }
 
+    /**
+     * URLs that rank for this keyword (new URL-centric relationship).
+     */
+    public function urls(): BelongsToMany
+    {
+        return $this->belongsToMany(SeoUrl::class, 'seo_url_keywords', 'keyword_id', 'url_id')
+            ->withPivot('position', 'previous_position', 'search_engine', 'device', 'position_updated_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Ranking history entries for this keyword.
+     */
+    public function rankingHistory(): HasMany
+    {
+        return $this->hasMany(SeoRankingHistory::class, 'keyword_id')->orderByDesc('tracked_at');
+    }
+
+    /**
+     * GSC data entries for this keyword.
+     */
+    public function gscData(): HasMany
+    {
+        return $this->hasMany(SeoUrlGscData::class, 'keyword_id');
+    }
+
     // =========================================================================
-    // Accessors (ported from SjKeyword)
+    // Accessors
     // =========================================================================
 
     public function getCpcEuroAttribute(): ?float
@@ -159,7 +188,11 @@ class SeoKeyword extends Model implements HasDisplayName
             return false;
         }
 
-        return empty($this->published_url) || $this->position === null;
+        // Check via pivot if available, otherwise fall back
+        $publishedUrl = $this->pivot->target_url ?? null;
+        $position = $this->pivot->position ?? null;
+
+        return empty($publishedUrl) || $position === null;
     }
 
     public function getDisplayName(): ?string

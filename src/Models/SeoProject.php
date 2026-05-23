@@ -4,6 +4,7 @@ namespace Platform\Seo\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Platform\Core\Contracts\HasDisplayName;
@@ -66,9 +67,30 @@ class SeoProject extends Model implements HasDisplayName
         return $this->belongsTo(\Platform\Core\Models\User::class);
     }
 
-    public function keywords(): HasMany
+    /**
+     * URLs belonging to this project.
+     */
+    public function urls(): HasMany
     {
-        return $this->hasMany(SeoKeyword::class, 'project_id');
+        return $this->hasMany(SeoUrl::class, 'project_id');
+    }
+
+    /**
+     * @deprecated Use urls() and seo_url_keywords instead.
+     */
+    public function keywords(): BelongsToMany
+    {
+        return $this->belongsToMany(SeoKeyword::class, 'seo_project_keyword', 'project_id', 'keyword_id')
+            ->withPivot(['position', 'ranked_url', 'target_url', 'content_status', 'priority', 'notes'])
+            ->withTimestamps();
+    }
+
+    /**
+     * @deprecated Alias for backwards compatibility.
+     */
+    public function directKeywords(): BelongsToMany
+    {
+        return $this->keywords();
     }
 
     public function clusters(): HasMany

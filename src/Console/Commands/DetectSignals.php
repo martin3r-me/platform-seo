@@ -38,6 +38,7 @@ class DetectSignals extends Command
         foreach ($projects as $project) {
             $this->info("Projekt: {$project->name} (ID: {$project->id})");
 
+            // Keyword-based signals
             $result = $signalService->detectSignals($project);
 
             $this->line("  Volume Spikes: {$result['volume_spikes']}");
@@ -45,10 +46,20 @@ class DetectSignals extends Command
             $this->line("  Position Rises: {$result['position_rises']}");
             $this->line("  Position Drops: {$result['position_drops']}");
             $this->line("  Opportunities: {$result['opportunities']}");
-            $this->line("  Total: {$result['total_signals']}");
+            $this->line("  Keyword Signals: {$result['total_signals']}");
+
+            // URL-based signals
+            $urlResult = $signalService->detectUrlSignals($project);
+
+            $this->line("  Redirects: {$urlResult['redirect_detected']}");
+            $this->line("  URL Errors: {$urlResult['url_error']}");
+            $this->line("  Cannibalization: {$urlResult['cannibalization_detected']}");
+
+            $urlSignals = array_sum($urlResult);
+            $this->line("  Total: " . ($result['total_signals'] + $urlSignals));
             $this->newLine();
 
-            $totalSignals += $result['total_signals'];
+            $totalSignals += $result['total_signals'] + $urlSignals;
         }
 
         $this->info("Gesamt: {$totalSignals} Signals erstellt.");

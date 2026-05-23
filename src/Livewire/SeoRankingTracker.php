@@ -25,7 +25,7 @@ class SeoRankingTracker extends Component
     public function render()
     {
         $analysisService = app(SeoAnalysisService::class);
-        $trends = $analysisService->getRankingTrends($this->seoProject, $this->periodDays);
+        $trends = $analysisService->getRankingTrendsForProject($this->seoProject, $this->periodDays);
 
         return view('seo::livewire.seo-ranking-tracker', [
             'trends' => $trends,

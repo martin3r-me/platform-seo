@@ -2,12 +2,13 @@
 
 namespace Platform\Seo;
 
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Platform\Core\PlatformCore;
 use Platform\Core\Routing\ModuleRouter;
+use Platform\Seo\Contracts\SeoCollectorInterface;
 use Platform\Seo\Services\SeoBudgetGuardService;
 use Platform\Seo\Services\SeoProjectService;
 use Platform\Seo\Services\SeoKeywordService;
@@ -16,6 +17,8 @@ use Platform\Seo\Services\SeoKeywordCurationService;
 use Platform\Seo\Services\SeoAnalysisService;
 use Platform\Seo\Services\SeoSignalService;
 use Platform\Seo\Services\SeoScoringService;
+use Platform\Seo\Services\SeoUrlPipelineService;
+use Platform\Seo\Services\SeoUrlService;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -28,11 +31,14 @@ class SeoServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Platform\Seo\Console\Commands\RefreshKeywords::class,
+                \Platform\Seo\Console\Commands\RunPipeline::class,
+                \Platform\Seo\Console\Commands\SnapshotUrls::class,
                 \Platform\Seo\Console\Commands\DetectSignals::class,
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
             ]);
         }
 
+        // Existing services
         $this->app->singleton(SeoBudgetGuardService::class);
         $this->app->singleton(SeoProjectService::class);
         $this->app->singleton(SeoKeywordService::class);
@@ -41,6 +47,42 @@ class SeoServiceProvider extends ServiceProvider
         $this->app->singleton(SeoAnalysisService::class);
         $this->app->singleton(SeoSignalService::class);
         $this->app->singleton(SeoScoringService::class);
+
+        // New URL-centric services
+        $this->app->singleton(SeoUrlPipelineService::class, function ($app) {
+            $pipeline = new SeoUrlPipelineService($app->make(SeoBudgetGuardService::class));
+
+            // Register collectors from config
+            $collectorClasses = config('seo.collectors', []);
+            foreach ($collectorClasses as $collectorClass) {
+                if (class_exists($collectorClass)) {
+                    $collector = $app->make($collectorClass);
+                    if ($collector instanceof SeoCollectorInterface) {
+                        $pipeline->registerCollector($collector);
+                    }
+                }
+            }
+
+            return $pipeline;
+        });
+
+        $this->app->singleton(SeoUrlService::class);
+
+        // Core-Contracts: neuer URL-Service
+        $this->app->singleton(
+            \Platform\Core\Contracts\SeoUrlServiceInterface::class,
+            fn ($app) => $app->make(SeoUrlService::class)
+        );
+
+        // Core-Contracts: bestehende (deprecated, fuer UI-Uebergang)
+        $this->app->singleton(
+            \Platform\Core\Contracts\SeoKeywordServiceInterface::class,
+            fn ($app) => $app->make(SeoKeywordService::class)
+        );
+        $this->app->singleton(
+            \Platform\Core\Contracts\SeoAnalysisServiceInterface::class,
+            fn ($app) => $app->make(SeoAnalysisService::class)
+        );
     }
 
     public function boot(): void

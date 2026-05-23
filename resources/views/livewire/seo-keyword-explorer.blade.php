@@ -131,8 +131,8 @@
                             </td>
                             <td class="px-4 py-2.5 text-right text-gray-600">{{ $keyword->cpc_euro !== null ? number_format($keyword->cpc_euro, 2) . ' €' : '—' }}</td>
                             <td class="px-4 py-2.5 text-right">
-                                @if($keyword->position !== null)
-                                    <span class="font-medium {{ $keyword->position <= 3 ? 'text-green-600' : ($keyword->position <= 10 ? 'text-blue-600' : 'text-gray-500') }}">{{ $keyword->position }}</span>
+                                @if($keyword->pivot->position !== null)
+                                    <span class="font-medium {{ $keyword->pivot->position <= 3 ? 'text-green-600' : ($keyword->pivot->position <= 10 ? 'text-blue-600' : 'text-gray-500') }}">{{ $keyword->pivot->position }}</span>
                                 @else
                                     <span class="text-gray-300">&mdash;</span>
                                 @endif
