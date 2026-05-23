@@ -53,26 +53,48 @@ return new class extends Migration
             }
         }
 
-        // 1c. Drop project_id from all tables that still have it
+        // 1c. Drop project_id foreign keys first, then drop the columns
         $tablesWithProjectId = [
-            'seo_urls',
             'seo_signals',
             'seo_keyword_positions',
             'seo_keyword_competitors',
             'seo_budget_logs',
             'seo_keyword_clusters',
+            'seo_urls',
         ];
 
         foreach ($tablesWithProjectId as $tableName) {
-            if (Schema::hasColumn($tableName, 'project_id')) {
-                Schema::table($tableName, function (Blueprint $table) {
-                    $table->dropColumn('project_id');
+            if (! Schema::hasColumn($tableName, 'project_id')) {
+                continue;
+            }
+
+            // Drop FK constraint if it exists (MySQL requires this before dropping the column)
+            $fkName = "{$tableName}_project_id_foreign";
+            if ($this->hasForeignKey($tableName, $fkName)) {
+                Schema::table($tableName, function (Blueprint $table) use ($fkName) {
+                    $table->dropForeign($fkName);
                 });
             }
+
+            Schema::table($tableName, function (Blueprint $table) {
+                $table->dropColumn('project_id');
+            });
         }
 
         // 1d. Drop deprecated pivot table
         Schema::dropIfExists('seo_project_keyword');
+    }
+
+    protected function hasForeignKey(string $table, string $keyName): bool
+    {
+        $database = DB::getDatabaseName();
+        $fks = DB::select(
+            "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+             WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY'",
+            [$database, $table, $keyName],
+        );
+
+        return count($fks) > 0;
     }
 
     public function down(): void
