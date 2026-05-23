@@ -13,14 +13,7 @@
 
     <x-ui-page-container>
 
-        {{-- Navigation Tabs --}}
-        <div class="flex items-center gap-1 border-b border-gray-100 mb-6">
-            <a href="{{ route('seo.projects.show', $seoProject) }}" wire:navigate class="px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-600">Dashboard</a>
-            <a href="{{ route('seo.projects.keywords', $seoProject) }}" wire:navigate class="px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-600">Keywords</a>
-            <a href="{{ route('seo.projects.rankings', $seoProject) }}" wire:navigate class="px-4 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600">Rankings</a>
-            <a href="{{ route('seo.projects.competitors', $seoProject) }}" wire:navigate class="px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-600">Wettbewerber</a>
-            <a href="{{ route('seo.projects.signals', $seoProject) }}" wire:navigate class="px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-600">Signale</a>
-        </div>
+        @include('seo::partials.project-tabs', ['projectId' => $seoProject, 'active' => 'rankings'])
 
         {{-- Period Selector --}}
         <div class="flex items-center gap-2 mb-6">
@@ -32,93 +25,114 @@
             @endforeach
         </div>
 
-        {{-- Summary --}}
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-                <div class="text-2xl font-light text-green-600">{{ $trends['summary']['rising_count'] }}</div>
-                <div class="text-xs text-gray-400 mt-1">Aufsteiger</div>
+        {{-- Summary Stats --}}
+        <x-ui-stats-grid :cols="5">
+            <x-ui-dashboard-tile title="Aufsteiger" :count="$trends['summary']['rising_count']" icon="arrow-trending-up" variant="success" />
+            <x-ui-dashboard-tile title="Absteiger" :count="$trends['summary']['falling_count']" icon="arrow-trending-down" variant="danger" />
+            <x-ui-dashboard-tile title="Stabil" :count="$trends['summary']['stable_count']" icon="minus" variant="neutral" />
+            <x-ui-dashboard-tile title="Neu" :count="$trends['summary']['new_entries_count']" icon="sparkles" variant="info" />
+            <x-ui-dashboard-tile title="Keine Daten" :count="$trends['summary']['no_data_count']" icon="question-mark-circle" variant="neutral" />
+        </x-ui-stats-grid>
+
+        {{-- Position Distribution Chart --}}
+        @if(!empty($positionDistribution))
+            <div class="bg-white rounded-xl border border-gray-100 p-6">
+                <h3 class="text-sm font-medium text-gray-700 mb-4">Positions-Verteilung</h3>
+                @php
+                    $distChartId = 'ranking-dist-' . uniqid();
+                    $distData = json_encode(array_values($positionDistribution));
+                    $distLabels = json_encode(array_keys($positionDistribution));
+                @endphp
+                <div id="{{ $distChartId }}" style="height: 200px;" wire:ignore></div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        if (typeof ApexCharts !== 'undefined') {
+                            new ApexCharts(document.querySelector('#{{ $distChartId }}'), {
+                                chart: { type: 'bar', height: 200, toolbar: { show: false } },
+                                series: [{ name: 'Keywords', data: {!! $distData !!} }],
+                                xaxis: { categories: {!! $distLabels !!} },
+                                colors: ['#2ecc71', '#27ae60', '#f39c12', '#e67e22', '#e74c3c'],
+                                plotOptions: { bar: { distributed: true, borderRadius: 4 } },
+                                legend: { show: false },
+                                dataLabels: { enabled: true },
+                            }).render();
+                        }
+                    });
+                </script>
             </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-                <div class="text-2xl font-light text-red-600">{{ $trends['summary']['falling_count'] }}</div>
-                <div class="text-xs text-gray-400 mt-1">Absteiger</div>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-                <div class="text-2xl font-light text-gray-600">{{ $trends['summary']['stable_count'] }}</div>
-                <div class="text-xs text-gray-400 mt-1">Stabil</div>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-                <div class="text-2xl font-light text-blue-600">{{ $trends['summary']['new_entries_count'] }}</div>
-                <div class="text-xs text-gray-400 mt-1">Neu</div>
-            </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-                <div class="text-2xl font-light text-gray-400">{{ $trends['summary']['no_data_count'] }}</div>
-                <div class="text-xs text-gray-400 mt-1">Keine Daten</div>
-            </div>
+        @endif
+
+        {{-- Filter --}}
+        <div class="flex items-center gap-2 mb-4">
+            @foreach(['all' => 'Alle', 'winners' => 'Gewinner', 'losers' => 'Verlierer'] as $type => $label)
+                <button wire:click="setFilterType('{{ $type }}')"
+                        class="px-3 py-1.5 text-sm rounded-lg {{ $filterType === $type ? 'bg-indigo-50 text-indigo-600 font-medium' : 'text-gray-500 hover:bg-gray-50' }}">
+                    {{ $label }}
+                </button>
+            @endforeach
         </div>
 
-        {{-- Rising Keywords --}}
-        @if(!empty($trends['rising']))
-            <div class="mb-8">
-                <h3 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                    @svg('heroicon-o-arrow-trending-up', 'w-4 h-4 text-green-500')
-                    Aufsteiger
-                </h3>
-                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-100 text-left text-gray-400">
-                                <th class="px-4 py-3">Keyword</th>
-                                <th class="px-4 py-3">Cluster</th>
-                                <th class="px-4 py-3 text-right">Position</th>
-                                <th class="px-4 py-3 text-right">Ver&auml;nderung</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($trends['rising'] as $entry)
-                                <tr class="border-b border-gray-50">
-                                    <td class="px-4 py-2.5 font-medium text-gray-900">{{ $entry['keyword'] }}</td>
-                                    <td class="px-4 py-2.5 text-gray-500 text-xs">{{ $entry['cluster'] ?? '—' }}</td>
-                                    <td class="px-4 py-2.5 text-right text-gray-700">{{ $entry['current_position'] }}</td>
-                                    <td class="px-4 py-2.5 text-right text-green-600 font-medium">+{{ $entry['position_change'] }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        @endif
+        {{-- Rankings Table --}}
+        <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-100 text-left text-gray-400">
+                        <th class="px-4 py-3">URL</th>
+                        <th class="px-4 py-3">Keyword</th>
+                        <th class="px-4 py-3 text-right">Position</th>
+                        <th class="px-4 py-3 text-right">Veränderung</th>
+                        <th class="px-4 py-3">SERP Features</th>
+                        <th class="px-4 py-3 text-right">Datum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($rankings as $entry)
+                        <tr wire:key="rank-{{ $entry->id }}" class="border-b border-gray-50 hover:bg-gray-50/50">
+                            <td class="px-4 py-2.5">
+                                @if($entry->url)
+                                    <a href="{{ route('seo.projects.urls.show', [$seoProject, $entry->url]) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-[200px]">
+                                        {{ $entry->url->path ?: '/' }}
+                                    </a>
+                                @else
+                                    <span class="text-gray-300">—</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-2.5 font-medium text-gray-900">{{ $entry->keyword?->keyword ?? '—' }}</td>
+                            <td class="px-4 py-2.5 text-right">
+                                @include('seo::partials.position-badge', ['position' => $entry->position, 'change' => $entry->position_delta])
+                            </td>
+                            <td class="px-4 py-2.5 text-right">
+                                @if($entry->position_delta !== null)
+                                    <span class="{{ $entry->position_delta > 0 ? 'text-green-600' : ($entry->position_delta < 0 ? 'text-red-600' : 'text-gray-400') }} font-medium">
+                                        {{ $entry->position_delta > 0 ? '+' : '' }}{{ $entry->position_delta }}
+                                    </span>
+                                @else
+                                    <span class="text-gray-300">—</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-2.5">
+                                @if($entry->serp_features)
+                                    @foreach((array)$entry->serp_features as $feature)
+                                        <span class="inline-block px-1.5 py-0.5 bg-gray-100 rounded text-[10px] text-gray-600 mr-1">{{ $feature }}</span>
+                                    @endforeach
+                                @endif
+                            </td>
+                            <td class="px-4 py-2.5 text-right text-xs text-gray-400">{{ $entry->tracked_at?->format('d.m.Y') ?? '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-4 py-12 text-center text-gray-400">
+                                Keine Ranking-Daten für diesen Zeitraum.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
-        {{-- Falling Keywords --}}
-        @if(!empty($trends['falling']))
-            <div class="mb-8">
-                <h3 class="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                    @svg('heroicon-o-arrow-trending-down', 'w-4 h-4 text-red-500')
-                    Absteiger
-                </h3>
-                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-100 text-left text-gray-400">
-                                <th class="px-4 py-3">Keyword</th>
-                                <th class="px-4 py-3">Cluster</th>
-                                <th class="px-4 py-3 text-right">Position</th>
-                                <th class="px-4 py-3 text-right">Ver&auml;nderung</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($trends['falling'] as $entry)
-                                <tr class="border-b border-gray-50">
-                                    <td class="px-4 py-2.5 font-medium text-gray-900">{{ $entry['keyword'] }}</td>
-                                    <td class="px-4 py-2.5 text-gray-500 text-xs">{{ $entry['cluster'] ?? '—' }}</td>
-                                    <td class="px-4 py-2.5 text-right text-gray-700">{{ $entry['current_position'] }}</td>
-                                    <td class="px-4 py-2.5 text-right text-red-600 font-medium">{{ $entry['position_change'] }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        @endif
+        <div class="mt-4">
+            {{ $rankings->links() }}
+        </div>
 
     </x-ui-page-container>
 </x-ui-page>

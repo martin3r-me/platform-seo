@@ -8,6 +8,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoProject;
+use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoKeywordService;
 
 class SeoKeywordExplorer extends Component
@@ -18,6 +19,7 @@ class SeoKeywordExplorer extends Component
 
     public string $search = '';
     public ?string $filterIntent = null;
+    public ?string $filterTopic = null;
     public ?int $filterCluster = null;
     public string $sortField = 'search_volume';
     public string $sortDirection = 'desc';
@@ -27,6 +29,8 @@ class SeoKeywordExplorer extends Component
 
     public array $selectedKeywords = [];
     public bool $selectAll = false;
+
+    public ?int $expandedKeywordId = null;
 
     public function mount(SeoProject $seoProject)
     {
@@ -48,6 +52,11 @@ class SeoKeywordExplorer extends Component
         }
     }
 
+    public function toggleExpand(int $keywordId)
+    {
+        $this->expandedKeywordId = $this->expandedKeywordId === $keywordId ? null : $keywordId;
+    }
+
     public function addKeywords()
     {
         $lines = array_filter(array_map('trim', explode("\n", $this->newKeywords)));
@@ -57,7 +66,7 @@ class SeoKeywordExplorer extends Component
         }
 
         $keywordService = app(SeoKeywordService::class);
-        $data = array_map(fn($line) => ['keyword' => strtolower($line)], $lines);
+        $data = array_map(fn ($line) => ['keyword' => strtolower($line)], $lines);
         $keywordService->addKeywords($this->seoProject, $data, Auth::user());
 
         $this->newKeywords = '';
@@ -70,7 +79,6 @@ class SeoKeywordExplorer extends Component
             return;
         }
 
-        // Detach from project (don't delete team-level keywords)
         $this->seoProject->keywords()->detach($this->selectedKeywords);
 
         $this->selectedKeywords = [];
@@ -95,10 +103,33 @@ class SeoKeywordExplorer extends Component
         return $this->seoProject->clusters()->get();
     }
 
+    #[Computed]
+    public function topics()
+    {
+        return $this->seoProject->keywords()
+            ->whereNotNull('topic')
+            ->distinct()
+            ->pluck('topic');
+    }
+
+    #[Computed]
+    public function expandedUrls()
+    {
+        if (! $this->expandedKeywordId) {
+            return collect();
+        }
+
+        return SeoUrl::where('project_id', $this->seoProject->id)
+            ->whereHas('keywords', fn ($q) => $q->where('seo_keywords.id', $this->expandedKeywordId))
+            ->with(['keywords' => fn ($q) => $q->where('seo_keywords.id', $this->expandedKeywordId)])
+            ->get();
+    }
+
     public function render()
     {
         $query = $this->seoProject->keywords()
-            ->with('cluster');
+            ->with('cluster')
+            ->withCount('urls');
 
         if ($this->search) {
             $query->where('keyword', 'like', "%{$this->search}%");
@@ -106,6 +137,10 @@ class SeoKeywordExplorer extends Component
 
         if ($this->filterIntent) {
             $query->where('search_intent', $this->filterIntent);
+        }
+
+        if ($this->filterTopic) {
+            $query->where('topic', $this->filterTopic);
         }
 
         if ($this->filterCluster !== null) {
@@ -116,7 +151,6 @@ class SeoKeywordExplorer extends Component
             }
         }
 
-        // Sort: pivot fields use pivot prefix, keyword fields sort directly
         $pivotFields = ['position', 'content_status', 'priority'];
         if (in_array($this->sortField, $pivotFields)) {
             $query->orderByPivot($this->sortField, $this->sortDirection);

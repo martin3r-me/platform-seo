@@ -17,46 +17,68 @@
 
     <x-ui-page-container>
 
-        {{-- Hero Stats --}}
-        <div class="py-12 md:py-16">
-            <div class="flex items-baseline gap-6 flex-wrap">
-                <div>
-                    <span class="text-5xl md:text-6xl font-light text-gray-900 tracking-tight">{{ $projects->count() }}</span>
-                    <span class="text-lg text-gray-400 ml-2">{{ $projects->count() === 1 ? 'Projekt' : 'Projekte' }}</span>
-                </div>
-                <div class="flex items-baseline gap-6 text-base text-gray-300">
-                    <span>{{ $projects->sum('keywords_count') }} Keywords</span>
-                </div>
-            </div>
-        </div>
+        @include('seo::partials.seo-colors')
+
+        {{-- Stats Grid --}}
+        <x-ui-stats-grid :cols="4">
+            <x-ui-dashboard-tile title="Projekte" :count="$totalProjects" icon="folder" variant="primary" />
+            <x-ui-dashboard-tile title="URLs gesamt" :count="$totalUrls" icon="globe-alt" variant="info" />
+            <x-ui-dashboard-tile title="Ø Sichtbarkeit" :count="$avgVisibility . '%'" icon="eye" variant="success" />
+            <x-ui-dashboard-tile title="Budget verbleibend" :count="'€' . number_format($totalBudgetRemaining / 100, 0)" icon="banknotes" variant="neutral" />
+        </x-ui-stats-grid>
 
         {{-- Project Cards --}}
-        @if($projects->isNotEmpty())
+        @if($projectData->isNotEmpty())
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                @foreach($projects as $project)
+                @foreach($projectData as $data)
+                    @php $project = $data['project']; @endphp
                     <a href="{{ route('seo.projects.show', $project) }}" wire:navigate
                        class="group relative flex flex-col bg-white rounded-2xl border border-gray-100 hover:border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden">
                         <div class="h-1.5 bg-indigo-500"></div>
                         <div class="flex-1 p-6">
-                            <h2 class="text-xl font-semibold tracking-tight text-gray-900">{{ $project->name }}</h2>
-                            @if($project->domain)
-                                <p class="text-sm text-gray-400 mt-1">{{ $project->domain }}</p>
-                            @endif
-                            @if($project->description)
-                                <p class="text-sm text-gray-400 leading-relaxed mt-1.5 line-clamp-2">{{ $project->description }}</p>
-                            @endif
-                            <div class="mt-4 flex items-center gap-4 text-sm text-gray-400">
-                                <span>{{ $project->keywords_count }} Keywords</span>
-                                @if($project->industry_preset)
-                                    <span class="px-2 py-0.5 bg-gray-100 rounded text-xs">{{ config("seo.industry_presets.{$project->industry_preset}.label", $project->industry_preset) }}</span>
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <h2 class="text-xl font-semibold tracking-tight text-gray-900">{{ $project->name }}</h2>
+                                    @if($project->domain)
+                                        <p class="text-sm text-gray-400 mt-1">{{ $project->domain }}</p>
+                                    @endif
+                                </div>
+                                @if($data['visibility'] > 0)
+                                    @include('seo::partials.score-gauge', ['value' => $data['visibility'], 'label' => 'Sichtb.', 'size' => 'sm'])
                                 @endif
                             </div>
+
+                            <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+                                <div>
+                                    <div class="text-lg font-semibold text-gray-900">{{ $project->urls_count }}</div>
+                                    <div class="text-[10px] uppercase tracking-wider text-gray-400">URLs</div>
+                                </div>
+                                <div>
+                                    <div class="text-lg font-semibold text-gray-900">{{ $project->own_urls_count }}</div>
+                                    <div class="text-[10px] uppercase tracking-wider text-gray-400">Eigene</div>
+                                </div>
+                                <div>
+                                    <div class="text-lg font-semibold text-gray-900">{{ $project->urls_count - $project->own_urls_count }}</div>
+                                    <div class="text-[10px] uppercase tracking-wider text-gray-400">Wettb.</div>
+                                </div>
+                            </div>
+
+                            @if($data['budget_percentage'] !== null)
+                                <div class="mt-4">
+                                    <div class="flex items-center justify-between text-xs text-gray-400 mb-1">
+                                        <span>Budget</span>
+                                        <span>{{ $data['budget_percentage'] }}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-100 rounded-full h-1.5">
+                                        <div class="h-1.5 rounded-full {{ $data['budget_percentage'] > 80 ? 'bg-red-500' : ($data['budget_percentage'] > 50 ? 'bg-amber-500' : 'bg-indigo-500') }}"
+                                             style="width: {{ min($data['budget_percentage'], 100) }}%"></div>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                         <div class="px-6 py-3.5 border-t border-gray-50 flex items-center justify-between">
                             <span class="text-[12px] text-gray-300">{{ $project->updated_at->format('d. M Y') }}</span>
-                            <span class="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                &Ouml;ffnen &rarr;
-                            </span>
+                            <span class="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200">Öffnen →</span>
                         </div>
                     </a>
                 @endforeach

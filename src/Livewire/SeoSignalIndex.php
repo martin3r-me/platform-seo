@@ -16,10 +16,17 @@ class SeoSignalIndex extends Component
 
     public string $filterStatus = 'new';
     public ?string $filterType = null;
+    public ?string $filterSeverity = null;
 
     public function mount(SeoProject $seoProject)
     {
         $this->seoProject = $seoProject;
+    }
+
+    public function setFilterStatus(string $status)
+    {
+        $this->filterStatus = $status;
+        $this->resetPage();
     }
 
     public function acknowledge(int $signalId)
@@ -37,7 +44,7 @@ class SeoSignalIndex extends Component
     public function render()
     {
         $query = $this->seoProject->signals()
-            ->with('keyword')
+            ->with(['keyword', 'url'])
             ->orderByDesc('detected_at');
 
         if ($this->filterStatus) {
@@ -46,6 +53,10 @@ class SeoSignalIndex extends Component
 
         if ($this->filterType) {
             $query->where('signal_type', $this->filterType);
+        }
+
+        if ($this->filterSeverity) {
+            $query->where('severity', $this->filterSeverity);
         }
 
         $signals = $query->paginate(25);

@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Platform\Seo\Models\SeoProject;
 use Platform\Seo\Services\SeoProjectService;
+use Platform\Seo\Services\SeoScoringService;
 
 class SeoProjectIndex extends Component
 {
@@ -43,12 +44,32 @@ class SeoProjectIndex extends Component
         $team = $user->currentTeam;
 
         $projects = SeoProject::where('team_id', $team->id)
-            ->withCount('keywords')
+            ->withCount(['urls', 'urls as own_urls_count' => fn ($q) => $q->where('is_own', true)])
             ->orderBy('name')
             ->get();
 
+        $scoringService = app(SeoScoringService::class);
+        $projectData = $projects->map(function ($project) use ($scoringService) {
+            $visibility = $scoringService->getVisibilityScore($project);
+
+            return [
+                'project' => $project,
+                'visibility' => $visibility['percentage'],
+                'budget_percentage' => $project->budget_percentage,
+                'budget_remaining' => $project->budget_remaining_cents,
+            ];
+        });
+
+        $totalUrls = $projects->sum('urls_count');
+        $avgVisibility = $projectData->avg('visibility') ?? 0;
+        $totalBudgetRemaining = $projectData->sum('budget_remaining');
+
         return view('seo::livewire.seo-project-index', [
-            'projects' => $projects,
+            'projectData' => $projectData,
+            'totalProjects' => $projects->count(),
+            'totalUrls' => $totalUrls,
+            'avgVisibility' => round($avgVisibility, 1),
+            'totalBudgetRemaining' => $totalBudgetRemaining,
             'presets' => config('seo.industry_presets', []),
         ])->layout('platform::layouts.app');
     }
