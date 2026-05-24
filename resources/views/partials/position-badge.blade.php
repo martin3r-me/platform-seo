@@ -2,22 +2,22 @@
 
 @php
     if ($position === null) {
-        $color = 'var(--seo-pos-none)';
+        $color = '#95a5a6';
         $label = '—';
     } elseif ($position <= 3) {
-        $color = 'var(--seo-pos-top3)';
+        $color = '#2ecc71';
         $label = $position;
     } elseif ($position <= 10) {
-        $color = 'var(--seo-pos-top10)';
+        $color = '#27ae60';
         $label = $position;
     } elseif ($position <= 20) {
-        $color = 'var(--seo-pos-top20)';
+        $color = '#f39c12';
         $label = $position;
     } elseif ($position <= 50) {
-        $color = 'var(--seo-pos-top50)';
+        $color = '#e67e22';
         $label = $position;
     } else {
-        $color = 'var(--seo-pos-top100)';
+        $color = '#e74c3c';
         $label = $position;
     }
 @endphp

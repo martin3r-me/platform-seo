@@ -1,5 +1,3 @@
-@include('seo::partials.seo-colors')
-
 <x-ui-page>
     <x-slot name="navbar">
         <x-ui-page-navbar title="SEO Dashboard" icon="heroicon-o-magnifying-glass-circle" />

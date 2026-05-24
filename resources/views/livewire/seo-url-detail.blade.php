@@ -1,5 +1,3 @@
-@include('seo::partials.seo-colors')
-
 <x-ui-page>
     <x-slot name="navbar">
         <x-ui-page-navbar title="URL Detail" icon="heroicon-o-globe-alt" />

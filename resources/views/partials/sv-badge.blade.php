@@ -2,19 +2,19 @@
 
 @php
     if ($volume === null) {
-        $color = 'var(--seo-sv-tiny)';
+        $color = '#95a5a6';
         $label = '—';
     } elseif ($volume >= 10000) {
-        $color = 'var(--seo-sv-high)';
+        $color = '#3498db';
         $label = number_format($volume / 1000, 1) . 'K';
     } elseif ($volume >= 1000) {
-        $color = 'var(--seo-sv-medium)';
+        $color = '#2ecc71';
         $label = number_format($volume / 1000, 1) . 'K';
     } elseif ($volume >= 100) {
-        $color = 'var(--seo-sv-low)';
+        $color = '#f39c12';
         $label = number_format($volume);
     } else {
-        $color = 'var(--seo-sv-tiny)';
+        $color = '#95a5a6';
         $label = number_format($volume);
     }
 @endphp
