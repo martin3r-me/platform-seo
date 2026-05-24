@@ -8,6 +8,7 @@ use Platform\Core\Models\Team;
 use Platform\Core\Models\User;
 use Platform\Integrations\Services\DataForSeoApiService;
 use Platform\Integrations\Services\IntegrationConnectionResolver;
+use Platform\Integrations\DTOs\DataForSeo\RankedKeywordResult;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
@@ -131,10 +132,14 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         return ['fetched' => $fetchedCount, 'cost_cents' => $actualCost];
     }
 
-    public function fetchRankings(int $teamId, ?User $user = null): array
+    public function fetchRankings(int $teamId, ?User $user = null, int $limit = 0): array
     {
         $settings = SeoTeamSettings::where('team_id', $teamId)->firstOrFail();
-        $keywords = SeoKeyword::where('team_id', $teamId)->get();
+        $query = SeoKeyword::where('team_id', $teamId);
+        if ($limit > 0) {
+            $query->limit($limit);
+        }
+        $keywords = $query->get();
 
         if ($keywords->isEmpty()) {
             return ['fetched' => 0, 'cost_cents' => 0, 'position_snapshots' => 0];
@@ -399,6 +404,314 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         $this->budgetGuard->recordCost($settings, 'discover_from_domain', count($keywords), $actualCost, $user);
 
         return ['keywords' => $keywords, 'cost_cents' => $actualCost];
+    }
+
+    /**
+     * Fetch rankings per domain using getRankedKeywords() — 1 API-Call pro Domain statt N pro Keyword.
+     *
+     * Kosten: ~10 Cent pro Domain statt ~10 Cent pro Keyword.
+     */
+    public function fetchRankingsByDomain(int $teamId, ?User $user = null, array $options = []): array
+    {
+        $settings = SeoTeamSettings::where('team_id', $teamId)->firstOrFail();
+        $keywordsLimit = $options['keywords_limit'] ?? 500;
+        $dryRun = $options['dry_run'] ?? false;
+        $filterDomain = $options['domain'] ?? null;
+        $maxUrls = $options['max_urls'] ?? null;
+
+        // Eigene URLs laden (is_own=true)
+        $urlQuery = SeoUrl::where('team_id', $teamId)->where('is_own', true);
+        if ($filterDomain) {
+            $urlQuery->where('domain', $filterDomain);
+        }
+        if ($maxUrls) {
+            $urlQuery->limit($maxUrls);
+        }
+        $ownUrls = $urlQuery->get();
+
+        if ($ownUrls->isEmpty()) {
+            return ['fetched' => 0, 'cost_cents' => 0, 'position_snapshots' => 0, 'error' => 'Keine eigenen URLs registriert (is_own=true).'];
+        }
+
+        // Nach Domain gruppieren
+        $byDomain = [];
+        foreach ($ownUrls as $url) {
+            if ($url->domain) {
+                $byDomain[$url->domain][] = $url;
+            }
+        }
+
+        if (empty($byDomain)) {
+            return ['fetched' => 0, 'cost_cents' => 0, 'position_snapshots' => 0, 'error' => 'Keine Domains in URLs gefunden.'];
+        }
+
+        $domainCount = count($byDomain);
+        $estimatedCost = $this->estimateCost('labs_ranked', $domainCount);
+
+        // Dry run: nur Kosten schätzen
+        if ($dryRun) {
+            return [
+                'dry_run' => true,
+                'domains' => array_keys($byDomain),
+                'domain_count' => $domainCount,
+                'urls_count' => $ownUrls->count(),
+                'keywords_limit_per_domain' => $keywordsLimit,
+                'estimated_cost_cents' => $estimatedCost,
+                'fetched' => 0,
+                'cost_cents' => 0,
+                'position_snapshots' => 0,
+            ];
+        }
+
+        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
+            return ['fetched' => 0, 'cost_cents' => 0, 'position_snapshots' => 0, 'error' => 'Budget limit exceeded'];
+        }
+
+        $api = $this->resolveApiService($settings);
+        $today = now()->toDateString();
+
+        $totalKeywordsUpserted = 0;
+        $positionSnapshots = 0;
+        $urlsUpdated = 0;
+        $apiCallsMade = 0;
+        $domainResults = [];
+
+        foreach ($byDomain as $domain => $domainUrls) {
+            try {
+                $rankedResults = $api->getRankedKeywords(
+                    $user,
+                    $domain,
+                    $settings->location_code,
+                    $settings->resolveLanguageName(),
+                    $keywordsLimit,
+                );
+                $apiCallsMade++;
+            } catch (\Throwable $e) {
+                $domainResults[$domain] = ['error' => $e->getMessage()];
+                continue;
+            }
+
+            if (empty($rankedResults)) {
+                $domainResults[$domain] = ['keywords' => 0, 'matched' => 0];
+                continue;
+            }
+
+            // Phase 1: Keywords upserten mit Metriken
+            $keywordModels = $this->upsertKeywordsFromRanked($teamId, $rankedResults);
+            $totalKeywordsUpserted += count($keywordModels);
+
+            // Phase 2: URL-Pfad-Match + Rankings zuordnen
+            $urlPaths = [];
+            foreach ($domainUrls as $url) {
+                $path = $url->path ?: (parse_url($url->url, PHP_URL_PATH) ?: '/');
+                $urlPaths[$url->id] = rtrim(strtolower($path), '/');
+            }
+
+            $matchedCount = 0;
+            foreach ($rankedResults as $rk) {
+                if (!$rk->position || !$rk->url) {
+                    continue;
+                }
+
+                $keywordLower = strtolower(trim($rk->keyword));
+                $keywordModel = $keywordModels[$keywordLower] ?? null;
+                if (!$keywordModel) {
+                    continue;
+                }
+
+                // URL-Pfad-Match
+                $rankedPath = rtrim(strtolower(parse_url($rk->url, PHP_URL_PATH) ?: '/'), '/');
+                $matchedUrlId = $this->findBestPathMatch($rankedPath, $urlPaths);
+
+                if (!$matchedUrlId) {
+                    continue;
+                }
+
+                $matchedCount++;
+
+                // Pivot: seo_url_keywords updaten
+                $matchedUrl = collect($domainUrls)->firstWhere('id', $matchedUrlId);
+                if ($matchedUrl) {
+                    $existingPivot = $matchedUrl->keywords()
+                        ->where('keyword_id', $keywordModel->id)
+                        ->first();
+
+                    $previousPosition = $existingPivot?->pivot?->position;
+
+                    $matchedUrl->keywords()->syncWithoutDetaching([
+                        $keywordModel->id => [
+                            'position' => $rk->position,
+                            'previous_position' => $previousPosition,
+                            'position_updated_at' => now(),
+                        ],
+                    ]);
+                }
+
+                // SeoKeywordPosition Snapshot (Tages-Aggregat)
+                $existingSnapshot = SeoKeywordPosition::where('keyword_id', $keywordModel->id)
+                    ->where('team_id', $teamId)
+                    ->where('tracked_at', $today)
+                    ->where('search_engine', 'google')
+                    ->where('device', 'desktop')
+                    ->first();
+
+                if ($existingSnapshot) {
+                    $existingSnapshot->update([
+                        'position' => $rk->position,
+                        'ranked_url' => $rk->url,
+                        'serp_features' => $rk->serpFeatures,
+                    ]);
+                } else {
+                    $lastSnapshot = SeoKeywordPosition::where('keyword_id', $keywordModel->id)
+                        ->where('team_id', $teamId)
+                        ->where('search_engine', 'google')
+                        ->where('device', 'desktop')
+                        ->where('tracked_at', '<', $today)
+                        ->orderByDesc('tracked_at')
+                        ->first();
+
+                    SeoKeywordPosition::create([
+                        'keyword_id' => $keywordModel->id,
+                        'team_id' => $teamId,
+                        'position' => $rk->position,
+                        'previous_position' => $lastSnapshot?->position,
+                        'ranked_url' => $rk->url,
+                        'serp_features' => $rk->serpFeatures,
+                        'tracked_at' => $today,
+                        'search_engine' => 'google',
+                        'device' => 'desktop',
+                    ]);
+                }
+                $positionSnapshots++;
+            }
+
+            // Denormalisierte Felder auf URLs updaten
+            foreach ($domainUrls as $url) {
+                $this->updateUrlDenormalized($url);
+                $urlsUpdated++;
+            }
+
+            $domainResults[$domain] = [
+                'keywords' => count($rankedResults),
+                'upserted' => count($keywordModels),
+                'matched' => $matchedCount,
+            ];
+        }
+
+        $actualCost = $this->estimateCost('labs_ranked', $apiCallsMade);
+        $this->budgetGuard->recordCost($settings, 'fetch_rankings_by_domain', $apiCallsMade, $actualCost, $user);
+
+        $settings->update(['next_refresh_at' => now()->addHours($settings->refresh_interval_hours)]);
+
+        return [
+            'fetched' => $totalKeywordsUpserted,
+            'cost_cents' => $actualCost,
+            'position_snapshots' => $positionSnapshots,
+            'api_calls' => $apiCallsMade,
+            'domains' => $domainResults,
+            'urls_updated' => $urlsUpdated,
+        ];
+    }
+
+    /**
+     * Upsert keywords from getRankedKeywords() results with all metrics.
+     *
+     * @param RankedKeywordResult[] $rankedResults
+     * @return array<string, SeoKeyword> Indexed by lowercase keyword
+     */
+    protected function upsertKeywordsFromRanked(int $teamId, array $rankedResults): array
+    {
+        $models = [];
+
+        foreach ($rankedResults as $rk) {
+            $keywordLower = strtolower(trim($rk->keyword));
+
+            $monthlyVolumes = null;
+            $peakMonth = null;
+            $seasonalityIndex = null;
+
+            if ($rk->monthlySearches && count($rk->monthlySearches) >= 6) {
+                $byMonth = [];
+                foreach ($rk->monthlySearches as $m) {
+                    $month = $m['month'] ?? 0;
+                    if ($month >= 1 && $month <= 12) {
+                        $byMonth[$month] = $m['search_volume'] ?? 0;
+                    }
+                }
+                if (count($byMonth) >= 6) {
+                    $monthlyVolumes = $byMonth;
+                    $peakMonth = array_search(max($byMonth), $byMonth);
+                    $avg = array_sum($byMonth) / count($byMonth);
+                    $seasonalityIndex = $avg > 0 ? round(max($byMonth) / $avg, 2) : null;
+                }
+            }
+
+            $updateData = array_filter([
+                'search_volume' => $rk->searchVolume,
+                'cpc_cents' => $rk->cpc !== null ? (int) round($rk->cpc * 100) : null,
+                'competition' => $rk->competition,
+                'keyword_difficulty' => $rk->keywordDifficulty,
+                'monthly_volumes' => $monthlyVolumes,
+                'peak_month' => $peakMonth,
+                'seasonality_index' => $seasonalityIndex,
+                'last_fetched_at' => now(),
+            ], fn ($v) => $v !== null);
+
+            $models[$keywordLower] = SeoKeyword::updateOrCreate(
+                ['team_id' => $teamId, 'keyword' => $keywordLower],
+                $updateData,
+            );
+        }
+
+        return $models;
+    }
+
+    /**
+     * Find best matching URL by path prefix (longest match wins).
+     *
+     * @param array<int, string> $urlPaths URL ID => normalized path
+     */
+    protected function findBestPathMatch(string $rankedPath, array $urlPaths): ?int
+    {
+        $bestMatch = null;
+        $bestLength = -1;
+
+        foreach ($urlPaths as $urlId => $entityPath) {
+            if ($rankedPath === $entityPath || str_starts_with($rankedPath, $entityPath . '/')) {
+                if (strlen($entityPath) > $bestLength) {
+                    $bestMatch = $urlId;
+                    $bestLength = strlen($entityPath);
+                }
+            }
+        }
+
+        return $bestMatch;
+    }
+
+    /**
+     * Update denormalized fields on SeoUrl (keyword_count, total_search_volume, visibility_score).
+     */
+    protected function updateUrlDenormalized(SeoUrl $url): void
+    {
+        $ctrModel = [1 => 0.316, 2 => 0.158, 3 => 0.094, 4 => 0.06, 5 => 0.06];
+
+        $keywords = $url->keywords()->get();
+        $visibilityScore = 0;
+
+        foreach ($keywords as $keyword) {
+            $position = $keyword->pivot->position;
+            if ($position === null || $position < 1) {
+                continue;
+            }
+            $ctr = $ctrModel[$position] ?? ($position <= 10 ? 0.03 : 0.01);
+            $visibilityScore += ($keyword->search_volume ?? 0) * $ctr;
+        }
+
+        $url->update([
+            'keyword_count' => $keywords->count(),
+            'total_search_volume' => $keywords->sum('search_volume'),
+            'visibility_score' => $visibilityScore,
+        ]);
     }
 
     // =========================================================================

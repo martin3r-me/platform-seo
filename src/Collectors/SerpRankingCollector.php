@@ -5,6 +5,7 @@ namespace Platform\Seo\Collectors;
 use Illuminate\Support\Collection;
 use Platform\Integrations\Services\DataForSeoApiService;
 use Platform\Seo\Contracts\SeoCollectorInterface;
+use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
@@ -28,14 +29,11 @@ class SerpRankingCollector implements SeoCollectorInterface
 
     public function estimateCost(Collection $urls): int
     {
-        $keywordCount = 0;
-        foreach ($urls as $url) {
-            $keywordCount += $url->keywords()->count();
-        }
+        // 1 Call pro Domain statt pro Keyword
+        $domainCount = $urls->pluck('domain')->unique()->filter()->count();
+        $costPerDomain = config('seo.cost_estimates.labs_ranked', 10);
 
-        $costPerKeyword = config('seo.cost_estimates.serp', 10);
-
-        return (int) ceil($keywordCount * $costPerKeyword);
+        return (int) ceil($domainCount * $costPerDomain);
     }
 
     public function urlsDueForRefresh(Collection $urls): Collection
@@ -55,105 +53,126 @@ class SerpRankingCollector implements SeoCollectorInterface
     public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
         $api = $this->dataForSeoApi->forConnection($settings->resolveConnectionId());
+        $today = now()->toDateString();
 
-        // Eigene Domains aus registrierten URLs ableiten
-        $ownDomains = SeoUrl::where('team_id', $settings->team_id)
-            ->where('is_own', true)
-            ->pluck('domain')
-            ->unique()
-            ->filter()
-            ->values()
-            ->toArray();
+        // Nach Domain gruppieren
+        $byDomain = [];
+        foreach ($urls as $url) {
+            if ($url->domain) {
+                $byDomain[$url->domain][] = $url;
+            }
+        }
 
         $processed = 0;
         $totalCost = 0;
         $errors = [];
+        $apiCalls = 0;
 
-        foreach ($urls as $url) {
-            $keywords = $url->keywords;
-            if ($keywords->isEmpty()) {
+        foreach ($byDomain as $domain => $domainUrls) {
+            try {
+                // 1 API-Call pro Domain
+                $rankedResults = $api->getRankedKeywords(
+                    null,
+                    $domain,
+                    $settings->location_code,
+                    $settings->resolveLanguageName(),
+                    500,
+                );
+                $apiCalls++;
+            } catch (\Throwable $e) {
+                $errors[] = "Domain '{$domain}': {$e->getMessage()}";
                 continue;
             }
 
-            foreach ($keywords as $keyword) {
-                try {
-                    $serpResults = $api->getSerpOrganic(
-                        null,
-                        $keyword->keyword,
-                        $settings->location_code,
-                        $settings->resolveLanguageName(),
-                    );
-                } catch (\Throwable $e) {
-                    $errors[] = "SERP fuer '{$keyword->keyword}': {$e->getMessage()}";
+            if (empty($rankedResults)) {
+                continue;
+            }
+
+            // URL-Pfade vorbereiten
+            $urlPaths = [];
+            foreach ($domainUrls as $url) {
+                $path = $url->path ?: (parse_url($url->url, PHP_URL_PATH) ?: '/');
+                $urlPaths[$url->id] = rtrim(strtolower($path), '/');
+            }
+
+            // Eigene Domains für Competitor-Erkennung
+            $ownDomains = collect($domainUrls)->pluck('domain')->unique()->filter()->values()->toArray();
+
+            foreach ($rankedResults as $rk) {
+                if (!$rk->position || !$rk->url) {
                     continue;
                 }
 
-                if (empty($serpResults)) {
+                $keywordLower = strtolower(trim($rk->keyword));
+
+                // Keyword upserten
+                $updateData = array_filter([
+                    'search_volume' => $rk->searchVolume,
+                    'cpc_cents' => $rk->cpc !== null ? (int) round($rk->cpc * 100) : null,
+                    'competition' => $rk->competition,
+                    'keyword_difficulty' => $rk->keywordDifficulty,
+                    'last_fetched_at' => now(),
+                ], fn ($v) => $v !== null);
+
+                $keyword = SeoKeyword::updateOrCreate(
+                    ['team_id' => $settings->team_id, 'keyword' => $keywordLower],
+                    $updateData,
+                );
+
+                // URL-Pfad-Match
+                $rankedPath = rtrim(strtolower(parse_url($rk->url, PHP_URL_PATH) ?: '/'), '/');
+                $matchedUrlId = $this->findBestPathMatch($rankedPath, $urlPaths);
+
+                if (!$matchedUrlId) {
                     continue;
                 }
 
-                $ownPosition = null;
-                $serpFeatures = [];
-                foreach ($serpResults as $serpResult) {
-                    $serpFeatures[] = $serpResult->domain;
-                    if (!empty($ownDomains) && $serpResult->url) {
-                        foreach ($ownDomains as $ownDomain) {
-                            if (str_contains($serpResult->url, $ownDomain)) {
-                                $ownPosition = $serpResult->position;
-                                break;
-                            }
-                        }
-                    }
+                $matchedUrl = collect($domainUrls)->firstWhere('id', $matchedUrlId);
+                if (!$matchedUrl) {
+                    continue;
                 }
 
-                // Get previous position from ranking history
-                $lastHistory = SeoRankingHistory::where('url_id', $url->id)
+                // Ranking History
+                $lastHistory = SeoRankingHistory::where('url_id', $matchedUrl->id)
                     ->where('keyword_id', $keyword->id)
                     ->where('search_engine', 'google')
                     ->where('device', 'desktop')
+                    ->where('tracked_at', '<', $today)
                     ->orderByDesc('tracked_at')
                     ->first();
 
-                if ($ownPosition !== null) {
-                    // Store ranking history
-                    SeoRankingHistory::updateOrCreate(
-                        [
-                            'url_id' => $url->id,
-                            'keyword_id' => $keyword->id,
-                            'tracked_at' => now()->toDateString(),
-                            'search_engine' => 'google',
-                            'device' => 'desktop',
-                        ],
-                        [
-                            'position' => $ownPosition,
-                            'previous_position' => $lastHistory?->position,
-                            'serp_features' => array_unique(array_slice($serpFeatures, 0, 10)),
-                        ],
-                    );
+                SeoRankingHistory::updateOrCreate(
+                    [
+                        'url_id' => $matchedUrl->id,
+                        'keyword_id' => $keyword->id,
+                        'tracked_at' => $today,
+                        'search_engine' => 'google',
+                        'device' => 'desktop',
+                    ],
+                    [
+                        'position' => $rk->position,
+                        'previous_position' => $lastHistory?->position,
+                        'serp_features' => $rk->serpFeatures,
+                    ],
+                );
 
-                    // Update pivot position
-                    $url->keywords()->updateExistingPivot($keyword->id, [
-                        'position' => $ownPosition,
+                // Pivot position updaten
+                $matchedUrl->keywords()->syncWithoutDetaching([
+                    $keyword->id => [
+                        'position' => $rk->position,
                         'previous_position' => $lastHistory?->position,
                         'position_updated_at' => now(),
-                    ]);
-                }
-
-                // Detect competitor URLs from SERP
-                foreach (array_slice($serpResults, 0, 10) as $serpResult) {
-                    if ($serpResult->url && !in_array($serpResult->domain, $ownDomains, true)) {
-                        $this->trackCompetitorUrl($settings, $url, $serpResult);
-                    }
-                }
+                    ],
+                ]);
 
                 $processed++;
             }
         }
 
-        $costPerKeyword = config('seo.cost_estimates.serp', 10);
-        $totalCost = (int) ceil($processed * $costPerKeyword);
+        $costPerDomain = config('seo.cost_estimates.labs_ranked', 10);
+        $totalCost = (int) ceil($apiCalls * $costPerDomain);
 
-        // Update URL denormalized visibility
+        // URL-Denormalisierung updaten
         foreach ($urls as $url) {
             $this->updateUrlVisibility($url);
             $url->update(['last_crawled_at' => now()]);
@@ -172,32 +191,21 @@ class SerpRankingCollector implements SeoCollectorInterface
         return 20;
     }
 
-    protected function trackCompetitorUrl(SeoTeamSettings $settings, SeoUrl $ownUrl, object $serpResult): void
+    protected function findBestPathMatch(string $rankedPath, array $urlPaths): ?int
     {
-        $competitorUrl = SeoUrl::firstOrCreate(
-            [
-                'team_id' => $settings->team_id,
-                'url_hash' => SeoUrl::hashUrl($serpResult->url),
-            ],
-            [
-                'url' => SeoUrl::normalizeUrl($serpResult->url),
-                'domain' => $serpResult->domain,
-                'is_own' => false,
-                'priority' => config('seo.priority.competitor_url_default', 30),
-            ],
-        );
+        $bestMatch = null;
+        $bestLength = -1;
 
-        SeoUrlRelationship::updateOrCreate(
-            [
-                'source_url_id' => $ownUrl->id,
-                'target_url_id' => $competitorUrl->id,
-                'type' => 'competitor',
-            ],
-            [
-                'team_id' => $settings->team_id,
-                'detected_at' => now(),
-            ],
-        );
+        foreach ($urlPaths as $urlId => $entityPath) {
+            if ($rankedPath === $entityPath || str_starts_with($rankedPath, $entityPath . '/')) {
+                if (strlen($entityPath) > $bestLength) {
+                    $bestMatch = $urlId;
+                    $bestLength = strlen($entityPath);
+                }
+            }
+        }
+
+        return $bestMatch;
     }
 
     protected function updateUrlVisibility(SeoUrl $url): void
