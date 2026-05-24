@@ -11,7 +11,7 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        @livewire('seo.sidebar', ['active' => 'cannibalization'])
+        @include('seo::partials.sidebar', ['active' => 'cannibalization'])
     </x-slot>
 
     <x-ui-page-container>

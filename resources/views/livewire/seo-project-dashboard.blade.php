@@ -16,7 +16,7 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        @livewire('seo.sidebar', ['active' => 'dashboard'])
+        @include('seo::partials.sidebar', ['active' => 'dashboard'])
     </x-slot>
 
     <x-ui-page-container>

@@ -20,7 +20,7 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        @livewire('seo.sidebar', ['active' => 'keywords'])
+        @include('seo::partials.sidebar', ['active' => 'keywords'])
     </x-slot>
 
     <x-ui-page-container>
