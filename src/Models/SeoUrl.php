@@ -151,6 +151,12 @@ class SeoUrl extends Model
         return $this->hasMany(SeoUrlRelationship::class, 'target_url_id');
     }
 
+    public function lists(): BelongsToMany
+    {
+        return $this->belongsToMany(SeoUrlList::class, 'seo_url_list_entries', 'url_id', 'list_id')
+            ->withPivot('added_at');
+    }
+
     public function getEffectiveRefreshInterval(int $baseIntervalHours): int
     {
         return (int) ($baseIntervalHours * (1 + (100 - $this->priority) / 100));

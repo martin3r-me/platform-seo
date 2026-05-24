@@ -8,8 +8,10 @@ use Platform\Seo\Livewire\SeoRankingTracker;
 use Platform\Seo\Livewire\SeoCompetitorAnalysis;
 use Platform\Seo\Livewire\SeoCannibalization;
 use Platform\Seo\Livewire\SeoSignalIndex;
+use Platform\Seo\Livewire\SeoUrlListManager;
 
 Route::get('/', SeoProjectDashboard::class)->name('seo.dashboard');
+Route::get('/lists', SeoUrlListManager::class)->name('seo.lists');
 Route::get('/urls', SeoUrlExplorer::class)->name('seo.urls');
 Route::get('/urls/{seoUrl}', SeoUrlDetail::class)->name('seo.urls.show');
 Route::get('/keywords', SeoKeywordExplorer::class)->name('seo.keywords');
