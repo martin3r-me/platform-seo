@@ -13,34 +13,99 @@
         ]" />
     </x-slot>
 
+    {{-- LEFT SIDEBAR: SEO Navigation (like all other SEO pages) --}}
     <x-slot name="sidebar">
-        <x-ui-page-sidebar title="URL-Baum" width="w-72" :defaultOpen="true">
-            <div class="p-4 space-y-1">
-                {{-- Back to URLs --}}
-                <a href="{{ route('seo.urls') }}" wire:navigate
-                   class="flex items-center gap-2 px-3 py-2 rounded-md text-xs text-[var(--ui-muted)] hover:bg-[var(--ui-muted-5)] hover:text-[var(--ui-secondary)] transition-colors mb-3">
-                    @svg('heroicon-o-arrow-left', 'w-3.5 h-3.5')
-                    <span>Alle URLs</span>
-                </a>
+        @livewire('seo.sidebar', ['active' => 'urls'])
+    </x-slot>
 
-                {{-- Root URL (current) --}}
-                <div class="flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-[var(--ui-primary-10)] text-[var(--ui-primary)] font-medium">
-                    @svg('heroicon-o-globe-alt', 'w-4 h-4 flex-shrink-0')
-                    <span class="truncate">{{ $seoUrl->path ?: '/' }}</span>
+    {{-- RIGHT SIDEBAR: URL-Baum + Properties --}}
+    <x-slot name="activity">
+        <x-ui-page-sidebar title="URL-Details" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
+            <div class="p-4 space-y-5">
+                {{-- URL Tree --}}
+                <div>
+                    <h3 class="text-[11px] font-medium text-[var(--ui-muted)] uppercase tracking-wide mb-3">URL-Baum</h3>
+                    <div class="space-y-0.5">
+                        {{-- Root URL (current) --}}
+                        <div class="flex items-center gap-2 px-3 py-2 rounded-md text-sm bg-[var(--ui-primary-10)] text-[var(--ui-primary)] font-medium">
+                            @svg('heroicon-o-globe-alt', 'w-4 h-4 flex-shrink-0')
+                            <span class="truncate">{{ $seoUrl->path ?: '/' }}</span>
+                        </div>
+
+                        {{-- Child URLs --}}
+                        @if($childUrls->isNotEmpty())
+                            <div class="ml-4 space-y-0.5 border-l border-[var(--ui-border)]/40 pl-2 mt-1">
+                                @foreach($childUrls as $child)
+                                    <a href="{{ route('seo.urls.show', $child) }}" wire:navigate
+                                       class="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-[var(--ui-muted)] hover:bg-[var(--ui-muted-5)] hover:text-[var(--ui-secondary)] transition-colors">
+                                        @svg('heroicon-o-document', 'w-3.5 h-3.5 flex-shrink-0')
+                                        <span class="truncate">{{ $child->path ?: '/' }}</span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
                 </div>
 
-                {{-- Child URLs --}}
-                @if($childUrls->isNotEmpty())
-                    <div class="ml-4 space-y-0.5 border-l border-[var(--ui-border)]/40 pl-2 mt-1">
-                        @foreach($childUrls as $child)
-                            <a href="{{ route('seo.urls.show', $child) }}" wire:navigate
-                               class="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-[var(--ui-muted)] hover:bg-[var(--ui-muted-5)] hover:text-[var(--ui-secondary)] transition-colors">
-                                @svg('heroicon-o-document', 'w-3.5 h-3.5 flex-shrink-0')
-                                <span class="truncate">{{ $child->path ?: '/' }}</span>
-                            </a>
-                        @endforeach
+                {{-- Properties --}}
+                <div>
+                    <h3 class="text-[11px] font-medium text-[var(--ui-muted)] uppercase tracking-wide mb-3">Eigenschaften</h3>
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
+                            <span class="text-xs text-[var(--ui-muted)]">Status</span>
+                            <span class="text-xs font-medium text-[var(--ui-secondary)]">
+                                @include('seo::partials.url-status-badge', ['status' => $seoUrl->status, 'httpStatus' => $seoUrl->http_status])
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
+                            <span class="text-xs text-[var(--ui-muted)]">Domain</span>
+                            <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->domain }}</span>
+                        </div>
+                        <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
+                            <span class="text-xs text-[var(--ui-muted)]">Pfad</span>
+                            <span class="text-xs font-medium text-[var(--ui-secondary)] truncate max-w-[120px]">{{ $seoUrl->path ?: '/' }}</span>
+                        </div>
+                        <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
+                            <span class="text-xs text-[var(--ui-muted)]">Priorität</span>
+                            <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->priority }}</span>
+                        </div>
+                        <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
+                            <span class="text-xs text-[var(--ui-muted)]">Typ</span>
+                            <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->is_own ? 'Eigene URL' : 'Wettbewerber' }}</span>
+                        </div>
+                        @if($seoUrl->last_crawled_at)
+                            <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
+                                <span class="text-xs text-[var(--ui-muted)]">Letzter Crawl</span>
+                                <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->last_crawled_at->format('d.m.Y') }}</span>
+                            </div>
+                        @endif
+                        @if($seoUrl->http_status)
+                            <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
+                                <span class="text-xs text-[var(--ui-muted)]">HTTP Status</span>
+                                <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->http_status }}</span>
+                            </div>
+                        @endif
                     </div>
-                @endif
+                </div>
+
+                {{-- Quick Stats --}}
+                <div>
+                    <h3 class="text-[11px] font-medium text-[var(--ui-muted)] uppercase tracking-wide mb-3">Statistiken</h3>
+                    <div class="space-y-2">
+                        <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
+                            <div class="text-[11px] text-[var(--ui-muted)]">Unterseiten</div>
+                            <div class="text-lg font-bold text-[var(--ui-secondary)]">{{ $childUrls->count() }}</div>
+                        </div>
+                        <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
+                            <div class="text-[11px] text-[var(--ui-muted)]">Keywords (gesamt)</div>
+                            <div class="text-lg font-bold text-[var(--ui-secondary)]">{{ $aggKeywordCount }}</div>
+                        </div>
+                        <div class="p-3 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
+                            <div class="text-[11px] text-[var(--ui-muted)]">Sichtbarkeit</div>
+                            <div class="text-lg font-bold text-[var(--ui-secondary)]">{{ number_format($aggVisibility, 1) }}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </x-ui-page-sidebar>
     </x-slot>
@@ -70,12 +135,7 @@
             </div>
         </div>
 
-        {{-- Two-column layout: Main + Properties Sidebar --}}
-        <div class="flex flex-col lg:flex-row gap-8">
-            {{-- Main Area --}}
-            <div class="flex-1 min-w-0 space-y-6">
-
-                {{-- Stats Grid (aggregated) --}}
+        {{-- Stats Grid (aggregated) --}}
                 <x-ui-stats-grid :cols="5">
                     <x-ui-dashboard-tile title="Keywords" :count="$aggKeywordCount" icon="key" variant="primary" />
                     <x-ui-dashboard-tile title="Suchvolumen" :count="$aggSearchVolume" icon="magnifying-glass" variant="info" />
@@ -408,68 +468,6 @@
                         @endif
                     </div>
                 </div>
-            </div>
-
-            {{-- Properties Sidebar (right, like task view) --}}
-            <div class="lg:w-72 flex-shrink-0">
-                <div class="lg:sticky lg:top-4 space-y-1">
-                    <h3 class="text-[10px] font-semibold uppercase tracking-wider text-[var(--ui-muted)] mb-2 px-2">Eigenschaften</h3>
-
-                    <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
-                        <span class="text-xs text-[var(--ui-muted)]">Status</span>
-                        <span class="text-xs font-medium text-[var(--ui-secondary)]">
-                            @include('seo::partials.url-status-badge', ['status' => $seoUrl->status, 'httpStatus' => $seoUrl->http_status])
-                        </span>
-                    </div>
-
-                    <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
-                        <span class="text-xs text-[var(--ui-muted)]">Domain</span>
-                        <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->domain }}</span>
-                    </div>
-
-                    <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
-                        <span class="text-xs text-[var(--ui-muted)]">Pfad</span>
-                        <span class="text-xs font-medium text-[var(--ui-secondary)] truncate max-w-[120px]">{{ $seoUrl->path ?: '/' }}</span>
-                    </div>
-
-                    <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
-                        <span class="text-xs text-[var(--ui-muted)]">Priorität</span>
-                        <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->priority }}</span>
-                    </div>
-
-                    <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
-                        <span class="text-xs text-[var(--ui-muted)]">Typ</span>
-                        <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->is_own ? 'Eigene URL' : 'Wettbewerber' }}</span>
-                    </div>
-
-                    @if($seoUrl->last_crawled_at)
-                        <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
-                            <span class="text-xs text-[var(--ui-muted)]">Letzter Crawl</span>
-                            <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->last_crawled_at->format('d.m.Y') }}</span>
-                        </div>
-                    @endif
-
-                    @if($seoUrl->http_status)
-                        <div class="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[var(--ui-muted-5)] transition-colors">
-                            <span class="text-xs text-[var(--ui-muted)]">HTTP Status</span>
-                            <span class="text-xs font-medium text-[var(--ui-secondary)]">{{ $seoUrl->http_status }}</span>
-                        </div>
-                    @endif
-
-                    {{-- Separator --}}
-                    <div class="border-t border-[var(--ui-border)]/40 my-2"></div>
-
-                    <div class="flex items-center justify-between py-1.5 px-3">
-                        <span class="text-[10px] text-[var(--ui-muted)]">Unterseiten</span>
-                        <span class="text-[10px] text-[var(--ui-secondary)]">{{ $childUrls->count() }}</span>
-                    </div>
-                    <div class="flex items-center justify-between py-1.5 px-3">
-                        <span class="text-[10px] text-[var(--ui-muted)]">Erstellt</span>
-                        <span class="text-[10px] text-[var(--ui-secondary)]">{{ $seoUrl->created_at->format('d.m.Y') }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
 
     </x-ui-page-container>
 </x-ui-page>
