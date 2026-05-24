@@ -1,3 +1,5 @@
+@include('seo::partials.seo-colors')
+
 <x-ui-page>
     <x-slot name="navbar">
         <x-ui-page-navbar title="URL Detail" icon="heroicon-o-globe-alt" />
@@ -12,11 +14,11 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        <x-ui-page-sidebar title="URL-Baum" width="w-64" :defaultOpen="true" storeKey="seoUrlTreeOpen">
-            <div class="p-3 space-y-1">
+        <x-ui-page-sidebar title="URL-Baum" width="w-72" :defaultOpen="true">
+            <div class="p-4 space-y-1">
                 {{-- Back to URLs --}}
                 <a href="{{ route('seo.urls') }}" wire:navigate
-                   class="flex items-center gap-2 px-3 py-2 rounded-md text-xs text-[var(--ui-muted)] hover:bg-[var(--ui-muted-5)] transition-colors mb-2">
+                   class="flex items-center gap-2 px-3 py-2 rounded-md text-xs text-[var(--ui-muted)] hover:bg-[var(--ui-muted-5)] hover:text-[var(--ui-secondary)] transition-colors mb-3">
                     @svg('heroicon-o-arrow-left', 'w-3.5 h-3.5')
                     <span>Alle URLs</span>
                 </a>
@@ -44,8 +46,6 @@
     </x-slot>
 
     <x-ui-page-container spacing="space-y-6">
-
-        @include('seo::partials.seo-colors')
 
         {{-- Header --}}
         <div class="flex items-start gap-4">

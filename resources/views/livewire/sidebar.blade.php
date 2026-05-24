@@ -1,7 +1,7 @@
 @include('seo::partials.seo-colors')
 
-<x-ui-page-sidebar title="SEO" width="w-56" :defaultOpen="true" storeKey="seoSidebarOpen">
-    <div class="p-3 space-y-1">
+<x-ui-page-sidebar title="SEO" width="w-72" :defaultOpen="true">
+    <div class="p-4 space-y-1">
         @php
             $items = [
                 'dashboard' => ['label' => 'Dashboard', 'route' => 'seo.dashboard', 'icon' => 'heroicon-o-chart-bar-square'],
@@ -18,8 +18,8 @@
             <a href="{{ route($item['route']) }}" wire:navigate
                class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors
                       {{ $active === $key
-                          ? 'bg-indigo-50 text-indigo-700 font-medium'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}">
+                          ? 'bg-[var(--ui-primary-10)] text-[var(--ui-primary)] font-medium'
+                          : 'text-[var(--ui-muted)] hover:bg-[var(--ui-muted-5)] hover:text-[var(--ui-secondary)]' }}">
                 @svg($item['icon'], 'w-4 h-4 flex-shrink-0')
                 <span class="truncate">{{ $item['label'] }}</span>
             </a>
