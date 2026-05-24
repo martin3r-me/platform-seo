@@ -337,7 +337,10 @@
     </x-slot>
 
     <x-slot name="activity">
-        <x-ui-page-sidebar title="URL-Details" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
+        <div class="w-80 flex-shrink-0 h-full bg-gray-50 border-l border-gray-200 overflow-y-auto">
+            <div class="px-6 h-14 flex items-center border-b border-gray-200">
+                <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">URL-Details</h2>
+            </div>
             <div class="p-6 space-y-6">
                 {{-- Properties --}}
                 <div>
@@ -374,6 +377,6 @@
                     </div>
                 @endif
             </div>
-        </x-ui-page-sidebar>
+        </div>
     </x-slot>
 </x-ui-page>
