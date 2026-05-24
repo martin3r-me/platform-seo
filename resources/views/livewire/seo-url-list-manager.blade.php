@@ -17,6 +17,8 @@
 
     <x-ui-page-container>
 
+        @include('seo::partials.project-tabs', ['active' => 'lists'])
+
         <div class="flex gap-6">
             {{-- Sidebar: Lists --}}
             <div class="w-72 flex-shrink-0 space-y-2">

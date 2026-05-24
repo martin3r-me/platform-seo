@@ -5,6 +5,7 @@
 @php
     $tabs = [
         'dashboard' => ['label' => 'Dashboard', 'route' => 'seo.dashboard'],
+        'lists' => ['label' => 'Listen', 'route' => 'seo.lists'],
         'urls' => ['label' => 'URLs', 'route' => 'seo.urls'],
         'keywords' => ['label' => 'Keywords', 'route' => 'seo.keywords'],
         'rankings' => ['label' => 'Rankings', 'route' => 'seo.rankings'],
