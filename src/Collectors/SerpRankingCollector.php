@@ -55,7 +55,16 @@ class SerpRankingCollector implements SeoCollectorInterface
     public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
         $api = $this->dataForSeoApi->forConnection($settings->resolveConnectionId());
-        $projectDomain = $settings->domain ? parse_url($settings->domain, PHP_URL_HOST) ?? $settings->domain : null;
+
+        // Eigene Domains aus registrierten URLs ableiten
+        $ownDomains = SeoUrl::where('team_id', $settings->team_id)
+            ->where('is_own', true)
+            ->pluck('domain')
+            ->unique()
+            ->filter()
+            ->values()
+            ->toArray();
+
         $processed = 0;
         $totalCost = 0;
         $errors = [];
@@ -87,8 +96,13 @@ class SerpRankingCollector implements SeoCollectorInterface
                 $serpFeatures = [];
                 foreach ($serpResults as $serpResult) {
                     $serpFeatures[] = $serpResult->domain;
-                    if ($projectDomain && str_contains($serpResult->url ?? '', $projectDomain)) {
-                        $ownPosition = $serpResult->position;
+                    if (!empty($ownDomains) && $serpResult->url) {
+                        foreach ($ownDomains as $ownDomain) {
+                            if (str_contains($serpResult->url, $ownDomain)) {
+                                $ownPosition = $serpResult->position;
+                                break;
+                            }
+                        }
                     }
                 }
 
@@ -127,7 +141,7 @@ class SerpRankingCollector implements SeoCollectorInterface
 
                 // Detect competitor URLs from SERP
                 foreach (array_slice($serpResults, 0, 10) as $serpResult) {
-                    if ($serpResult->url && $serpResult->domain !== $projectDomain) {
+                    if ($serpResult->url && !in_array($serpResult->domain, $ownDomains, true)) {
                         $this->trackCompetitorUrl($settings, $url, $serpResult);
                     }
                 }

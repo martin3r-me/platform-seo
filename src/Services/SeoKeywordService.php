@@ -12,6 +12,7 @@ use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
 use Platform\Seo\Models\SeoTeamSettings;
+use Platform\Seo\Models\SeoUrl;
 
 class SeoKeywordService implements SeoKeywordServiceInterface
 {
@@ -146,7 +147,16 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         }
 
         $api = $this->resolveApiService($settings);
-        $projectDomain = $settings->domain ? parse_url($settings->domain, PHP_URL_HOST) ?? $settings->domain : null;
+
+        // Eigene Domains aus registrierten URLs ableiten (nicht aus Team-Settings)
+        $ownDomains = SeoUrl::where('team_id', $teamId)
+            ->where('is_own', true)
+            ->pluck('domain')
+            ->unique()
+            ->filter()
+            ->values()
+            ->toArray();
+
         $fetchedCount = 0;
         $positionSnapshots = 0;
         $competitorEntries = [];
@@ -163,9 +173,14 @@ class SeoKeywordService implements SeoKeywordServiceInterface
             $serpFeatures = [];
             foreach ($serpResults as $serpResult) {
                 $serpFeatures[] = $serpResult->domain;
-                if ($projectDomain && str_contains($serpResult->url ?? '', $projectDomain)) {
-                    $ownPosition = $serpResult->position;
-                    $ownUrl = $serpResult->url;
+                if (!empty($ownDomains) && $serpResult->url) {
+                    foreach ($ownDomains as $ownDomain) {
+                        if (str_contains($serpResult->url, $ownDomain)) {
+                            $ownPosition = $serpResult->position;
+                            $ownUrl = $serpResult->url;
+                            break;
+                        }
+                    }
                 }
             }
 
