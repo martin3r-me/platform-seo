@@ -12,6 +12,7 @@ use Platform\Integrations\DTOs\DataForSeo\RankedKeywordResult;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
+use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 
@@ -529,7 +530,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
                 $matchedCount++;
 
-                // Pivot: seo_url_keywords updaten
+                // Pivot: seo_url_keywords updaten + SeoRankingHistory
                 $matchedUrl = collect($domainUrls)->firstWhere('id', $matchedUrlId);
                 if ($matchedUrl) {
                     $existingPivot = $matchedUrl->keywords()
@@ -545,6 +546,30 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                             'position_updated_at' => now(),
                         ],
                     ]);
+
+                    // SeoRankingHistory (für Ranking-Tab im Frontend)
+                    $lastHistory = SeoRankingHistory::where('url_id', $matchedUrl->id)
+                        ->where('keyword_id', $keywordModel->id)
+                        ->where('search_engine', 'google')
+                        ->where('device', 'desktop')
+                        ->where('tracked_at', '<', $today)
+                        ->orderByDesc('tracked_at')
+                        ->first();
+
+                    SeoRankingHistory::updateOrCreate(
+                        [
+                            'url_id' => $matchedUrl->id,
+                            'keyword_id' => $keywordModel->id,
+                            'tracked_at' => $today,
+                            'search_engine' => 'google',
+                            'device' => 'desktop',
+                        ],
+                        [
+                            'position' => $rk->position,
+                            'previous_position' => $lastHistory?->position,
+                            'serp_features' => $rk->serpFeatures,
+                        ],
+                    );
                 }
 
                 // SeoKeywordPosition Snapshot (Tages-Aggregat)
