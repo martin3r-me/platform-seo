@@ -168,4 +168,11 @@
             </x-slot>
         </form>
     </x-ui-modal>
+    <x-slot name="activity">
+        <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
+            <div class="p-4 space-y-4">
+                <div class="text-[13px] text-gray-400">Letzte Änderungen</div>
+            </div>
+        </x-ui-page-sidebar>
+    </x-slot>
 </x-ui-page>
