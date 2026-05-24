@@ -15,6 +15,7 @@ use Platform\Seo\Models\SeoKeywordPosition;
 use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRelationship;
 
 class SeoKeywordService implements SeoKeywordServiceInterface
 {
@@ -504,9 +505,17 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
             // Phase 2: URL-Pfad-Match + Rankings zuordnen
             $urlPaths = [];
+            $parentUrlId = null;
+            $shortestPath = null;
             foreach ($domainUrls as $url) {
                 $path = $url->path ?: (parse_url($url->url, PHP_URL_PATH) ?: '/');
-                $urlPaths[$url->id] = rtrim(strtolower($path), '/');
+                $normalizedPath = rtrim(strtolower($path), '/');
+                $urlPaths[$url->id] = $normalizedPath;
+                // Root-URL = kürzester Pfad (typisch "/" → "")
+                if ($shortestPath === null || strlen($normalizedPath) < strlen($shortestPath)) {
+                    $shortestPath = $normalizedPath;
+                    $parentUrlId = $url->id;
+                }
             }
 
             $matchedCount = 0;
@@ -545,6 +554,21 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                     $urlPaths[$newUrl->id] = $rankedPath;
                     $domainUrls[] = $newUrl;
                     $urlsAutoCreated++;
+
+                    // Parent-Child Beziehung zur Root-URL
+                    if ($parentUrlId && $newUrl->id !== $parentUrlId) {
+                        SeoUrlRelationship::firstOrCreate(
+                            [
+                                'source_url_id' => $parentUrlId,
+                                'target_url_id' => $newUrl->id,
+                                'type' => 'parent_child',
+                            ],
+                            [
+                                'team_id' => $teamId,
+                                'detected_at' => now(),
+                            ],
+                        );
+                    }
                 }
 
                 $matchedCount++;

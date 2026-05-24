@@ -88,11 +88,18 @@ class SerpRankingCollector implements SeoCollectorInterface
                 continue;
             }
 
-            // URL-Pfade vorbereiten
+            // URL-Pfade vorbereiten + Root-URL bestimmen
             $urlPaths = [];
+            $parentUrlId = null;
+            $shortestPath = null;
             foreach ($domainUrls as $url) {
                 $path = $url->path ?: (parse_url($url->url, PHP_URL_PATH) ?: '/');
-                $urlPaths[$url->id] = rtrim(strtolower($path), '/');
+                $normalizedPath = rtrim(strtolower($path), '/');
+                $urlPaths[$url->id] = $normalizedPath;
+                if ($shortestPath === null || strlen($normalizedPath) < strlen($shortestPath)) {
+                    $shortestPath = $normalizedPath;
+                    $parentUrlId = $url->id;
+                }
             }
 
             // Eigene Domains für Competitor-Erkennung
@@ -142,6 +149,21 @@ class SerpRankingCollector implements SeoCollectorInterface
                     $matchedUrlId = $newUrl->id;
                     $urlPaths[$newUrl->id] = $rankedPath;
                     $domainUrls[] = $newUrl;
+
+                    // Parent-Child Beziehung zur Root-URL
+                    if ($parentUrlId && $newUrl->id !== $parentUrlId) {
+                        SeoUrlRelationship::firstOrCreate(
+                            [
+                                'source_url_id' => $parentUrlId,
+                                'target_url_id' => $newUrl->id,
+                                'type' => 'parent_child',
+                            ],
+                            [
+                                'team_id' => $settings->team_id,
+                                'detected_at' => now(),
+                            ],
+                        );
+                    }
                 }
 
                 $matchedUrl = collect($domainUrls)->firstWhere('id', $matchedUrlId);
