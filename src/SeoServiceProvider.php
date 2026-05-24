@@ -124,11 +124,37 @@ class SeoServiceProvider extends ServiceProvider
         try {
             $registry = resolve(\Platform\Core\Tools\ToolRegistry::class);
 
+            // Dashboard & Analyse
+            $registry->register(new \Platform\Seo\Tools\DashboardTool());
+            $registry->register(new \Platform\Seo\Tools\AnalysisTool());
+            $registry->register(new \Platform\Seo\Tools\CannibalizationTool());
+
+            // URLs
+            $registry->register(new \Platform\Seo\Tools\ListUrlsTool());
+            $registry->register(new \Platform\Seo\Tools\RegisterUrlTool());
+            $registry->register(new \Platform\Seo\Tools\EnrichUrlTool());
+
+            // URL-Listen
             $registry->register(new \Platform\Seo\Tools\ListUrlListsTool());
             $registry->register(new \Platform\Seo\Tools\CreateUrlListTool());
             $registry->register(new \Platform\Seo\Tools\UpdateUrlListTool());
             $registry->register(new \Platform\Seo\Tools\DeleteUrlListTool());
             $registry->register(new \Platform\Seo\Tools\ManageUrlListEntriesTool());
+
+            // Keywords
+            $registry->register(new \Platform\Seo\Tools\ListKeywordsTool());
+            $registry->register(new \Platform\Seo\Tools\CreateKeywordTool());
+            $registry->register(new \Platform\Seo\Tools\UpdateKeywordTool());
+            $registry->register(new \Platform\Seo\Tools\DiscoverKeywordsTool());
+
+            // Cluster
+            $registry->register(new \Platform\Seo\Tools\ListClustersTool());
+            $registry->register(new \Platform\Seo\Tools\CreateClusterTool());
+            $registry->register(new \Platform\Seo\Tools\AutoClusterTool());
+
+            // Signale
+            $registry->register(new \Platform\Seo\Tools\ListSignalsTool());
+            $registry->register(new \Platform\Seo\Tools\UpdateSignalTool());
         } catch (\Throwable $e) {
             \Log::warning('SEO: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }
