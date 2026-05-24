@@ -15,9 +15,11 @@
         </x-ui-page-actionbar>
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="sidebar">
+        @livewire('seo.sidebar', ['active' => 'lists'])
+    </x-slot>
 
-        @include('seo::partials.project-tabs', ['active' => 'lists'])
+    <x-ui-page-container>
 
         <div class="flex gap-6">
             {{-- Sidebar: Lists --}}

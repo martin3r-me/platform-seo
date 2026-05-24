@@ -10,9 +10,11 @@
         ]" />
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="sidebar">
+        @livewire('seo.sidebar', ['active' => 'signals'])
+    </x-slot>
 
-        @include('seo::partials.project-tabs', ['active' => 'signals'])
+    <x-ui-page-container>
 
         {{-- Filters Row --}}
         <div class="flex items-center gap-4 mb-6 flex-wrap">

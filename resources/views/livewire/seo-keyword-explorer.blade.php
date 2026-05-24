@@ -19,9 +19,11 @@
         </x-ui-page-actionbar>
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="sidebar">
+        @livewire('seo.sidebar', ['active' => 'keywords'])
+    </x-slot>
 
-        @include('seo::partials.project-tabs', ['active' => 'keywords'])
+    <x-ui-page-container>
 
         @if(session('success'))
             <div class="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg">{{ session('success') }}</div>

@@ -10,9 +10,11 @@
         ]" />
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="sidebar">
+        @livewire('seo.sidebar', ['active' => 'cannibalization'])
+    </x-slot>
 
-        @include('seo::partials.project-tabs', ['active' => 'cannibalization'])
+    <x-ui-page-container>
 
         {{-- Summary --}}
         <x-ui-stats-grid :cols="2">

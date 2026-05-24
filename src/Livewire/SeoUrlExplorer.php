@@ -6,6 +6,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoUrlService;
 
 class SeoUrlExplorer extends Component
@@ -101,7 +102,16 @@ class SeoUrlExplorer extends Component
 
     public function render()
     {
-        $query = SeoUrl::where('team_id', $this->seoSettings->team_id)->with('onPage');
+        $teamId = $this->seoSettings->team_id;
+        $query = SeoUrl::where('team_id', $teamId)->with('onPage');
+
+        // Root-only: exclude child URLs
+        $childIds = SeoUrlRelationship::where('team_id', $teamId)
+            ->where('type', 'parent_child')
+            ->pluck('target_url_id');
+        if ($childIds->isNotEmpty()) {
+            $query->whereNotIn('id', $childIds);
+        }
 
         if ($this->search) {
             $query->where('url', 'like', "%{$this->search}%");
@@ -116,6 +126,34 @@ class SeoUrlExplorer extends Component
         $query->orderBy($this->sortField, $this->sortDirection);
 
         $urls = $query->paginate(50);
+
+        // Aggregate children metrics
+        $urlIds = $urls->pluck('id');
+        $childRelations = SeoUrlRelationship::where('type', 'parent_child')
+            ->whereIn('source_url_id', $urlIds)
+            ->get()
+            ->groupBy('source_url_id');
+
+        $allChildIds = $childRelations->flatMap(fn ($rels) => $rels->pluck('target_url_id'));
+        $childUrls = $allChildIds->isNotEmpty()
+            ? SeoUrl::whereIn('id', $allChildIds)->get()->keyBy('id')
+            : collect();
+
+        // Attach aggregated values to each URL
+        $urls->getCollection()->transform(function (SeoUrl $url) use ($childRelations, $childUrls) {
+            $children = collect();
+            if (isset($childRelations[$url->id])) {
+                $children = $childRelations[$url->id]->map(fn ($rel) => $childUrls->get($rel->target_url_id))->filter();
+            }
+
+            $url->child_count = $children->count();
+            $url->agg_keyword_count = $url->keyword_count + $children->sum('keyword_count');
+            $url->agg_search_volume = $url->total_search_volume + $children->sum('total_search_volume');
+            $url->agg_visibility = (float) $url->visibility_score + (float) $children->sum('visibility_score');
+            $url->agg_backlinks = $url->backlink_count + $children->sum('backlink_count');
+
+            return $url;
+        });
 
         return view('seo::livewire.seo-url-explorer', [
             'urls' => $urls,

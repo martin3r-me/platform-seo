@@ -10,9 +10,11 @@
         ]" />
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="sidebar">
+        @livewire('seo.sidebar', ['active' => 'rankings'])
+    </x-slot>
 
-        @include('seo::partials.project-tabs', ['active' => 'rankings'])
+    <x-ui-page-container>
 
         {{-- Period Selector --}}
         <div class="flex items-center gap-2 mb-6">

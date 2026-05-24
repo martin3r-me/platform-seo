@@ -15,9 +15,11 @@
         </x-ui-page-actionbar>
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="sidebar">
+        @livewire('seo.sidebar', ['active' => 'dashboard'])
+    </x-slot>
 
-        @include('seo::partials.project-tabs', ['active' => 'dashboard'])
+    <x-ui-page-container>
 
         {{-- Stats Grid --}}
         <x-ui-stats-grid :cols="6">

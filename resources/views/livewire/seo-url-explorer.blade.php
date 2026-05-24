@@ -15,9 +15,11 @@
         </x-ui-page-actionbar>
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="sidebar">
+        @livewire('seo.sidebar', ['active' => 'urls'])
+    </x-slot>
 
-        @include('seo::partials.project-tabs', ['active' => 'urls'])
+    <x-ui-page-container>
 
         {{-- Filters --}}
         <div class="flex items-center gap-3 mb-6 flex-wrap">
@@ -62,6 +64,7 @@
                             @if($sortField === 'url') <span class="text-xs">{{ $sortDirection === 'asc' ? '↑' : '↓' }}</span> @endif
                         </th>
                         <th class="px-4 py-3 text-center">Status</th>
+                        <th class="px-4 py-3 text-right">Kinder</th>
                         <th class="px-4 py-3 text-right cursor-pointer hover:text-gray-700" wire:click="sortBy('keyword_count')">
                             Keywords
                             @if($sortField === 'keyword_count') <span class="text-xs">{{ $sortDirection === 'asc' ? '↑' : '↓' }}</span> @endif
@@ -105,14 +108,24 @@
                             <td class="px-4 py-2.5 text-center">
                                 @include('seo::partials.url-status-badge', ['status' => $url->status, 'httpStatus' => $url->http_status])
                             </td>
-                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $url->keyword_count }}</td>
+                            <td class="px-4 py-2.5 text-right text-gray-600">
+                                @if($url->child_count > 0)
+                                    <span class="inline-flex items-center gap-1 text-xs text-gray-500">
+                                        @svg('heroicon-o-document-duplicate', 'w-3.5 h-3.5')
+                                        {{ $url->child_count }}
+                                    </span>
+                                @else
+                                    <span class="text-gray-300">—</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $url->agg_keyword_count }}</td>
                             <td class="px-4 py-2.5 text-right">
-                                @include('seo::partials.sv-badge', ['volume' => $url->total_search_volume])
+                                @include('seo::partials.sv-badge', ['volume' => $url->agg_search_volume])
                             </td>
                             <td class="px-4 py-2.5 text-right">
-                                <span class="font-medium text-gray-900">{{ number_format($url->visibility_score, 1) }}</span>
+                                <span class="font-medium text-gray-900">{{ number_format($url->agg_visibility, 1) }}</span>
                             </td>
-                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $url->backlink_count ?? 0 }}</td>
+                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $url->agg_backlinks }}</td>
                             <td class="px-4 py-2.5 text-right">
                                 @if($url->onPage && $url->onPage->overall_score !== null)
                                     @include('seo::partials.score-gauge', ['value' => $url->onPage->overall_score, 'label' => '', 'size' => 'sm'])
@@ -126,7 +139,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="px-4 py-12 text-center text-gray-400">
+                            <td colspan="10" class="px-4 py-12 text-center text-gray-400">
                                 Noch keine URLs. Füge welche hinzu, um zu starten.
                             </td>
                         </tr>
