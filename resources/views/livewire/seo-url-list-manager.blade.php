@@ -1,3 +1,5 @@
+@include('seo::partials.seo-colors')
+
 <x-ui-page>
     <x-slot name="navbar">
         <x-ui-page-navbar title="URL-Listen" icon="heroicon-o-queue-list" />

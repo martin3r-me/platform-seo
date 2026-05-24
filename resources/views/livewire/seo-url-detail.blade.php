@@ -20,7 +20,7 @@
 
     {{-- RIGHT SIDEBAR: URL-Baum + Properties --}}
     <x-slot name="activity">
-        <x-ui-page-sidebar title="URL-Details" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
+        <x-ui-page-sidebar title="URL-Details" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
             <div class="p-4 space-y-5">
                 {{-- URL Tree --}}
                 <div>

@@ -1,5 +1,3 @@
-@include('seo::partials.seo-colors')
-
 <x-ui-page-sidebar title="SEO" width="w-72" :defaultOpen="true">
     <div class="p-4 space-y-1">
         @php
