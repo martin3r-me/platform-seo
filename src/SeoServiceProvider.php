@@ -146,6 +146,9 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\CreateKeywordTool());
             $registry->register(new \Platform\Seo\Tools\UpdateKeywordTool());
             $registry->register(new \Platform\Seo\Tools\DiscoverKeywordsTool());
+            $registry->register(new \Platform\Seo\Tools\AttachKeywordsTool());
+            $registry->register(new \Platform\Seo\Tools\FetchMetricsTool());
+            $registry->register(new \Platform\Seo\Tools\FetchRankingsTool());
 
             // Cluster
             $registry->register(new \Platform\Seo\Tools\ListClustersTool());

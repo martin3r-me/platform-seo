@@ -17,7 +17,7 @@ class DiscoverKeywordsTool implements ToolContract
 
     public function getDescription(): string
     {
-        return 'POST /seo/keywords/discover - Entdeckt neue Keywords via DataForSEO. Entweder seed_keywords (Array) ODER domain angeben. Optional: limit (Standard: 100). Verbraucht API-Budget!';
+        return 'POST /seo/keywords/discover - Entdeckt neue Keywords via DataForSEO. Entweder seed_keywords (Array) ODER domain angeben. Mit import=true werden die Keywords direkt in die DB importiert. Optional: limit (Standard: 100). Verbraucht API-Budget!';
     }
 
     public function getSchema(): array
@@ -37,6 +37,14 @@ class DiscoverKeywordsTool implements ToolContract
                 'limit' => [
                     'type' => 'integer',
                     'description' => 'Max. Anzahl Keywords (Standard: 100)',
+                ],
+                'import' => [
+                    'type' => 'boolean',
+                    'description' => 'Wenn true: Keywords direkt in seo_keywords importieren (Standard: false)',
+                ],
+                'min_search_volume' => [
+                    'type' => 'integer',
+                    'description' => 'Nur Keywords mit mindestens diesem Suchvolumen importieren (nur bei import=true)',
                 ],
             ],
         ];
@@ -66,10 +74,57 @@ class DiscoverKeywordsTool implements ToolContract
                 return ToolResult::error('Entweder seed_keywords oder domain angeben.', 'VALIDATION_ERROR');
             }
 
-            return ToolResult::success([
-                'result' => $result,
-                'message' => 'Keyword-Discovery abgeschlossen.',
-            ]);
+            $keywords = $result['keywords'] ?? [];
+            $importResult = null;
+
+            // Auto-import if requested
+            if (!empty($arguments['import']) && !empty($keywords)) {
+                $minVolume = (int) ($arguments['min_search_volume'] ?? 0);
+
+                $toImport = [];
+                foreach ($keywords as $kw) {
+                    $kwText = $kw['keyword'] ?? null;
+                    if (!$kwText) {
+                        continue;
+                    }
+
+                    // Filter by min search volume
+                    if ($minVolume > 0 && ($kw['search_volume'] ?? 0) < $minVolume) {
+                        continue;
+                    }
+
+                    $toImport[] = [
+                        'keyword' => $kwText,
+                        'search_volume' => $kw['search_volume'] ?? null,
+                        'keyword_difficulty' => $kw['keyword_difficulty'] ?? null,
+                        'cpc_cents' => isset($kw['cpc']) ? (int) round($kw['cpc'] * 100) : null,
+                        'competition' => $kw['competition'] ?? null,
+                    ];
+                }
+
+                if (!empty($toImport)) {
+                    $imported = $service->addKeywords($team->id, $toImport, $context->user);
+                    $importResult = [
+                        'imported' => $imported->count(),
+                        'filtered_out' => count($keywords) - count($toImport),
+                    ];
+                }
+            }
+
+            $response = [
+                'discovered' => count($keywords),
+                'cost_cents' => $result['cost_cents'] ?? 0,
+            ];
+
+            if ($importResult) {
+                $response['import'] = $importResult;
+                $response['message'] = $importResult['imported'] . ' Keywords importiert (' . count($keywords) . ' entdeckt).';
+            } else {
+                $response['keywords'] = $keywords;
+                $response['message'] = count($keywords) . ' Keywords entdeckt. Nutze import=true zum Speichern.';
+            }
+
+            return ToolResult::success($response);
         } catch (\Throwable $e) {
             return ToolResult::error('Fehler: ' . $e->getMessage(), 'EXECUTION_ERROR');
         }

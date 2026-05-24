@@ -248,17 +248,19 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     {
         $keywordText = strtolower(trim($data['keyword']));
 
-        return SeoKeyword::firstOrCreate(
+        $attributes = array_filter([
+            'cluster_id' => $data['cluster_id'] ?? null,
+            'search_volume' => $data['search_volume'] ?? null,
+            'keyword_difficulty' => $data['keyword_difficulty'] ?? null,
+            'cpc_cents' => $data['cpc_cents'] ?? null,
+            'competition' => $data['competition'] ?? null,
+            'search_intent' => $data['search_intent'] ?? null,
+            'topic' => $data['topic'] ?? null,
+        ], fn ($v) => $v !== null);
+
+        return SeoKeyword::updateOrCreate(
             ['team_id' => $teamId, 'keyword' => $keywordText],
-            [
-                'cluster_id' => $data['cluster_id'] ?? null,
-                'search_volume' => $data['search_volume'] ?? null,
-                'keyword_difficulty' => $data['keyword_difficulty'] ?? null,
-                'cpc_cents' => $data['cpc_cents'] ?? null,
-                'competition' => $data['competition'] ?? null,
-                'search_intent' => $data['search_intent'] ?? null,
-                'topic' => $data['topic'] ?? null,
-            ]
+            $attributes,
         );
     }
 
