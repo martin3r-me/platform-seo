@@ -116,6 +116,22 @@ class SeoServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'seo');
 
         $this->registerLivewireComponents();
+        $this->registerTools();
+    }
+
+    protected function registerTools(): void
+    {
+        try {
+            $registry = resolve(\Platform\Core\Tools\ToolRegistry::class);
+
+            $registry->register(new \Platform\Seo\Tools\ListUrlListsTool());
+            $registry->register(new \Platform\Seo\Tools\CreateUrlListTool());
+            $registry->register(new \Platform\Seo\Tools\UpdateUrlListTool());
+            $registry->register(new \Platform\Seo\Tools\DeleteUrlListTool());
+            $registry->register(new \Platform\Seo\Tools\ManageUrlListEntriesTool());
+        } catch (\Throwable $e) {
+            \Log::warning('SEO: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
+        }
     }
 
     protected function registerLivewireComponents(): void
