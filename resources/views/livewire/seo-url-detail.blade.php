@@ -4,11 +4,12 @@
     </x-slot>
 
     <x-slot name="actionbar">
-        <x-ui-page-actionbar :breadcrumbs="[
+        <x-ui-page-actionbar :breadcrumbs="array_filter([
             ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
             ['label' => 'URLs', 'route' => 'seo.urls'],
+            $parentUrl ? ['label' => Str::limit($parentUrl->path ?: '/', 20), 'href' => route('seo.urls.show', $parentUrl)] : null,
             ['label' => Str::limit($seoUrl->path ?: '/', 30)],
-        ]" />
+        ])" />
     </x-slot>
 
     <x-ui-page-container>

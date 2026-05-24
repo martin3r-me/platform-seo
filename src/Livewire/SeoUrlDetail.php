@@ -79,6 +79,13 @@ class SeoUrlDetail extends Component
                     ->get()
             );
 
+        // Parent URL (if this is a child)
+        $parentRelation = SeoUrlRelationship::where('target_url_id', $this->seoUrl->id)
+            ->where('type', 'parent_child')
+            ->with('sourceUrl')
+            ->first();
+        $parentUrl = $parentRelation?->sourceUrl;
+
         // Aggregated stats
         $aggKeywordCount = $this->seoUrl->keyword_count + $childUrls->sum('keyword_count');
         $aggSearchVolume = $this->seoUrl->total_search_volume + $childUrls->sum('total_search_volume');
@@ -86,6 +93,7 @@ class SeoUrlDetail extends Component
         $aggBacklinks = $this->seoUrl->backlink_count + $childUrls->sum('backlink_count');
 
         return view('seo::livewire.seo-url-detail', [
+            'parentUrl' => $parentUrl,
             'urlVisibility' => $urlVisibility,
             'keywords' => $keywords,
             'rankingHistory' => $rankingHistory,
