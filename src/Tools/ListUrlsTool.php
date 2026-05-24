@@ -6,6 +6,7 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoUrlService;
 
 class ListUrlsTool implements ToolContract
@@ -54,6 +55,10 @@ class ListUrlsTool implements ToolContract
                     'type' => 'string',
                     'enum' => ['asc', 'desc'],
                 ],
+                'include_children' => [
+                    'type' => 'boolean',
+                    'description' => 'Auch Kind-URLs anzeigen (Standard: false, nur Root-URLs).',
+                ],
                 'limit' => ['type' => 'integer'],
                 'offset' => ['type' => 'integer'],
             ],
@@ -74,6 +79,16 @@ class ListUrlsTool implements ToolContract
             }
 
             $query = SeoUrl::where('team_id', $team->id);
+
+            // Nur Root-URLs (keine Kinder) — es sei denn explizit alle gewünscht
+            if (empty($arguments['include_children'])) {
+                $childIds = SeoUrlRelationship::where('team_id', $team->id)
+                    ->where('type', 'parent_child')
+                    ->pluck('target_url_id');
+                if ($childIds->isNotEmpty()) {
+                    $query->whereNotIn('id', $childIds);
+                }
+            }
 
             if (!empty($arguments['search'])) {
                 $query->where('url', 'like', '%' . $arguments['search'] . '%');
@@ -98,22 +113,44 @@ class ListUrlsTool implements ToolContract
             $total = $query->count();
             $urls = $query->skip($offset)->take($limit)->get();
 
+            // Kinder-URLs pro Root laden für Aggregation
+            $urlIds = $urls->pluck('id');
+            $childRelations = SeoUrlRelationship::where('type', 'parent_child')
+                ->whereIn('source_url_id', $urlIds)
+                ->pluck('target_url_id', 'source_url_id')
+                ->groupBy(fn ($childId, $parentId) => $parentId);
+
+            $allChildIds = SeoUrlRelationship::where('type', 'parent_child')
+                ->whereIn('source_url_id', $urlIds)
+                ->pluck('target_url_id');
+            $childUrls = $allChildIds->isNotEmpty()
+                ? SeoUrl::whereIn('id', $allChildIds)->get()->keyBy('id')
+                : collect();
+
             return ToolResult::success([
-                'urls' => $urls->map(fn (SeoUrl $u) => [
-                    'id' => $u->id,
-                    'uuid' => $u->uuid,
-                    'url' => $u->url,
-                    'domain' => $u->domain,
-                    'path' => $u->path,
-                    'is_own' => $u->is_own,
-                    'status' => $u->status,
-                    'http_status' => $u->http_status,
-                    'keyword_count' => $u->keyword_count,
-                    'total_search_volume' => $u->total_search_volume,
-                    'visibility_score' => (float) $u->visibility_score,
-                    'backlink_count' => $u->backlink_count,
-                    'last_crawled_at' => $u->last_crawled_at?->toIso8601String(),
-                ])->all(),
+                'urls' => $urls->map(function (SeoUrl $u) use ($childRelations, $childUrls) {
+                    $children = collect();
+                    if (isset($childRelations[$u->id])) {
+                        $children = $childRelations[$u->id]->map(fn ($childId) => $childUrls->get($childId))->filter();
+                    }
+
+                    return [
+                        'id' => $u->id,
+                        'uuid' => $u->uuid,
+                        'url' => $u->url,
+                        'domain' => $u->domain,
+                        'path' => $u->path,
+                        'is_own' => $u->is_own,
+                        'status' => $u->status,
+                        'http_status' => $u->http_status,
+                        'keyword_count' => $u->keyword_count + $children->sum('keyword_count'),
+                        'total_search_volume' => $u->total_search_volume + $children->sum('total_search_volume'),
+                        'visibility_score' => (float) $u->visibility_score + (float) $children->sum('visibility_score'),
+                        'backlink_count' => $u->backlink_count + $children->sum('backlink_count'),
+                        'child_count' => $children->count(),
+                        'last_crawled_at' => $u->last_crawled_at?->toIso8601String(),
+                    ];
+                })->all(),
                 'total' => $total,
                 'limit' => $limit,
                 'offset' => $offset,

@@ -100,22 +100,32 @@ class ListKeywordsTool implements ToolContract
             $offset = (int) ($arguments['offset'] ?? 0);
             $total = $query->count();
 
-            $keywords = $query->with('cluster')->skip($offset)->take($limit)->get();
+            $keywords = $query->with(['cluster', 'urls'])->skip($offset)->take($limit)->get();
 
             return ToolResult::success([
-                'keywords' => $keywords->map(fn (SeoKeyword $kw) => [
-                    'id' => $kw->id,
-                    'keyword' => $kw->keyword,
-                    'search_volume' => $kw->search_volume,
-                    'keyword_difficulty' => $kw->keyword_difficulty,
-                    'competition' => $kw->competition ? (float) $kw->competition : null,
-                    'search_intent' => $kw->search_intent,
-                    'cpc_euro' => $kw->cpc_euro,
-                    'cluster' => $kw->cluster?->name,
-                    'cluster_id' => $kw->cluster_id,
-                    'topic' => $kw->topic,
-                    'last_fetched_at' => $kw->last_fetched_at?->toIso8601String(),
-                ])->all(),
+                'keywords' => $keywords->map(function (SeoKeyword $kw) {
+                    // Beste Position über alle URLs
+                    $bestUrl = $kw->urls->sortBy('pivot.position')->first();
+
+                    $result = [
+                        'id' => $kw->id,
+                        'keyword' => $kw->keyword,
+                        'search_volume' => $kw->search_volume,
+                        'keyword_difficulty' => $kw->keyword_difficulty,
+                        'competition' => $kw->competition ? (float) $kw->competition : null,
+                        'search_intent' => $kw->search_intent,
+                        'cpc_euro' => $kw->cpc_euro,
+                        'cluster' => $kw->cluster?->name,
+                        'cluster_id' => $kw->cluster_id,
+                        'topic' => $kw->topic,
+                        'position' => $bestUrl?->pivot?->position,
+                        'previous_position' => $bestUrl?->pivot?->previous_position,
+                        'ranked_url' => $bestUrl?->url,
+                        'last_fetched_at' => $kw->last_fetched_at?->toIso8601String(),
+                    ];
+
+                    return $result;
+                })->all(),
                 'total' => $total,
                 'limit' => $limit,
                 'offset' => $offset,
