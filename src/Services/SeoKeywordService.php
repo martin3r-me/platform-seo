@@ -7,6 +7,7 @@ use Platform\Core\Contracts\SeoKeywordServiceInterface;
 use Platform\Core\Models\Team;
 use Platform\Core\Models\User;
 use Platform\Integrations\Services\DataForSeoApiService;
+use Platform\Integrations\Services\IntegrationConnectionResolver;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
@@ -389,9 +390,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
     protected function resolveApiService(SeoTeamSettings $settings): DataForSeoApiService
     {
-        $connectionId = $settings->dataforseo_connection_id;
-
-        return $this->dataForSeoApi->forConnection($connectionId);
+        return $this->dataForSeoApi->forConnection($settings->resolveConnectionId());
     }
 
     protected function estimateCost(string $action, int $count): int

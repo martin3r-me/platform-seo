@@ -54,7 +54,7 @@ class SerpRankingCollector implements SeoCollectorInterface
 
     public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
-        $api = $this->dataForSeoApi->forConnection($settings->dataforseo_connection_id);
+        $api = $this->dataForSeoApi->forConnection($settings->resolveConnectionId());
         $projectDomain = $settings->domain ? parse_url($settings->domain, PHP_URL_HOST) ?? $settings->domain : null;
         $processed = 0;
         $totalCost = 0;

@@ -286,7 +286,7 @@ class SeoClusteringService
 
     protected function resolveApiService(SeoTeamSettings $settings): DataForSeoApiService
     {
-        return $this->dataForSeoApi->forConnection($settings->dataforseo_connection_id);
+        return $this->dataForSeoApi->forConnection($settings->resolveConnectionId());
     }
 
     protected function estimateCost(string $action, int $count): int

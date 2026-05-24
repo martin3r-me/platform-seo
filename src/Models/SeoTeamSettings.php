@@ -69,6 +69,29 @@ class SeoTeamSettings extends Model
         return round(($this->budget_spent_cents / $this->budget_limit_cents) * 100, 1);
     }
 
+    /**
+     * Löst die DataForSEO Connection-ID auf.
+     *
+     * 1. Explizit gesetzte connection_id
+     * 2. Fallback: über Team-Mitglieder automatisch auflösen
+     */
+    public function resolveConnectionId(): ?int
+    {
+        if ($this->dataforseo_connection_id) {
+            return $this->dataforseo_connection_id;
+        }
+
+        if ($this->team) {
+            $resolver = app(\Platform\Integrations\Services\IntegrationConnectionResolver::class);
+            $connection = $resolver->resolveForTeam('dataforseo', $this->team);
+            if ($connection) {
+                return $connection->id;
+            }
+        }
+
+        return null;
+    }
+
     public function isRefreshDue(): bool
     {
         if (!$this->refresh_interval_hours) {

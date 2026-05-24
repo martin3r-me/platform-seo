@@ -52,7 +52,7 @@ class KeywordMetricsCollector implements SeoCollectorInterface
 
     public function collect(SeoTeamSettings $settings, Collection $urls): array
     {
-        $api = $this->dataForSeoApi->forConnection($settings->dataforseo_connection_id);
+        $api = $this->dataForSeoApi->forConnection($settings->resolveConnectionId());
         $processed = 0;
         $totalCost = 0;
         $errors = [];
