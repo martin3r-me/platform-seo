@@ -236,6 +236,15 @@ class SerpRankingCollector implements SeoCollectorInterface
         $bestLength = -1;
 
         foreach ($urlPaths as $urlId => $entityPath) {
+            // Root-Pfad ("") matcht nur exakt auf Root, nicht auf alle Unterseiten
+            if ($entityPath === '') {
+                if ($rankedPath === '') {
+                    $bestMatch = $urlId;
+                    $bestLength = 0;
+                }
+                continue;
+            }
+
             if ($rankedPath === $entityPath || str_starts_with($rankedPath, $entityPath . '/')) {
                 if (strlen($entityPath) > $bestLength) {
                     $bestMatch = $urlId;
