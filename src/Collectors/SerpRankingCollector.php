@@ -123,8 +123,25 @@ class SerpRankingCollector implements SeoCollectorInterface
                 $rankedPath = rtrim(strtolower(parse_url($rk->url, PHP_URL_PATH) ?: '/'), '/');
                 $matchedUrlId = $this->findBestPathMatch($rankedPath, $urlPaths);
 
+                // Auto-Register: Unterseite anlegen wenn kein Match
                 if (!$matchedUrlId) {
-                    continue;
+                    $normalizedUrl = SeoUrl::normalizeUrl($rk->url);
+                    $newUrl = SeoUrl::firstOrCreate(
+                        [
+                            'team_id' => $settings->team_id,
+                            'url_hash' => SeoUrl::hashUrl($normalizedUrl),
+                        ],
+                        [
+                            'url' => $normalizedUrl,
+                            'domain' => $domain,
+                            'is_own' => true,
+                            'status' => 'active',
+                            'priority' => 50,
+                        ],
+                    );
+                    $matchedUrlId = $newUrl->id;
+                    $urlPaths[$newUrl->id] = $rankedPath;
+                    $domainUrls[] = $newUrl;
                 }
 
                 $matchedUrl = collect($domainUrls)->firstWhere('id', $matchedUrlId);

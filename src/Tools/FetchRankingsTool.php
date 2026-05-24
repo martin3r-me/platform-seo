@@ -82,9 +82,11 @@ class FetchRankingsTool implements ToolContract
                 'api_calls' => $result['api_calls'],
                 'cost_cents' => $result['cost_cents'],
                 'urls_updated' => $result['urls_updated'],
+                'urls_auto_created' => $result['urls_auto_created'],
                 'domains' => $result['domains'],
                 'message' => $result['fetched'] . ' Keywords upserted, '
                     . $result['position_snapshots'] . ' Positionen getrackt, '
+                    . ($result['urls_auto_created'] > 0 ? $result['urls_auto_created'] . ' URLs auto-registriert, ' : '')
                     . $result['api_calls'] . ' API-Call(s) ('
                     . $result['cost_cents'] . ' Cent).',
             ]);
