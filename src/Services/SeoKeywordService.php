@@ -95,7 +95,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         }
 
         $api = $this->resolveApiService($settings);
-        $volumeResults = $api->getSearchVolume($user, $keywordTexts, $settings->location_code, $settings->language_code);
+        $volumeResults = $api->getSearchVolume($user, $keywordTexts, $settings->location_code, $settings->resolveLanguageName());
 
         if (empty($volumeResults)) {
             return ['fetched' => 0, 'cost_cents' => 0];
@@ -152,7 +152,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         $competitorEntries = [];
 
         foreach ($keywords as $keyword) {
-            $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->language_code);
+            $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
 
             if (empty($serpResults)) {
                 continue;
@@ -352,7 +352,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         }
 
         $api = $this->resolveApiService($settings);
-        $labsResults = $api->getLabsKeywordSuggestions($user, $seedKeywords, $settings->location_code, $settings->language_code, $limit);
+        $labsResults = $api->getLabsKeywordSuggestions($user, $seedKeywords, $settings->location_code, $settings->resolveLanguageName(), $limit);
 
         $keywords = array_map(fn($r) => $r->toArray(), $labsResults);
 
@@ -374,7 +374,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         }
 
         $api = $this->resolveApiService($settings);
-        $rankedResults = $api->getRankedKeywords($user, $domain, $settings->location_code, $settings->language_code, $limit);
+        $rankedResults = $api->getRankedKeywords($user, $domain, $settings->location_code, $settings->resolveLanguageName(), $limit);
 
         $keywords = array_map(fn($r) => $r->toArray(), $rankedResults);
 

@@ -63,7 +63,7 @@ class SeoClusteringService
 
         foreach ($keywords as $keyword) {
             try {
-                $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->language_code);
+                $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
 
                 if (empty($serpResults)) {
                     continue;

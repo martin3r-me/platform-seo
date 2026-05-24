@@ -72,7 +72,7 @@ class SerpRankingCollector implements SeoCollectorInterface
                         null,
                         $keyword->keyword,
                         $settings->location_code,
-                        $settings->language_code,
+                        $settings->resolveLanguageName(),
                     );
                 } catch (\Throwable $e) {
                     $errors[] = "SERP fuer '{$keyword->keyword}': {$e->getMessage()}";

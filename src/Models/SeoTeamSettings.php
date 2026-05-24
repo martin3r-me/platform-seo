@@ -20,6 +20,7 @@ class SeoTeamSettings extends Model
         'dataforseo_connection_id',
         'location_code',
         'language_code',
+        'language_name',
         'clustering_status',
         'clustering_result',
         'settings',
@@ -90,6 +91,15 @@ class SeoTeamSettings extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Löst den Sprachnamen für DataForSEO API auf.
+     * Gibt den explizit gesetzten language_name zurück, oder den Config-Default.
+     */
+    public function resolveLanguageName(): ?string
+    {
+        return $this->language_name ?: config('integrations.dataforseo.default_language_name', 'German');
     }
 
     public function isRefreshDue(): bool

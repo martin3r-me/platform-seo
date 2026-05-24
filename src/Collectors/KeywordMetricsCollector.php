@@ -79,7 +79,7 @@ class KeywordMetricsCollector implements SeoCollectorInterface
                 null,
                 $keywordTexts,
                 $settings->location_code,
-                $settings->language_code,
+                $settings->resolveLanguageName(),
             );
         } catch (\Throwable $e) {
             return ['processed' => 0, 'cost_cents' => 0, 'errors' => [$e->getMessage()]];
