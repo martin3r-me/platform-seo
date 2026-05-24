@@ -231,7 +231,7 @@ class SeoUrlService implements SeoUrlServiceInterface
             ->get();
     }
 
-    public function enrich(int $teamId, ?string $url = null, array $collectors = []): array
+    public function enrich(int $teamId, ?string $url = null, array $collectors = [], bool $force = false): array
     {
         $settings = SeoTeamSettings::where('team_id', $teamId)->first();
         if (! $settings) {
@@ -256,6 +256,7 @@ class SeoUrlService implements SeoUrlServiceInterface
 
         $result = $this->pipeline->runPipeline($settings, [
             'collectors' => $collectors,
+            'force' => $force,
         ]);
 
         return [

@@ -33,6 +33,10 @@ class EnrichUrlTool implements ToolContract
                     'items' => ['type' => 'string'],
                     'description' => 'Nur bestimmte Collectors ausführen',
                 ],
+                'force' => [
+                    'type' => 'boolean',
+                    'description' => 'Erzwingt Enrichment auch wenn URL noch nicht fällig ist.',
+                ],
             ],
         ];
     }
@@ -49,7 +53,8 @@ class EnrichUrlTool implements ToolContract
             $result = $service->enrich(
                 $team->id,
                 $arguments['url'] ?? null,
-                $arguments['collectors'] ?? []
+                $arguments['collectors'] ?? [],
+                $arguments['force'] ?? false,
             );
 
             return ToolResult::success([
