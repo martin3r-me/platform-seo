@@ -518,6 +518,9 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                 }
             }
 
+            // Tracking: welches Keyword geht an welche URL (für Cleanup)
+            $keywordUrlAssignments = []; // keyword_id => matched_url_id
+
             $matchedCount = 0;
             foreach ($rankedResults as $rk) {
                 if (!$rk->position || !$rk->url) {
@@ -590,6 +593,8 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                         ],
                     ]);
 
+                    $keywordUrlAssignments[$keywordModel->id] = $matchedUrlId;
+
                     // SeoRankingHistory (für Ranking-Tab im Frontend)
                     $lastHistory = SeoRankingHistory::where('url_id', $matchedUrl->id)
                         ->where('keyword_id', $keywordModel->id)
@@ -651,6 +656,19 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                     ]);
                 }
                 $positionSnapshots++;
+            }
+
+            // Stale Pivot-Einträge bereinigen: Keyword nur an die gematchte URL,
+            // von anderen URLs derselben Domain entfernen
+            $domainUrlIds = collect($domainUrls)->pluck('id')->all();
+            foreach ($keywordUrlAssignments as $kwId => $correctUrlId) {
+                $staleUrlIds = array_filter($domainUrlIds, fn ($id) => $id !== $correctUrlId);
+                if (!empty($staleUrlIds)) {
+                    \Illuminate\Support\Facades\DB::table('seo_url_keywords')
+                        ->where('keyword_id', $kwId)
+                        ->whereIn('url_id', $staleUrlIds)
+                        ->delete();
+                }
             }
 
             // Denormalisierte Felder auf URLs updaten

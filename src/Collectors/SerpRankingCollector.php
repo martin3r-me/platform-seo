@@ -105,6 +105,8 @@ class SerpRankingCollector implements SeoCollectorInterface
             // Eigene Domains für Competitor-Erkennung
             $ownDomains = collect($domainUrls)->pluck('domain')->unique()->filter()->values()->toArray();
 
+            $keywordUrlAssignments = []; // keyword_id => matched_url_id
+
             foreach ($rankedResults as $rk) {
                 if (!$rk->position || !$rk->url) {
                     continue;
@@ -204,7 +206,20 @@ class SerpRankingCollector implements SeoCollectorInterface
                     ],
                 ]);
 
+                $keywordUrlAssignments[$keyword->id] = $matchedUrlId;
                 $processed++;
+            }
+
+            // Stale Pivot-Einträge bereinigen
+            $domainUrlIds = collect($domainUrls)->pluck('id')->all();
+            foreach ($keywordUrlAssignments as $kwId => $correctUrlId) {
+                $staleUrlIds = array_filter($domainUrlIds, fn ($id) => $id !== $correctUrlId);
+                if (!empty($staleUrlIds)) {
+                    \Illuminate\Support\Facades\DB::table('seo_url_keywords')
+                        ->where('keyword_id', $kwId)
+                        ->whereIn('url_id', $staleUrlIds)
+                        ->delete();
+                }
             }
         }
 
