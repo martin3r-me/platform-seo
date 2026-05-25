@@ -64,11 +64,6 @@
                 <div class="flex items-center gap-1 border-b border-gray-200 mb-6">
                     <button @click="tab = 'keywords'" :class="tab === 'keywords' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">Keywords</button>
                     <button @click="tab = 'rankings'" :class="tab === 'rankings' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">Rankings</button>
-                    @if($childUrls->isNotEmpty())
-                        <button @click="tab = 'children'" :class="tab === 'children' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">
-                            Unterseiten <span class="ml-1 text-[11px] text-gray-400">({{ $childUrls->count() }})</span>
-                        </button>
-                    @endif
                     <button @click="tab = 'backlinks'" :class="tab === 'backlinks' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">Backlinks</button>
                     <button @click="tab = 'onpage'" :class="tab === 'onpage' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">On-Page</button>
                     <button @click="tab = 'gsc'" :class="tab === 'gsc' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">GSC</button>
@@ -169,45 +164,6 @@
                         <div class="p-8 text-center text-[13px] text-gray-400">Noch keine Ranking-Historie.</div>
                     @endif
                 </div>
-
-                {{-- Children Tab --}}
-                @if($childUrls->isNotEmpty())
-                    <div x-show="tab === 'children'" x-cloak>
-                        <section class="bg-white rounded-lg border border-gray-200">
-                            <table class="w-full text-[13px]">
-                                <thead>
-                                    <tr class="border-b border-gray-200 text-left">
-                                        <th class="px-4 py-3">URL</th>
-                                        <th class="px-4 py-3 text-right">Keywords</th>
-                                        <th class="px-4 py-3 text-right">Suchvolumen</th>
-                                        <th class="px-4 py-3 text-right">Sichtbarkeit</th>
-                                        <th class="px-4 py-3 text-right">Backlinks</th>
-                                        <th class="px-4 py-3 text-center">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    @foreach($childUrls as $child)
-                                        <tr class="hover:bg-blue-50/50 transition-colors">
-                                            <td class="px-4 py-2.5">
-                                                <a href="{{ route('seo.urls.show', $child) }}" wire:navigate class="text-[#166EE1] hover:underline truncate block max-w-md">
-                                                    {{ $child->path ?: '/' }}
-                                                </a>
-                                                <span class="text-[11px] text-gray-400">{{ $child->domain }}</span>
-                                            </td>
-                                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $child->keyword_count }}</td>
-                                            <td class="px-4 py-2.5 text-right text-gray-600">{{ number_format($child->total_search_volume) }}</td>
-                                            <td class="px-4 py-2.5 text-right font-medium text-gray-900">{{ number_format($child->visibility_score, 1) }}</td>
-                                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $child->backlink_count }}</td>
-                                            <td class="px-4 py-2.5 text-center">
-                                                @include('seo::partials.url-status-badge', ['status' => $child->status, 'httpStatus' => $child->http_status])
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </section>
-                    </div>
-                @endif
 
                 {{-- Backlinks Tab --}}
                 <div x-show="tab === 'backlinks'" x-cloak>
