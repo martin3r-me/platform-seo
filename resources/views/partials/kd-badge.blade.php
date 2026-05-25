@@ -1,39 +1,30 @@
 @props(['value' => null])
 
 @php
+    // KWFinder-style difficulty color scale
     if ($value === null) {
-        $color = 'bg-gray-100 text-gray-400';
         $bg = null;
+        $color = 'bg-gray-100 text-gray-400';
         $label = '—';
-    } elseif ($value < 15) {
-        $color = 'text-white';
-        $bg = '#2ecc71';
-        $label = $value;
-    } elseif ($value < 30) {
-        $color = 'text-white';
-        $bg = '#a3cb38';
-        $label = $value;
-    } elseif ($value < 50) {
-        $color = 'text-gray-900';
-        $bg = '#f9ca24';
-        $label = $value;
-    } elseif ($value < 65) {
-        $color = 'text-white';
-        $bg = '#f39c12';
-        $label = $value;
-    } elseif ($value < 85) {
-        $color = 'text-white';
-        $bg = '#e74c3c';
-        $label = $value;
+    } elseif ($value <= 14) {
+        $bg = '#2ecc71'; $color = 'text-white'; $label = $value;
+    } elseif ($value <= 29) {
+        $bg = '#48c774'; $color = 'text-white'; $label = $value;
+    } elseif ($value <= 39) {
+        $bg = '#a3cb38'; $color = 'text-white'; $label = $value;
+    } elseif ($value <= 54) {
+        $bg = '#f9ca24'; $color = 'text-gray-900'; $label = $value;
+    } elseif ($value <= 69) {
+        $bg = '#f39c12'; $color = 'text-white'; $label = $value;
+    } elseif ($value <= 84) {
+        $bg = '#e74c3c'; $color = 'text-white'; $label = $value;
     } else {
-        $color = 'text-white';
-        $bg = '#8e44ad';
-        $label = $value;
+        $bg = '#c0392b'; $color = 'text-white'; $label = $value;
     }
 @endphp
 
 @if($bg === null)
-    <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium {{ $color }}">{{ $label }}</span>
+    <span class="inline-flex items-center justify-center w-8 h-5 rounded text-[11px] font-semibold {{ $color }}">{{ $label }}</span>
 @else
-    <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium {{ $color }}" style="background-color: {{ $bg }}">{{ $label }}</span>
+    <span class="inline-flex items-center justify-center w-8 h-5 rounded text-[11px] font-semibold {{ $color }}" style="background-color: {{ $bg }}">{{ $label }}</span>
 @endif
