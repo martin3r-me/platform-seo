@@ -21,30 +21,65 @@
 
     <x-ui-page-container>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             @forelse($lists as $list)
-                <div wire:key="list-{{ $list->id }}" class="bg-white rounded-xl border border-gray-100 hover:border-gray-200 transition overflow-hidden">
-                    <a href="{{ route('seo.lists.show', $list) }}" wire:navigate class="block p-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="font-medium text-sm text-gray-900 truncate">{{ $list->name }}</span>
-                            <span class="text-xs text-gray-400">{{ $list->urls_count }} URLs</span>
+                <div wire:key="list-{{ $list->id }}" class="bg-white rounded-xl border border-gray-200 hover:border-indigo-200 hover:shadow-md transition-all group overflow-hidden">
+                    <a href="{{ route('seo.lists.show', $list) }}" wire:navigate class="block p-5">
+                        {{-- Header --}}
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="min-w-0">
+                                <h3 class="font-semibold text-[15px] text-gray-900 truncate group-hover:text-indigo-600 transition-colors">{{ $list->name }}</h3>
+                                @if($list->description)
+                                    <p class="text-[12px] text-gray-400 mt-0.5 line-clamp-1">{{ $list->description }}</p>
+                                @endif
+                            </div>
+                            <span class="shrink-0 ml-3 inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
+                                {{ $list->urls_count }} URLs
+                            </span>
                         </div>
-                        @if($list->description)
-                            <p class="text-xs text-gray-500 line-clamp-2">{{ $list->description }}</p>
-                        @endif
+
+                        {{-- Mini Stats Grid --}}
+                        <div class="grid grid-cols-4 gap-2">
+                            <div class="bg-gray-50 rounded-lg px-2.5 py-2 text-center">
+                                <div class="text-[10px] text-gray-400 uppercase tracking-wide">KWs</div>
+                                <div class="text-[13px] font-semibold text-gray-800 tabular-nums mt-0.5">{{ number_format($list->agg_keywords) }}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg px-2.5 py-2 text-center">
+                                <div class="text-[10px] text-gray-400 uppercase tracking-wide">SV</div>
+                                <div class="text-[13px] font-semibold text-gray-800 tabular-nums mt-0.5">
+                                    {{ $list->agg_search_volume >= 1000 ? number_format($list->agg_search_volume / 1000, 1) . 'K' : number_format($list->agg_search_volume) }}
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg px-2.5 py-2 text-center">
+                                <div class="text-[10px] text-gray-400 uppercase tracking-wide">Sicht.</div>
+                                <div class="text-[13px] font-semibold text-gray-800 tabular-nums mt-0.5">{{ number_format($list->agg_visibility, 0) }}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg px-2.5 py-2 text-center">
+                                <div class="text-[10px] text-gray-400 uppercase tracking-wide">Links</div>
+                                <div class="text-[13px] font-semibold text-gray-800 tabular-nums mt-0.5">{{ number_format($list->agg_backlinks) }}</div>
+                            </div>
+                        </div>
                     </a>
-                    <div class="px-4 pb-3 flex items-center gap-2">
-                        <button wire:click="openEditModal({{ $list->id }})" class="text-xs text-gray-400 hover:text-gray-600 transition">
+
+                    {{-- Actions --}}
+                    <div class="px-5 py-2.5 border-t border-gray-100 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button wire:click="openEditModal({{ $list->id }})" class="text-[11px] text-gray-400 hover:text-indigo-600 transition flex items-center gap-1">
                             @svg('heroicon-o-pencil', 'w-3.5 h-3.5')
+                            <span>Bearbeiten</span>
                         </button>
-                        <button wire:click="deleteList({{ $list->id }})" wire:confirm="Liste löschen? Die URLs selbst bleiben erhalten." class="text-xs text-gray-400 hover:text-red-500 transition">
+                        <button wire:click="deleteList({{ $list->id }})" wire:confirm="Liste löschen? Die URLs selbst bleiben erhalten." class="text-[11px] text-gray-400 hover:text-red-500 transition flex items-center gap-1">
                             @svg('heroicon-o-trash', 'w-3.5 h-3.5')
+                            <span>Löschen</span>
                         </button>
                     </div>
                 </div>
             @empty
-                <div class="col-span-full text-sm text-gray-400 px-3 py-12 text-center">
-                    Noch keine Listen vorhanden. Erstelle eine neue Liste, um URLs zu gruppieren.
+                <div class="col-span-full text-center py-16">
+                    <div class="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                        @svg('heroicon-o-queue-list', 'w-6 h-6 text-gray-400')
+                    </div>
+                    <p class="text-sm text-gray-500 font-medium mb-1">Noch keine Listen</p>
+                    <p class="text-xs text-gray-400">Erstelle eine neue Liste, um URLs zu gruppieren und gemeinsam zu analysieren.</p>
                 </div>
             @endforelse
         </div>
@@ -73,11 +108,4 @@
             </x-slot>
         </form>
     </x-ui-modal>
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-[13px] text-gray-400">Letzte Änderungen</div>
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
 </x-ui-page>

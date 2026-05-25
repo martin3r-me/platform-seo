@@ -23,94 +23,187 @@
     <x-ui-page-container>
 
         {{-- Sub-Navigation --}}
-        <div class="flex items-center gap-2 mb-6">
+        <div class="flex items-center gap-1 border-b border-gray-200 mb-6">
             <a href="{{ route('seo.lists.show', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg bg-indigo-50 text-indigo-600 font-medium">
+               class="px-4 py-3 text-[13px] font-medium text-[#166EE1] border-b-2 border-[#166EE1]">
                 Übersicht
             </a>
             <a href="{{ route('seo.lists.competitors', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
+               class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">
                 Wettbewerber
             </a>
             <a href="{{ route('seo.lists.cannibalization', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
+               class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">
                 Kannibalisierung
             </a>
             <a href="{{ route('seo.lists.signals', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
+               class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">
                 Signale
             </a>
         </div>
 
         @if($seoUrlList->description)
-            <p class="text-sm text-gray-500 mb-4">{{ $seoUrlList->description }}</p>
+            <p class="text-[13px] text-gray-500 mb-5">{{ $seoUrlList->description }}</p>
         @endif
 
-        {{-- Aggregated metrics --}}
+        {{-- Aggregated Metrics --}}
         <div class="grid grid-cols-4 gap-4 mb-6">
-            <div class="bg-white rounded-xl border border-gray-100 p-4">
-                <div class="text-xs text-gray-500">Sichtbarkeit</div>
-                <div class="text-lg font-semibold text-gray-900 mt-1">{{ number_format($aggregated['visibility_score'], 1) }}</div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Sichtbarkeit</div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggregated['visibility_score'], 1) }}</div>
             </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4">
-                <div class="text-xs text-gray-500">Keywords</div>
-                <div class="text-lg font-semibold text-gray-900 mt-1">{{ number_format($aggregated['keyword_count']) }}</div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Keywords</div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggregated['keyword_count']) }}</div>
             </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4">
-                <div class="text-xs text-gray-500">Suchvolumen</div>
-                <div class="text-lg font-semibold text-gray-900 mt-1">{{ number_format($aggregated['total_search_volume']) }}</div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Suchvolumen</div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggregated['total_search_volume']) }}</div>
             </div>
-            <div class="bg-white rounded-xl border border-gray-100 p-4">
-                <div class="text-xs text-gray-500">Backlinks</div>
-                <div class="text-lg font-semibold text-gray-900 mt-1">{{ number_format($aggregated['backlink_count']) }}</div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Backlinks</div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggregated['backlink_count']) }}</div>
             </div>
         </div>
 
-        {{-- URLs table --}}
-        <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b border-gray-100 text-left">
-                        <th class="px-4 py-3">URL</th>
-                        <th class="px-4 py-3 text-right">Kinder</th>
-                        <th class="px-4 py-3 text-right">Sichtbarkeit</th>
-                        <th class="px-4 py-3 text-right">Keywords</th>
-                        <th class="px-4 py-3 text-right">SV</th>
-                        <th class="px-4 py-3 text-right">Backlinks</th>
-                        <th class="px-4 py-3 w-10"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($listUrls as $url)
-                        <tr wire:key="lurl-{{ $url->id }}" class="border-b border-gray-50 hover:bg-gray-50/50">
-                            <td class="px-4 py-2.5">
-                                <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-sm">
-                                    {{ $url->path ?: '/' }}
-                                </a>
-                                <span class="text-xs text-gray-400">{{ $url->domain }}</span>
-                            </td>
-                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $url->child_count }}</td>
-                            <td class="px-4 py-2.5 text-right">
-                                <span class="font-medium text-gray-900">{{ number_format($url->agg_visibility, 1) }}</span>
-                            </td>
-                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $url->agg_keywords }}</td>
-                            <td class="px-4 py-2.5 text-right text-gray-600">{{ number_format($url->agg_search_volume) }}</td>
-                            <td class="px-4 py-2.5 text-right text-gray-600">{{ $url->agg_backlinks }}</td>
-                            <td class="px-4 py-2.5 text-right">
-                                <button wire:click="removeUrlFromList({{ $url->id }})" class="text-gray-400 hover:text-red-500 transition" title="Aus Liste entfernen">
-                                    @svg('heroicon-o-x-mark', 'w-4 h-4')
-                                </button>
-                            </td>
+        {{-- URLs Table + Detail Panel --}}
+        <div class="flex gap-0 items-start">
+            {{-- Left: URL List --}}
+            <div class="flex-1 min-w-0 bg-white rounded-l-lg border border-gray-200 {{ $this->selectedUrl ? 'border-r-0' : 'rounded-r-lg' }} overflow-hidden">
+                <table class="w-full text-[13px]">
+                    <thead class="sticky top-0 z-10">
+                        <tr class="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+                            <th class="px-4 py-2.5 text-left">URL</th>
+                            <th class="px-4 py-2.5 text-right">Kinder</th>
+                            <th class="px-4 py-2.5 text-right">KWs</th>
+                            <th class="px-4 py-2.5 text-right">SV</th>
+                            <th class="px-4 py-2.5 text-right">Sicht.</th>
+                            <th class="px-4 py-2.5 text-right">Links</th>
+                            <th class="px-4 py-2.5 w-8"></th>
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="px-4 py-12 text-center text-gray-400">
-                                Noch keine URLs in dieser Liste.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($listUrls as $url)
+                            <tr wire:key="lurl-{{ $url->id }}"
+                                wire:click="selectUrl({{ $url->id }})"
+                                class="cursor-pointer transition-colors {{ $selectedUrlId === $url->id ? 'bg-blue-50' : 'hover:bg-gray-50' }}">
+                                <td class="px-4 py-2.5">
+                                    <div class="font-medium text-gray-900 truncate max-w-xs">{{ $url->path ?: '/' }}</div>
+                                    <div class="text-[10px] text-gray-400">{{ $url->domain }}</div>
+                                </td>
+                                <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">
+                                    @if($url->child_count > 0)
+                                        <span class="inline-flex items-center gap-0.5 text-[11px]">
+                                            @svg('heroicon-o-document-duplicate', 'w-3 h-3 text-gray-400')
+                                            {{ $url->child_count }}
+                                        </span>
+                                    @else
+                                        <span class="text-gray-300">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-2.5 text-right font-medium text-gray-800 tabular-nums">{{ $url->agg_keywords }}</td>
+                                <td class="px-4 py-2.5 text-right tabular-nums">
+                                    @include('seo::partials.sv-badge', ['volume' => $url->agg_search_volume])
+                                </td>
+                                <td class="px-4 py-2.5 text-right font-medium text-gray-800 tabular-nums">{{ number_format($url->agg_visibility, 1) }}</td>
+                                <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">{{ $url->agg_backlinks }}</td>
+                                <td class="px-4 py-2.5 text-right" wire:click.stop>
+                                    <button wire:click="removeUrlFromList({{ $url->id }})" class="text-gray-300 hover:text-red-500 transition" title="Aus Liste entfernen">
+                                        @svg('heroicon-o-x-mark', 'w-4 h-4')
+                                    </button>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-4 py-16 text-center">
+                                    <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                                        @svg('heroicon-o-globe-alt', 'w-5 h-5 text-gray-400')
+                                    </div>
+                                    <p class="text-sm text-gray-500 font-medium mb-1">Noch keine URLs</p>
+                                    <p class="text-xs text-gray-400">Füge URLs hinzu, um sie gemeinsam zu analysieren.</p>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Right: Detail Panel --}}
+            @if($this->selectedUrl)
+                <div class="w-[400px] shrink-0 bg-white rounded-r-lg border border-gray-200 overflow-y-auto sticky top-0" style="max-height: calc(100vh - 120px);">
+                    {{-- Panel Header --}}
+                    <div class="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between">
+                        <div class="min-w-0">
+                            <h3 class="text-[13px] font-semibold text-gray-900 truncate">{{ $this->selectedUrl->path ?: '/' }}</h3>
+                            <div class="text-[10px] text-gray-400 truncate">{{ $this->selectedUrl->domain }}</div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0 ml-3">
+                            <a href="{{ route('seo.urls.show', $this->selectedUrl) }}" wire:navigate class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium">Öffnen</a>
+                            <button wire:click="selectUrl({{ $this->selectedUrl->id }})" class="text-gray-400 hover:text-gray-600 p-1">
+                                @svg('heroicon-o-x-mark', 'w-4 h-4')
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- URL Quick Stats --}}
+                    <div class="p-5 border-b border-gray-100">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-gray-50 rounded-md px-3 py-2">
+                                <div class="text-[10px] text-gray-400 uppercase">Keywords</div>
+                                <div class="text-sm font-semibold text-gray-800">{{ $this->selectedUrl->keyword_count }}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-md px-3 py-2">
+                                <div class="text-[10px] text-gray-400 uppercase">Suchvolumen</div>
+                                <div class="text-sm font-semibold text-gray-800">{{ number_format($this->selectedUrl->total_search_volume) }}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-md px-3 py-2">
+                                <div class="text-[10px] text-gray-400 uppercase">Sichtbarkeit</div>
+                                <div class="text-sm font-semibold text-gray-800">{{ number_format($this->selectedUrl->visibility_score, 1) }}</div>
+                            </div>
+                            <div class="bg-gray-50 rounded-md px-3 py-2">
+                                <div class="text-[10px] text-gray-400 uppercase">Backlinks</div>
+                                <div class="text-sm font-semibold text-gray-800">{{ $this->selectedUrl->backlink_count }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Top Keywords for this URL --}}
+                    <div class="p-5">
+                        <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Top Keywords</h4>
+                        @if($this->selectedUrlKeywords->isNotEmpty())
+                            <div class="space-y-0 rounded-lg border border-gray-100 overflow-hidden">
+                                <table class="w-full text-[11px]">
+                                    <thead>
+                                        <tr class="bg-gray-50 text-gray-500 font-medium">
+                                            <th class="px-3 py-1.5 text-left">Keyword</th>
+                                            <th class="px-3 py-1.5 text-right">Pos</th>
+                                            <th class="px-3 py-1.5 text-right">SV</th>
+                                            <th class="px-3 py-1.5 text-right">KD</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-50">
+                                        @foreach($this->selectedUrlKeywords as $kw)
+                                            @php $pos = $kw->urls->first()?->pivot->position; @endphp
+                                            <tr class="hover:bg-blue-50/30 transition-colors">
+                                                <td class="px-3 py-1.5 font-medium text-gray-800 truncate max-w-[160px]">{{ $kw->keyword }}</td>
+                                                <td class="px-3 py-1.5 text-right">
+                                                    @include('seo::partials.position-badge', ['position' => $pos, 'change' => null])
+                                                </td>
+                                                <td class="px-3 py-1.5 text-right text-gray-600 tabular-nums">{{ $kw->search_volume ? number_format($kw->search_volume) : '—' }}</td>
+                                                <td class="px-3 py-1.5 text-right">
+                                                    @include('seo::partials.kd-badge', ['value' => $kw->keyword_difficulty])
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <div class="text-[12px] text-gray-400 text-center py-4">Keine Keywords für diese URL.</div>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
 
     </x-ui-page-container>
@@ -146,11 +239,4 @@
             <x-ui-button variant="primary" size="sm" wire:click="addUrlsToList" :disabled="empty($selectedUrlIds)">Hinzufügen</x-ui-button>
         </x-slot>
     </x-ui-modal>
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-[13px] text-gray-400">Letzte Änderungen</div>
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
 </x-ui-page>

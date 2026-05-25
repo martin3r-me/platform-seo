@@ -4,7 +4,9 @@ namespace Platform\Seo\Livewire;
 
 use Illuminate\Support\Str;
 use Livewire\Component;
+use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
+use Platform\Seo\Models\SeoUrlRelationship;
 
 class SeoUrlListManager extends Component
 {
@@ -76,6 +78,24 @@ class SeoUrlListManager extends Component
     public function render()
     {
         $lists = SeoUrlList::withCount('urls')->orderBy('name')->get();
+
+        // Compute aggregate stats per list
+        foreach ($lists as $list) {
+            $rootUrlIds = $list->urls()->pluck('seo_urls.id');
+            $childIds = SeoUrlRelationship::where('type', 'parent_child')
+                ->whereIn('source_url_id', $rootUrlIds)
+                ->pluck('target_url_id');
+
+            $allIds = $rootUrlIds->merge($childIds);
+            $allUrls = $allIds->isNotEmpty()
+                ? SeoUrl::whereIn('id', $allIds)->get()
+                : collect();
+
+            $list->agg_keywords = $allUrls->sum('keyword_count');
+            $list->agg_search_volume = $allUrls->sum('total_search_volume');
+            $list->agg_visibility = $allUrls->sum('visibility_score');
+            $list->agg_backlinks = $allUrls->sum('backlink_count');
+        }
 
         return view('seo::livewire.seo-url-list-manager', [
             'lists' => $lists,

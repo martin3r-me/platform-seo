@@ -2,7 +2,9 @@
 
 namespace Platform\Seo\Livewire;
 
+use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
 use Platform\Seo\Models\SeoUrlRelationship;
@@ -16,9 +18,17 @@ class SeoUrlListDetail extends Component
     public string $urlSearch = '';
     public array $selectedUrlIds = [];
 
+    // Selected URL for detail panel
+    public ?int $selectedUrlId = null;
+
     public function mount(SeoUrlList $seoUrlList): void
     {
         $this->seoUrlList = $seoUrlList;
+    }
+
+    public function selectUrl(int $urlId): void
+    {
+        $this->selectedUrlId = $this->selectedUrlId === $urlId ? null : $urlId;
     }
 
     public function openAddUrlsModal(): void
@@ -48,6 +58,44 @@ class SeoUrlListDetail extends Component
     public function removeUrlFromList(int $urlId): void
     {
         $this->seoUrlList->urls()->detach($urlId);
+        if ($this->selectedUrlId === $urlId) {
+            $this->selectedUrlId = null;
+        }
+    }
+
+    private function getUrlWithChildIds(int $urlId): array
+    {
+        $childIds = SeoUrlRelationship::where('type', 'parent_child')
+            ->where('source_url_id', $urlId)
+            ->pluck('target_url_id');
+
+        return collect([$urlId])->merge($childIds)->all();
+    }
+
+    #[Computed]
+    public function selectedUrl()
+    {
+        if (! $this->selectedUrlId) {
+            return null;
+        }
+
+        return SeoUrl::find($this->selectedUrlId);
+    }
+
+    #[Computed]
+    public function selectedUrlKeywords()
+    {
+        if (! $this->selectedUrlId) {
+            return collect();
+        }
+
+        $allUrlIds = $this->getUrlWithChildIds($this->selectedUrlId);
+
+        return SeoKeyword::whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
+            ->with(['urls' => fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds)])
+            ->orderByDesc('search_volume')
+            ->limit(50)
+            ->get();
     }
 
     public function render()
