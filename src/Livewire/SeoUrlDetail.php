@@ -2,6 +2,7 @@
 
 namespace Platform\Seo\Livewire;
 
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeyword;
@@ -17,10 +18,70 @@ class SeoUrlDetail extends Component
 
     public SeoUrl $seoUrl;
 
+    public ?int $selectedKeywordId = null;
+
     public function mount(SeoUrl $seoUrl)
     {
         $this->resolveSettings();
         $this->seoUrl = $seoUrl;
+    }
+
+    public function selectKeyword(int $keywordId)
+    {
+        $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
+    }
+
+    private function getAllUrlIds(): array
+    {
+        $childIds = SeoUrlRelationship::where('source_url_id', $this->seoUrl->id)
+            ->where('type', 'parent_child')
+            ->pluck('target_url_id');
+
+        return collect([$this->seoUrl->id])->merge($childIds)->all();
+    }
+
+    #[Computed]
+    public function selectedKeyword()
+    {
+        if (! $this->selectedKeywordId) {
+            return null;
+        }
+
+        return SeoKeyword::with([
+            'cluster',
+            'competitors' => fn ($q) => $q->orderBy('position')->limit(10),
+            'positions' => fn ($q) => $q->latest('tracked_at')->limit(1),
+        ])->find($this->selectedKeywordId);
+    }
+
+    #[Computed]
+    public function selectedKeywordUrls()
+    {
+        if (! $this->selectedKeywordId) {
+            return collect();
+        }
+
+        $allUrlIds = $this->getAllUrlIds();
+
+        return SeoUrl::whereIn('id', $allUrlIds)
+            ->whereHas('keywords', fn ($q) => $q->where('seo_keywords.id', $this->selectedKeywordId))
+            ->with(['keywords' => fn ($q) => $q->where('seo_keywords.id', $this->selectedKeywordId)])
+            ->get();
+    }
+
+    #[Computed]
+    public function selectedKeywordHistory()
+    {
+        if (! $this->selectedKeywordId) {
+            return collect();
+        }
+
+        return SeoRankingHistory::where('keyword_id', $this->selectedKeywordId)
+            ->orderBy('tracked_at', 'desc')
+            ->limit(30)
+            ->get()
+            ->reverse()
+            ->values();
     }
 
     public function render()

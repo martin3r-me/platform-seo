@@ -70,45 +70,89 @@
                     <button @click="tab = 'relationships'" :class="tab === 'relationships' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">Beziehungen</button>
                 </div>
 
-                {{-- Keywords Tab --}}
+                {{-- Keywords Tab — KWFinder-style split panel --}}
                 <div x-show="tab === 'keywords'">
                     @if($keywords->isNotEmpty())
-                        <section class="bg-white rounded-lg border border-gray-200">
-                            <table class="w-full text-[13px]">
-                                <thead>
-                                    <tr class="border-b border-gray-200 text-left">
-                                        <th class="px-4 py-3">Keyword</th>
-                                        <th class="px-4 py-3">URL</th>
-                                        <th class="px-4 py-3 text-right">Position</th>
-                                        <th class="px-4 py-3 text-right">SV</th>
-                                        <th class="px-4 py-3 text-right">KD</th>
-                                        <th class="px-4 py-3">Intent</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    @foreach($keywords as $keyword)
-                                        @php $bestUrl = $keyword->urls->sortBy('pivot.position')->first(); @endphp
-                                        <tr class="hover:bg-blue-50/50 transition-colors">
-                                            <td class="px-4 py-2.5 font-medium text-gray-900">{{ $keyword->keyword }}</td>
-                                            <td class="px-4 py-2.5 text-[11px] text-gray-400">
-                                                @if($bestUrl && $bestUrl->id !== $seoUrl->id)
-                                                    <a href="{{ route('seo.urls.show', $bestUrl) }}" wire:navigate class="text-[#166EE1] hover:underline">{{ $bestUrl->path ?: '/' }}</a>
-                                                @else
-                                                    {{ $seoUrl->path ?: '/' }}
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-2.5 text-right">@include('seo::partials.position-badge', ['position' => $bestUrl?->pivot->position, 'change' => null])</td>
-                                            <td class="px-4 py-2.5 text-right">
-                                                @include('seo::partials.seasonality-chart', ['keyword' => $keyword])
-                                                @include('seo::partials.competitor-domains', ['keyword' => $keyword, 'limit' => 3])
-                                            </td>
-                                            <td class="px-4 py-2.5 text-right">@include('seo::partials.kd-badge', ['value' => $keyword->keyword_difficulty])</td>
-                                            <td class="px-4 py-2.5 text-[11px] text-gray-400">{{ $keyword->search_intent ? ucfirst($keyword->search_intent) : '' }}</td>
+                        <div class="flex gap-0 items-stretch" style="min-height: 600px;">
+                            {{-- Left: Keyword List --}}
+                            <div class="flex-1 min-w-0 bg-white rounded-l-lg border border-gray-200 {{ $this->selectedKeyword ? 'border-r-0' : 'rounded-r-lg' }} overflow-hidden flex flex-col">
+                                <table class="w-full text-[13px]">
+                                    <thead class="sticky top-0 z-10">
+                                        <tr class="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+                                            <th class="px-4 py-2.5 text-left">Keyword</th>
+                                            <th class="px-4 py-2.5 text-center w-[70px]">Trend</th>
+                                            <th class="px-4 py-2.5 text-right">Search</th>
+                                            <th class="px-4 py-2.5 text-right">CPC</th>
+                                            <th class="px-4 py-2.5 text-right">Pos</th>
+                                            <th class="px-4 py-2.5 text-right w-[52px]">KD</th>
                                         </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </section>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach($keywords as $keyword)
+                                            @php $bestUrl = $keyword->urls->sortBy('pivot.position')->first(); @endphp
+                                            <tr wire:key="kw-{{ $keyword->id }}"
+                                                wire:click="selectKeyword({{ $keyword->id }})"
+                                                class="cursor-pointer transition-colors {{ $selectedKeywordId === $keyword->id ? 'bg-blue-50' : 'hover:bg-gray-50' }}">
+                                                <td class="px-4 py-2.5">
+                                                    <div class="font-medium text-gray-900">{{ $keyword->keyword }}</div>
+                                                    @if($bestUrl && $bestUrl->id !== $seoUrl->id)
+                                                        <div class="text-[10px] text-gray-400 mt-0.5">{{ $bestUrl->path ?: '/' }}</div>
+                                                    @endif
+                                                </td>
+                                                <td class="px-1 py-2.5">
+                                                    @if($keyword->monthly_volumes && count($keyword->monthly_volumes) >= 6)
+                                                        <div wire:key="trend-{{ $keyword->id }}" wire:ignore
+                                                             x-data x-init="$nextTick(() => {
+                                                                if (typeof ApexCharts !== 'undefined') {
+                                                                    new ApexCharts($el, {
+                                                                        chart: { type: 'bar', height: 24, sparkline: { enabled: true } },
+                                                                        series: [{ data: {{ json_encode(array_values($keyword->monthly_volumes)) }} }],
+                                                                        colors: ['#c7d2fe'],
+                                                                        plotOptions: { bar: { borderRadius: 1, columnWidth: '55%' } },
+                                                                        tooltip: { enabled: false }
+                                                                    }).render();
+                                                                }
+                                                            })"
+                                                             style="height: 24px; width: 56px;">
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                                <td class="px-4 py-2.5 text-right tabular-nums font-medium text-gray-800">
+                                                    {{ $keyword->search_volume !== null ? number_format($keyword->search_volume) : '—' }}
+                                                </td>
+                                                <td class="px-4 py-2.5 text-right tabular-nums text-gray-500 text-[12px]">
+                                                    {{ $keyword->cpc_euro !== null ? number_format($keyword->cpc_euro, 2) . '€' : '—' }}
+                                                </td>
+                                                <td class="px-4 py-2.5 text-right">
+                                                    @include('seo::partials.position-badge', ['position' => $bestUrl?->pivot->position, 'change' => null])
+                                                </td>
+                                                <td class="px-4 py-2.5 text-right">
+                                                    @include('seo::partials.kd-badge', ['value' => $keyword->keyword_difficulty])
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {{-- Right: Detail Panel --}}
+                            @if($this->selectedKeyword)
+                                <div class="w-[400px] shrink-0 bg-white rounded-r-lg border border-gray-200 overflow-y-auto">
+                                    {{-- Panel Header --}}
+                                    <div class="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between">
+                                        <h3 class="text-[13px] font-semibold text-gray-900 truncate">{{ $this->selectedKeyword->keyword }}</h3>
+                                        <button wire:click="selectKeyword({{ $this->selectedKeyword->id }})" class="text-gray-400 hover:text-gray-600 p-1">
+                                            @svg('heroicon-o-x-mark', 'w-4 h-4')
+                                        </button>
+                                    </div>
+                                    @include('seo::partials.keyword-detail-panel', [
+                                        'keyword' => $this->selectedKeyword,
+                                        'urls' => $this->selectedKeywordUrls,
+                                        'positionHistory' => $this->selectedKeywordHistory,
+                                    ])
+                                </div>
+                            @endif
+                        </div>
                     @else
                         <div class="p-8 text-center text-[13px] text-gray-400">Keine Keywords für diese URL.</div>
                     @endif
