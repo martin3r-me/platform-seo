@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('seo_keyword_competitors', 'team_id')) {
+            return;
+        }
+
         Schema::table('seo_keyword_competitors', function (Blueprint $table) {
             $table->unsignedBigInteger('team_id')->after('keyword_id')->index()->default(0);
         });
