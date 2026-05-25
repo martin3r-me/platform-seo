@@ -41,7 +41,7 @@ class KeywordMetricsCollector implements SeoCollectorInterface
         $intervalHours = $this->refreshIntervalHours();
 
         return $urls->filter(function (SeoUrl $url) use ($intervalHours) {
-            return $url->isDueForRefresh($intervalHours);
+            return $url->isDueForCollector($this->key(), $intervalHours);
         });
     }
 
@@ -110,9 +110,10 @@ class KeywordMetricsCollector implements SeoCollectorInterface
         $costPerKeyword = config('seo.cost_estimates.search_volume', 5);
         $totalCost = (int) ceil($processed * $costPerKeyword);
 
-        // Update URL denormalized fields
+        // Update URL denormalized fields + collector timestamp
         foreach ($urls as $url) {
             $this->updateUrlMetrics($url);
+            $url->setCollectorTimestamp($this->key());
         }
 
         return ['processed' => $processed, 'cost_cents' => $totalCost, 'errors' => $errors];

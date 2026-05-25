@@ -35,7 +35,7 @@ class BacklinkCollector implements SeoCollectorInterface
         $intervalHours = $this->refreshIntervalHours();
 
         return $urls->filter(function (SeoUrl $url) use ($intervalHours) {
-            return $url->isDueForRefresh($intervalHours);
+            return $url->isDueForCollector($this->key(), $intervalHours);
         });
     }
 

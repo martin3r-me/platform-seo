@@ -231,13 +231,14 @@ class SeoUrlService implements SeoUrlServiceInterface
             ->get();
     }
 
-    public function enrich(int $teamId, ?string $url = null, array $collectors = [], bool $force = false): array
+    public function enrich(int $teamId, ?string $url = null, array $collectors = [], bool $force = false, ?array $urlIds = null): array
     {
         $settings = SeoTeamSettings::where('team_id', $teamId)->first();
         if (! $settings) {
             return ['urls_processed' => 0, 'collectors_run' => [], 'cost_cents' => 0];
         }
 
+        // Single URL by string
         if ($url) {
             $hash = SeoUrl::hashUrl($url);
             $seoUrl = SeoUrl::where('team_id', $teamId)->where('url_hash', $hash)->first();
@@ -245,7 +246,22 @@ class SeoUrlService implements SeoUrlServiceInterface
                 return ['urls_processed' => 0, 'collectors_run' => [], 'cost_cents' => 0];
             }
 
-            $result = $this->pipeline->runForUrl($settings, $seoUrl, $collectors);
+            $result = $this->pipeline->runForUrl($settings, $seoUrl, $collectors, $force);
+
+            return [
+                'urls_processed' => $result['urls_processed'],
+                'collectors_run' => $result['collectors_run'],
+                'cost_cents' => $result['total_cost_cents'],
+            ];
+        }
+
+        // Multiple URLs by IDs
+        if ($urlIds) {
+            $result = $this->pipeline->runPipeline($settings, [
+                'url_ids' => $urlIds,
+                'collectors' => $collectors,
+                'force' => $force,
+            ]);
 
             return [
                 'urls_processed' => $result['urls_processed'],

@@ -41,7 +41,7 @@ class SerpRankingCollector implements SeoCollectorInterface
         $intervalHours = $this->refreshIntervalHours();
 
         return $urls->filter(function (SeoUrl $url) use ($intervalHours) {
-            return $url->isDueForRefresh($intervalHours);
+            return $url->isDueForCollector($this->key(), $intervalHours);
         });
     }
 
@@ -226,10 +226,10 @@ class SerpRankingCollector implements SeoCollectorInterface
         $costPerDomain = config('seo.cost_estimates.labs_ranked', 10);
         $totalCost = (int) ceil($apiCalls * $costPerDomain);
 
-        // URL-Denormalisierung updaten
+        // URL-Denormalisierung updaten + Collector-Timestamp
         foreach ($urls as $url) {
             $this->updateUrlVisibility($url);
-            $url->update(['last_crawled_at' => now()]);
+            $url->setCollectorTimestamp($this->key());
         }
 
         return ['processed' => $processed, 'cost_cents' => $totalCost, 'errors' => $errors];

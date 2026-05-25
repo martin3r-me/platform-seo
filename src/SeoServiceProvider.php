@@ -132,6 +132,7 @@ class SeoServiceProvider extends ServiceProvider
             // URLs
             $registry->register(new \Platform\Seo\Tools\ListUrlsTool());
             $registry->register(new \Platform\Seo\Tools\RegisterUrlTool());
+            $registry->register(new \Platform\Seo\Tools\UpdateUrlTool());
             $registry->register(new \Platform\Seo\Tools\DeleteUrlTool());
             $registry->register(new \Platform\Seo\Tools\EnrichUrlTool());
 
@@ -159,6 +160,9 @@ class SeoServiceProvider extends ServiceProvider
             // Signale
             $registry->register(new \Platform\Seo\Tools\ListSignalsTool());
             $registry->register(new \Platform\Seo\Tools\UpdateSignalTool());
+
+            // Competitors
+            $registry->register(new \Platform\Seo\Tools\FetchSerpCompetitorsTool());
 
             // Wartung
             $registry->register(new \Platform\Seo\Tools\RepairRelationshipsTool());

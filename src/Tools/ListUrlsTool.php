@@ -48,12 +48,25 @@ class ListUrlsTool implements ToolContract
                 ],
                 'sort' => [
                     'type' => 'string',
-                    'enum' => ['visibility_score', 'keyword_count', 'total_search_volume', 'backlink_count', 'last_crawled_at', 'url'],
+                    'enum' => ['visibility_score', 'keyword_count', 'total_search_volume', 'backlink_count', 'last_crawled_at', 'url', 'id', 'domain', 'created_at'],
                     'description' => 'Sortierfeld (Standard: visibility_score)',
                 ],
                 'sort_dir' => [
                     'type' => 'string',
                     'enum' => ['asc', 'desc'],
+                ],
+                'filters' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'field' => ['type' => 'string', 'description' => 'Feldname (domain, is_own, status, path)'],
+                            'op' => ['type' => 'string', 'enum' => ['eq', 'neq', 'like'], 'description' => 'Operator (Standard: eq)'],
+                            'value' => ['description' => 'Filterwert'],
+                        ],
+                        'required' => ['field', 'value'],
+                    ],
+                    'description' => 'Array von Filtern [{field, op, value}]. Alternativ: einzelne Parameter (search, is_own, status, domain).',
                 ],
                 'include_children' => [
                     'type' => 'boolean',
@@ -91,7 +104,11 @@ class ListUrlsTool implements ToolContract
             }
 
             if (!empty($arguments['search'])) {
-                $query->where('url', 'like', '%' . $arguments['search'] . '%');
+                $search = $arguments['search'];
+                $query->where(function ($q) use ($search) {
+                    $q->where('url', 'like', '%' . $search . '%')
+                      ->orWhere('domain', 'like', '%' . $search . '%');
+                });
             }
             if (isset($arguments['is_own'])) {
                 $query->where('is_own', (bool) $arguments['is_own']);
@@ -103,8 +120,43 @@ class ListUrlsTool implements ToolContract
                 $query->where('domain', $arguments['domain']);
             }
 
+            // Generic filters array support
+            if (!empty($arguments['filters']) && is_array($arguments['filters'])) {
+                $allowedFilterFields = ['domain', 'is_own', 'status', 'path', 'url', 'http_status'];
+                foreach ($arguments['filters'] as $filter) {
+                    $field = $filter['field'] ?? null;
+                    $value = $filter['value'] ?? null;
+                    $op = $filter['op'] ?? 'eq';
+                    if (!$field || $value === null || !in_array($field, $allowedFilterFields)) {
+                        continue;
+                    }
+                    match ($op) {
+                        'eq' => $query->where($field, $value),
+                        'neq' => $query->where($field, '!=', $value),
+                        'like' => $query->where($field, 'like', '%' . $value . '%'),
+                        default => $query->where($field, $value),
+                    };
+                }
+            }
+
+            // Sort — handle both string and array formats
+            $allowedSortFields = ['visibility_score', 'keyword_count', 'total_search_volume', 'backlink_count', 'last_crawled_at', 'url', 'id', 'domain', 'created_at'];
             $sort = $arguments['sort'] ?? 'visibility_score';
             $dir = $arguments['sort_dir'] ?? 'desc';
+
+            // Handle array format: sort: [{"field": "id", "dir": "desc"}]
+            if (is_array($sort)) {
+                $first = $sort[0] ?? $sort;
+                $sort = $first['field'] ?? 'visibility_score';
+                $dir = $first['dir'] ?? $dir;
+            }
+
+            if (!in_array($sort, $allowedSortFields)) {
+                $sort = 'visibility_score';
+            }
+            if (!in_array(strtolower($dir), ['asc', 'desc'])) {
+                $dir = 'desc';
+            }
             $query->orderBy($sort, $dir);
 
             $limit = min((int) ($arguments['limit'] ?? 50), 200);

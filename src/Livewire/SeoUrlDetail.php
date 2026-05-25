@@ -40,7 +40,7 @@ class SeoUrlDetail extends Component
 
         // Keywords across root + children
         $keywords = SeoKeyword::whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
-            ->with(['urls' => fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds)])
+            ->with(['urls' => fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds), 'competitors'])
             ->get()
             ->sortBy(fn ($kw) => $kw->urls->min('pivot.position') ?? 999);
 

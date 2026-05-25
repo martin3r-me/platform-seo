@@ -37,7 +37,7 @@ class OnPageCollector implements SeoCollectorInterface
         $intervalHours = $this->refreshIntervalHours();
 
         return $urls->filter(function (SeoUrl $url) use ($intervalHours) {
-            return $url->isDueForRefresh($intervalHours);
+            return $url->isDueForCollector($this->key(), $intervalHours);
         });
     }
 
@@ -114,7 +114,13 @@ class OnPageCollector implements SeoCollectorInterface
                 ],
             );
 
-            $url->update(['last_crawled_at' => now()]);
+            // HTTP-Status + Collector-Timestamp setzen
+            $urlUpdates = [];
+            if ($result->statusCode !== null) {
+                $urlUpdates['http_status'] = $result->statusCode;
+            }
+            $url->update($urlUpdates);
+            $url->setCollectorTimestamp($this->key());
             $processed++;
         }
 

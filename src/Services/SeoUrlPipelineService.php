@@ -45,14 +45,21 @@ class SeoUrlPipelineService
         $force = $options['force'] ?? false;
         $maxUrls = $options['max_urls'] ?? config('seo.pipeline.max_urls_per_run', 50);
         $onlyCollectors = $options['collectors'] ?? [];
+        $urlIds = $options['url_ids'] ?? null;
 
         // Load active URLs, sorted by priority DESC
-        $allUrls = SeoUrl::where('team_id', $settings->team_id)
+        $query = SeoUrl::where('team_id', $settings->team_id)
             ->where('status', 'active')
             ->where('is_own', true)
-            ->orderByDesc('priority')
-            ->limit($maxUrls)
-            ->get();
+            ->orderByDesc('priority');
+
+        if ($urlIds) {
+            $query->whereIn('id', $urlIds);
+        } else {
+            $query->limit($maxUrls);
+        }
+
+        $allUrls = $query->get();
 
         if ($allUrls->isEmpty()) {
             return [
@@ -191,12 +198,12 @@ class SeoUrlPipelineService
     /**
      * Run the pipeline for a single URL.
      */
-    public function runForUrl(SeoTeamSettings $settings, SeoUrl $url, array $collectorKeys = []): array
+    public function runForUrl(SeoTeamSettings $settings, SeoUrl $url, array $collectorKeys = [], bool $force = true): array
     {
         return $this->runPipeline($settings, [
-            'max_urls' => 1,
+            'url_ids' => [$url->id],
             'collectors' => $collectorKeys,
-            'force' => true,
+            'force' => $force,
         ]);
     }
 

@@ -12,6 +12,7 @@ use Platform\Integrations\DTOs\DataForSeo\RankedKeywordResult;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
+use Platform\Seo\Models\SeoKeywordCompetitor;
 use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
@@ -134,10 +135,27 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         return ['fetched' => $fetchedCount, 'cost_cents' => $actualCost];
     }
 
-    public function fetchRankings(int $teamId, ?User $user = null, int $limit = 0): array
+    public function fetchRankings(int $teamId, ?User $user = null, array $options = []): array
     {
         $settings = SeoTeamSettings::where('team_id', $teamId)->firstOrFail();
         $query = SeoKeyword::where('team_id', $teamId);
+
+        // Filter by URL if url_id is given
+        if (!empty($options['url_id'])) {
+            $query->whereHas('urls', fn ($q) => $q->where('seo_urls.id', $options['url_id']));
+        }
+
+        // Filter by domain if given
+        if (!empty($options['domain'])) {
+            $query->whereHas('urls', fn ($q) => $q->where('domain', $options['domain']));
+        }
+
+        // Filter by minimum search volume
+        if (!empty($options['min_volume'])) {
+            $query->where('search_volume', '>=', $options['min_volume']);
+        }
+
+        $limit = $options['limit'] ?? 0;
         if ($limit > 0) {
             $query->limit($limit);
         }
@@ -216,6 +234,19 @@ class SeoKeywordService implements SeoKeywordServiceInterface
             foreach (array_slice($serpResults, 0, 10) as $serpResult) {
                 if ($serpResult->domain) {
                     $competitorEntries[$serpResult->domain] = ($competitorEntries[$serpResult->domain] ?? 0) + 1;
+
+                    SeoKeywordCompetitor::updateOrCreate(
+                        [
+                            'keyword_id' => $keyword->id,
+                            'domain' => $serpResult->domain,
+                            'tracked_at' => now()->toDateString(),
+                        ],
+                        [
+                            'team_id' => $teamId,
+                            'url' => $serpResult->url,
+                            'position' => $serpResult->position,
+                        ],
+                    );
                 }
             }
 

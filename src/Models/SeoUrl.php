@@ -172,4 +172,34 @@ class SeoUrl extends Model
 
         return $this->last_crawled_at->addHours($effectiveInterval)->isPast();
     }
+
+    /**
+     * Check if a specific collector is due, using per-collector timestamps in meta.
+     */
+    public function isDueForCollector(string $collectorKey, int $baseIntervalHours): bool
+    {
+        $lastRan = $this->getCollectorTimestamp($collectorKey);
+        if (! $lastRan) {
+            return true;
+        }
+
+        $effectiveInterval = $this->getEffectiveRefreshInterval($baseIntervalHours);
+
+        return $lastRan->addHours($effectiveInterval)->isPast();
+    }
+
+    public function getCollectorTimestamp(string $collectorKey): ?\Carbon\Carbon
+    {
+        $meta = $this->meta ?? [];
+        $timestamp = $meta['collector_ran_at'][$collectorKey] ?? null;
+
+        return $timestamp ? \Carbon\Carbon::parse($timestamp) : null;
+    }
+
+    public function setCollectorTimestamp(string $collectorKey): void
+    {
+        $meta = $this->meta ?? [];
+        $meta['collector_ran_at'][$collectorKey] = now()->toIso8601String();
+        $this->update(['meta' => $meta, 'last_crawled_at' => now()]);
+    }
 }

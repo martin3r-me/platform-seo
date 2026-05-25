@@ -26,12 +26,17 @@ class EnrichUrlTool implements ToolContract
             'properties' => [
                 'url' => [
                     'type' => 'string',
-                    'description' => 'Bestimmte URL enrichen. Ohne: alle fälligen URLs.',
+                    'description' => 'Bestimmte URL enrichen (URL-String). Ohne: alle fälligen URLs.',
+                ],
+                'url_ids' => [
+                    'type' => 'array',
+                    'items' => ['type' => 'integer'],
+                    'description' => 'URL-IDs enrichen (Alternative zu url).',
                 ],
                 'collectors' => [
                     'type' => 'array',
                     'items' => ['type' => 'string'],
-                    'description' => 'Nur bestimmte Collectors ausführen',
+                    'description' => 'Nur bestimmte Collectors ausführen (on_page, serp_ranking, keyword_metrics, gsc, backlinks)',
                 ],
                 'force' => [
                     'type' => 'boolean',
@@ -55,6 +60,7 @@ class EnrichUrlTool implements ToolContract
                 $arguments['url'] ?? null,
                 $arguments['collectors'] ?? [],
                 $arguments['force'] ?? false,
+                $arguments['url_ids'] ?? null,
             );
 
             return ToolResult::success([

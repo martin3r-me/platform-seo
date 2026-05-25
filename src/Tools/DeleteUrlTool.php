@@ -6,6 +6,7 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
 
 class DeleteUrlTool implements ToolContract
@@ -72,12 +73,18 @@ class DeleteUrlTool implements ToolContract
             $count = count($urlIds);
 
             // Relationships entfernen (beide Richtungen)
-            SeoUrlRelationship::whereIn('source_url_id', $urlIds)
-                ->orWhereIn('target_url_id', $urlIds)
-                ->delete();
+            SeoUrlRelationship::where(function ($q) use ($urlIds) {
+                $q->whereIn('source_url_id', $urlIds)
+                  ->orWhereIn('target_url_id', $urlIds);
+            })->delete();
 
-            // URLs löschen (cascade via Model-Events oder DB-Constraints)
-            SeoUrl::whereIn('id', $urlIds)->delete();
+            // Registrierungen entfernen (verhindert Auto-Restore bei re-register)
+            SeoUrlRegistration::whereIn('url_id', $urlIds)->delete();
+
+            // URLs hart löschen (forceDelete statt soft-delete)
+            foreach ($urls as $url) {
+                $url->forceDelete();
+            }
 
             return ToolResult::success([
                 'deleted' => $count,

@@ -98,7 +98,10 @@
                                                 @endif
                                             </td>
                                             <td class="px-4 py-2.5 text-right">@include('seo::partials.position-badge', ['position' => $bestUrl?->pivot->position, 'change' => null])</td>
-                                            <td class="px-4 py-2.5 text-right">@include('seo::partials.sv-badge', ['volume' => $keyword->search_volume])</td>
+                                            <td class="px-4 py-2.5 text-right">
+                                                @include('seo::partials.seasonality-chart', ['keyword' => $keyword])
+                                                @include('seo::partials.competitor-domains', ['keyword' => $keyword, 'limit' => 3])
+                                            </td>
                                             <td class="px-4 py-2.5 text-right">@include('seo::partials.kd-badge', ['value' => $keyword->keyword_difficulty])</td>
                                             <td class="px-4 py-2.5 text-[11px] text-gray-400">{{ $keyword->search_intent ? ucfirst($keyword->search_intent) : '' }}</td>
                                         </tr>

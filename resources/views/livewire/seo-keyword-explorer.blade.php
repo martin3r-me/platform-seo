@@ -107,7 +107,8 @@
                                 </div>
                             </td>
                             <td class="px-4 py-2.5 text-right">
-                                @include('seo::partials.sv-badge', ['volume' => $keyword->search_volume])
+                                @include('seo::partials.seasonality-chart', ['keyword' => $keyword])
+                                @include('seo::partials.competitor-domains', ['keyword' => $keyword, 'limit' => 3])
                             </td>
                             <td class="px-4 py-2.5 text-right">
                                 @include('seo::partials.kd-badge', ['value' => $keyword->keyword_difficulty])

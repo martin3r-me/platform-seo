@@ -151,7 +151,7 @@ class SeoKeywordExplorer extends Component
 
         $query = SeoKeyword::where('team_id', $this->seoSettings->team_id)
             ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
-            ->with('cluster')
+            ->with(['cluster', 'competitors'])
             ->withCount('urls');
 
         if ($this->search) {
