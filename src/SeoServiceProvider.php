@@ -2,6 +2,7 @@
 
 namespace Platform\Seo;
 
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -86,6 +87,11 @@ class SeoServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Relation::morphMap([
+            'seo_url' => \Platform\Seo\Models\SeoUrl::class,
+            'seo_url_list' => \Platform\Seo\Models\SeoUrlList::class,
+        ]);
+
         if (
             config()->has('seo.routing') &&
             config()->has('seo.navigation') &&
@@ -117,6 +123,13 @@ class SeoServiceProvider extends ServiceProvider
 
         $this->registerLivewireComponents();
         $this->registerTools();
+
+        try {
+            resolve(\Platform\Organization\Services\EntityLinkRegistry::class)
+                ->register(new \Platform\Seo\Organization\SeoEntityLinkProvider());
+        } catch (\Throwable $e) {
+            // Organization-Modul nicht geladen
+        }
     }
 
     protected function registerTools(): void
