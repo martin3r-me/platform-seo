@@ -463,7 +463,11 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         $ownUrls = $urlQuery->get();
 
         if ($ownUrls->isEmpty()) {
-            return ['fetched' => 0, 'cost_cents' => 0, 'position_snapshots' => 0, 'error' => 'Keine eigenen URLs registriert (is_own=true).'];
+            $hint = $filterDomain
+                ? "Domain \"{$filterDomain}\" ist nicht als eigene URL registriert (is_own=true). Rankings-Tracking ist nur für eigene URLs verfügbar. Nutze seo.urls.PUT um is_own zu ändern, oder seo.urls.POST mit is_own=true."
+                : 'Keine eigenen URLs registriert (is_own=true). Rankings-Tracking ist nur für eigene URLs verfügbar.';
+
+            return ['fetched' => 0, 'cost_cents' => 0, 'position_snapshots' => 0, 'error' => $hint];
         }
 
         // Nach Domain gruppieren

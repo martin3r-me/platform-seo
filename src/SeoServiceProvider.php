@@ -135,6 +135,7 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\UpdateUrlTool());
             $registry->register(new \Platform\Seo\Tools\DeleteUrlTool());
             $registry->register(new \Platform\Seo\Tools\EnrichUrlTool());
+            $registry->register(new \Platform\Seo\Tools\OnboardUrlTool());
 
             // URL-Listen
             $registry->register(new \Platform\Seo\Tools\ListUrlListsTool());

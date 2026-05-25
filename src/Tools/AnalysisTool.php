@@ -26,8 +26,8 @@ class AnalysisTool implements ToolContract
             'properties' => [
                 'type' => [
                     'type' => 'string',
-                    'enum' => ['ranking_trends', 'competitor_gaps', 'visibility', 'quick_wins', 'content_gaps', 'cluster_health', 'defend', 'summary'],
-                    'description' => 'Art der Analyse',
+                    'enum' => ['ranking_trends', 'competitor_gaps', 'visibility', 'quick_wins', 'content_gaps', 'cluster_health', 'defend', 'summary', 'rankings', 'competitors', 'keywords', 'overview'],
+                    'description' => 'Art der Analyse. Aliase: rankings=ranking_trends, competitors=competitor_gaps, keywords/overview=summary',
                 ],
                 'days' => [
                     'type' => 'integer',
@@ -49,6 +49,14 @@ class AnalysisTool implements ToolContract
             $service = app(SeoAnalysisService::class);
             $type = $arguments['type'] ?? '';
 
+            // Aliases für gebräuchliche Alternativnamen
+            $type = match ($type) {
+                'rankings', 'ranking' => 'ranking_trends',
+                'competitors', 'competitor', 'gaps' => 'competitor_gaps',
+                'keywords', 'overview', 'on_page', 'onpage', 'metadata' => 'summary',
+                default => $type,
+            };
+
             $data = match ($type) {
                 'ranking_trends' => $service->getRankingTrendsForTeam($team->id, (int) ($arguments['days'] ?? 30)),
                 'competitor_gaps' => $service->getCompetitorGapsForTeam($team->id),
@@ -62,7 +70,8 @@ class AnalysisTool implements ToolContract
             };
 
             if ($data === null) {
-                return ToolResult::error("Unbekannter Analyse-Typ: {$type}", 'VALIDATION_ERROR');
+                $validTypes = 'ranking_trends, competitor_gaps, visibility, quick_wins, content_gaps, cluster_health, defend, summary';
+                return ToolResult::error("Unbekannter Analyse-Typ: '{$type}'. Verfügbar: {$validTypes}", 'VALIDATION_ERROR');
             }
 
             return ToolResult::success([
