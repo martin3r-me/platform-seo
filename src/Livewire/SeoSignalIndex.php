@@ -6,6 +6,8 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoSignal;
+use Platform\Seo\Models\SeoUrlList;
+use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoSignalService;
 
 class SeoSignalIndex extends Component
@@ -13,13 +15,16 @@ class SeoSignalIndex extends Component
     use WithPagination;
     use ResolvesTeamSettings;
 
+    public SeoUrlList $seoUrlList;
+
     public string $filterStatus = 'new';
     public ?string $filterType = null;
     public ?string $filterSeverity = null;
 
-    public function mount()
+    public function mount(SeoUrlList $seoUrlList)
     {
         $this->resolveSettings();
+        $this->seoUrlList = $seoUrlList;
     }
 
     public function setFilterStatus(string $status)
@@ -42,9 +47,10 @@ class SeoSignalIndex extends Component
 
     public function render()
     {
-        $teamId = $this->seoSettings->team_id;
+        $listUrlIds = $this->getListUrlIds();
 
-        $query = SeoSignal::where('team_id', $teamId)
+        $query = SeoSignal::where('team_id', $this->seoSettings->team_id)
+            ->whereIn('url_id', $listUrlIds)
             ->with(['keyword', 'url'])
             ->orderByDesc('detected_at');
 
@@ -62,7 +68,8 @@ class SeoSignalIndex extends Component
 
         $signals = $query->paginate(25);
 
-        $statusCounts = SeoSignal::where('team_id', $teamId)
+        $statusCounts = SeoSignal::where('team_id', $this->seoSettings->team_id)
+            ->whereIn('url_id', $listUrlIds)
             ->selectRaw('status, count(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status')
@@ -72,5 +79,15 @@ class SeoSignalIndex extends Component
             'signals' => $signals,
             'statusCounts' => $statusCounts,
         ])->layout('platform::layouts.app');
+    }
+
+    private function getListUrlIds(): array
+    {
+        $rootIds = $this->seoUrlList->urls()->pluck('seo_urls.id');
+        $childIds = SeoUrlRelationship::where('type', 'parent_child')
+            ->whereIn('source_url_id', $rootIds)
+            ->pluck('target_url_id');
+
+        return $rootIds->merge($childIds)->all();
     }
 }

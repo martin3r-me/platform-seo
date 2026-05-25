@@ -10,12 +10,15 @@ use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoKeywordService;
 
 class SeoKeywordExplorer extends Component
 {
     use WithPagination;
     use ResolvesTeamSettings;
+
+    public SeoUrl $seoUrl;
 
     public string $search = '';
     public ?string $filterIntent = null;
@@ -32,9 +35,10 @@ class SeoKeywordExplorer extends Component
 
     public ?int $expandedKeywordId = null;
 
-    public function mount()
+    public function mount(SeoUrl $seoUrl)
     {
         $this->resolveSettings();
+        $this->seoUrl = $seoUrl;
     }
 
     public function updatedSearch()
@@ -99,6 +103,15 @@ class SeoKeywordExplorer extends Component
         }
     }
 
+    private function getAllUrlIds(): array
+    {
+        $childIds = SeoUrlRelationship::where('type', 'parent_child')
+            ->where('source_url_id', $this->seoUrl->id)
+            ->pluck('target_url_id');
+
+        return collect([$this->seoUrl->id])->merge($childIds)->all();
+    }
+
     #[Computed]
     public function clusters()
     {
@@ -108,7 +121,10 @@ class SeoKeywordExplorer extends Component
     #[Computed]
     public function topics()
     {
+        $allUrlIds = $this->getAllUrlIds();
+
         return SeoKeyword::where('team_id', $this->seoSettings->team_id)
+            ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
             ->whereNotNull('topic')
             ->distinct()
             ->pluck('topic');
@@ -121,7 +137,9 @@ class SeoKeywordExplorer extends Component
             return collect();
         }
 
-        return SeoUrl::where('team_id', $this->seoSettings->team_id)
+        $allUrlIds = $this->getAllUrlIds();
+
+        return SeoUrl::whereIn('id', $allUrlIds)
             ->whereHas('keywords', fn ($q) => $q->where('seo_keywords.id', $this->expandedKeywordId))
             ->with(['keywords' => fn ($q) => $q->where('seo_keywords.id', $this->expandedKeywordId)])
             ->get();
@@ -129,7 +147,10 @@ class SeoKeywordExplorer extends Component
 
     public function render()
     {
+        $allUrlIds = $this->getAllUrlIds();
+
         $query = SeoKeyword::where('team_id', $this->seoSettings->team_id)
+            ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
             ->with('cluster')
             ->withCount('urls');
 

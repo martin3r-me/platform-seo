@@ -115,7 +115,6 @@
             <div>
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-medium text-gray-700">Aktuelle Signale</h3>
-                    <a href="{{ route('seo.signals') }}" wire:navigate class="text-xs text-indigo-600 hover:underline">Alle anzeigen</a>
                 </div>
                 <div class="space-y-2">
                     @foreach($recentSignals as $signal)

@@ -8,11 +8,6 @@
                         'dashboard' => ['label' => 'Dashboard', 'route' => 'seo.dashboard', 'icon' => 'heroicon-o-chart-bar-square'],
                         'lists' => ['label' => 'Listen', 'route' => 'seo.lists', 'icon' => 'heroicon-o-queue-list'],
                         'urls' => ['label' => 'URLs', 'route' => 'seo.urls', 'icon' => 'heroicon-o-globe-alt'],
-                        'keywords' => ['label' => 'Keywords', 'route' => 'seo.keywords', 'icon' => 'heroicon-o-key'],
-                        'rankings' => ['label' => 'Rankings', 'route' => 'seo.rankings', 'icon' => 'heroicon-o-chart-bar'],
-                        'competitors' => ['label' => 'Wettbewerber', 'route' => 'seo.competitors', 'icon' => 'heroicon-o-user-group'],
-                        'cannibalization' => ['label' => 'Kannibalisierung', 'route' => 'seo.cannibalization', 'icon' => 'heroicon-o-exclamation-triangle'],
-                        'signals' => ['label' => 'Signale', 'route' => 'seo.signals', 'icon' => 'heroicon-o-bell-alert'],
                     ];
                 @endphp
                 @foreach($items as $key => $item)

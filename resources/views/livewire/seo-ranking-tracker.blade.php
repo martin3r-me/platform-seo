@@ -6,12 +6,14 @@
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
+            ['label' => 'URLs', 'route' => 'seo.urls'],
+            ['label' => Str::limit($seoUrl->path ?: '/', 20), 'href' => route('seo.urls.show', $seoUrl)],
             ['label' => 'Rankings'],
         ]" />
     </x-slot>
 
     <x-slot name="sidebar">
-        @include('seo::partials.sidebar', ['active' => 'rankings'])
+        @include('seo::partials.sidebar', ['active' => 'urls'])
     </x-slot>
 
     <x-ui-page-container>

@@ -7,6 +7,7 @@ use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoAnalysisService;
 use Platform\Seo\Services\SeoUrlService;
 
@@ -15,12 +16,15 @@ class SeoRankingTracker extends Component
     use WithPagination;
     use ResolvesTeamSettings;
 
+    public SeoUrl $seoUrl;
+
     public int $periodDays = 30;
     public string $filterType = 'all';
 
-    public function mount()
+    public function mount(SeoUrl $seoUrl)
     {
         $this->resolveSettings();
+        $this->seoUrl = $seoUrl;
     }
 
     public function setPeriod(int $days)
@@ -35,21 +39,29 @@ class SeoRankingTracker extends Component
         $this->resetPage();
     }
 
+    private function getAllUrlIds(): array
+    {
+        $childIds = SeoUrlRelationship::where('type', 'parent_child')
+            ->where('source_url_id', $this->seoUrl->id)
+            ->pluck('target_url_id');
+
+        return collect([$this->seoUrl->id])->merge($childIds)->all();
+    }
+
     public function render()
     {
+        $allUrlIds = $this->getAllUrlIds();
+
         $analysisService = app(SeoAnalysisService::class);
-        $teamId = $this->seoSettings->team_id;
-        $trends = $analysisService->getRankingTrendsForTeam($teamId, $this->periodDays);
+        $trends = $analysisService->getRankingTrendsForTeam($this->seoSettings->team_id, $this->periodDays);
 
         $urlService = app(SeoUrlService::class);
         $positionDistribution = $urlService->getVisibilitySummary(
-            $teamId,
+            $this->seoSettings->team_id,
             $this->seoSettings->domain
         )['position_distribution'] ?? [];
 
-        $ownUrlIds = SeoUrl::where('team_id', $teamId)->where('is_own', true)->pluck('id');
-
-        $query = SeoRankingHistory::whereIn('url_id', $ownUrlIds)
+        $query = SeoRankingHistory::whereIn('url_id', $allUrlIds)
             ->with(['url', 'keyword'])
             ->where('tracked_at', '>=', now()->subDays($this->periodDays))
             ->orderByDesc('tracked_at');
