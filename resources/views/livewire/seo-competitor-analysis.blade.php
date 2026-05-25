@@ -19,161 +19,167 @@
     <x-ui-page-container>
 
         {{-- Sub-Navigation --}}
-        <div class="flex items-center gap-2 mb-6">
-            <a href="{{ route('seo.lists.show', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
-                Übersicht
-            </a>
-            <a href="{{ route('seo.lists.competitors', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg bg-indigo-50 text-indigo-600 font-medium">
-                Wettbewerber
-            </a>
-            <a href="{{ route('seo.lists.cannibalization', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
-                Kannibalisierung
-            </a>
-            <a href="{{ route('seo.lists.signals', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
-                Signale
-            </a>
+        <div class="flex items-center gap-1 border-b border-gray-200 mb-6">
+            <a href="{{ route('seo.lists.show', $seoUrlList) }}" wire:navigate class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">Übersicht</a>
+            <a href="{{ route('seo.lists.competitors', $seoUrlList) }}" wire:navigate class="px-4 py-3 text-[13px] font-medium text-[#166EE1] border-b-2 border-[#166EE1]">Wettbewerber</a>
+            <a href="{{ route('seo.lists.cannibalization', $seoUrlList) }}" wire:navigate class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">Kannibalisierung</a>
+            <a href="{{ route('seo.lists.signals', $seoUrlList) }}" wire:navigate class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">Signale</a>
         </div>
 
+        {{-- Intro --}}
+        <p class="text-[13px] text-gray-500 mb-6">Domains, die für dieselben Keywords ranken wie du. Der Keyword-Gap zeigt Begriffe, bei denen Wettbewerber sichtbar sind, du aber nicht — oder umgekehrt. Nutze diese Daten, um Content-Lücken zu finden.</p>
+
         {{-- Summary Stats --}}
-        <x-ui-stats-grid :cols="3">
-            <x-ui-dashboard-tile title="Keyword Gaps" :count="$gaps['gaps_count']" icon="exclamation-triangle" variant="warning" />
-            <x-ui-dashboard-tile title="Keywords mit Wettbewerbern" :count="$gaps['keywords_with_competitors']" icon="users" variant="info" />
-            <x-ui-dashboard-tile title="Gesamt Keywords" :count="$gaps['total_keywords']" icon="key" variant="neutral" />
-        </x-ui-stats-grid>
+        <div class="grid grid-cols-3 gap-4 mb-8">
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-exclamation-triangle', 'w-4 h-4 text-amber-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Keyword Gaps</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $gaps['gaps_count'] }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Keywords, bei denen du nachlegen kannst</div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-users', 'w-4 h-4 text-blue-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Mit Wettbewerbern</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $gaps['keywords_with_competitors'] }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Keywords mit Konkurrenz in den SERPs</div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-key', 'w-4 h-4 text-gray-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Gesamt</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $gaps['total_keywords'] }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Alle Keywords in dieser Liste</div>
+            </div>
+        </div>
 
         {{-- Domain Overview --}}
         @if($competitorDomains->isNotEmpty())
-            <div>
-                <h3 class="text-sm font-medium text-gray-700 mb-3">Wettbewerber-Domains</h3>
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h3 class="text-[13px] font-semibold text-gray-900">Wettbewerber-Domains</h3>
+                        <p class="text-[11px] text-gray-400 mt-0.5">Klicke auf eine Domain, um nur deren URLs und Keyword-Überschneidungen zu sehen.</p>
+                    </div>
+                    @if($filterDomain)
+                        <button wire:click="setDomainFilter(null)" class="text-[11px] text-indigo-600 hover:underline">Filter zurücksetzen</button>
+                    @endif
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($competitorDomains as $domain)
                         <button wire:click="setDomainFilter('{{ $domain->domain }}')"
-                                class="bg-white rounded-xl border {{ $filterDomain === $domain->domain ? 'border-indigo-300 ring-1 ring-indigo-200' : 'border-gray-100 hover:border-gray-200' }} p-4 text-left transition-all">
-                            <div class="font-medium text-gray-900 text-sm">{{ $domain->domain }}</div>
-                            <div class="grid grid-cols-3 gap-2 mt-3 text-center">
-                                <div>
-                                    <div class="text-lg font-semibold text-gray-900">{{ $domain->url_count }}</div>
-                                    <div class="text-[10px] uppercase tracking-wider text-gray-400">URLs</div>
+                                class="bg-white rounded-lg border {{ $filterDomain === $domain->domain ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-gray-200 hover:border-indigo-200 hover:shadow-sm' }} p-4 text-left transition-all">
+                            <div class="font-semibold text-[13px] text-gray-900 mb-3">{{ $domain->domain }}</div>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-gray-50 rounded-md px-2 py-1.5">
+                                    <div class="text-sm font-semibold text-gray-800 tabular-nums">{{ $domain->url_count }}</div>
+                                    <div class="text-[10px] text-gray-400 uppercase">URLs</div>
                                 </div>
-                                <div>
-                                    <div class="text-lg font-semibold text-gray-900">{{ $domain->total_keywords }}</div>
-                                    <div class="text-[10px] uppercase tracking-wider text-gray-400">Keywords</div>
+                                <div class="bg-gray-50 rounded-md px-2 py-1.5">
+                                    <div class="text-sm font-semibold text-gray-800 tabular-nums">{{ $domain->total_keywords }}</div>
+                                    <div class="text-[10px] text-gray-400 uppercase">KWs</div>
                                 </div>
-                                <div>
-                                    <div class="text-lg font-semibold text-gray-900">{{ number_format($domain->avg_visibility, 1) }}</div>
-                                    <div class="text-[10px] uppercase tracking-wider text-gray-400">Ø Sichtb.</div>
+                                <div class="bg-gray-50 rounded-md px-2 py-1.5">
+                                    <div class="text-sm font-semibold text-gray-800 tabular-nums">{{ number_format($domain->avg_visibility, 1) }}</div>
+                                    <div class="text-[10px] text-gray-400 uppercase">Sicht.</div>
                                 </div>
                             </div>
                         </button>
                     @endforeach
                 </div>
-                @if($filterDomain)
-                    <button wire:click="setDomainFilter(null)" class="mt-2 text-xs text-indigo-600 hover:underline">Filter zurücksetzen</button>
-                @endif
             </div>
         @endif
 
         {{-- Competitor URLs Table --}}
         @if($competitorUrls->isNotEmpty())
-            <div>
-                <h3 class="text-sm font-medium text-gray-700 mb-3">
-                    Wettbewerber-URLs
-                    @if($filterDomain)
-                        <span class="text-gray-400 font-normal">({{ $filterDomain }})</span>
-                    @endif
-                </h3>
-                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-100 text-left text-gray-400">
-                                <th class="px-4 py-3">URL</th>
-                                <th class="px-4 py-3 text-right">Keywords</th>
-                                <th class="px-4 py-3 text-right">SV</th>
-                                <th class="px-4 py-3 text-right">Sichtbarkeit</th>
-                                <th class="px-4 py-3 text-center">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($competitorUrls as $url)
-                                <tr wire:key="comp-url-{{ $url->id }}" class="border-b border-gray-50 hover:bg-gray-50/50">
-                                    <td class="px-4 py-2.5">
-                                        <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs">
-                                            {{ $url->path ?: '/' }}
-                                        </a>
-                                        <span class="text-xs text-gray-400">{{ $url->domain }}</span>
-                                    </td>
-                                    <td class="px-4 py-2.5 text-right text-gray-600">{{ $url->keyword_count }}</td>
-                                    <td class="px-4 py-2.5 text-right">
-                                        @include('seo::partials.sv-badge', ['volume' => $url->total_search_volume])
-                                    </td>
-                                    <td class="px-4 py-2.5 text-right font-medium text-gray-900">{{ number_format($url->visibility_score, 1) }}</td>
-                                    <td class="px-4 py-2.5 text-center">
-                                        @include('seo::partials.url-status-badge', ['status' => $url->status, 'httpStatus' => $url->http_status])
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-8">
+                <div class="px-5 py-4 border-b border-gray-100">
+                    <h3 class="text-[13px] font-semibold text-gray-900">
+                        Wettbewerber-URLs
+                        @if($filterDomain)
+                            <span class="text-gray-400 font-normal">({{ $filterDomain }})</span>
+                        @endif
+                    </h3>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Konkurrenzseiten, die für ähnliche Keywords ranken. Analysiere deren Inhalte für Optimierungsideen.</p>
                 </div>
-                <div class="mt-4">{{ $competitorUrls->links() }}</div>
+                <table class="w-full text-[13px]">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+                            <th class="px-5 py-2.5 text-left">URL</th>
+                            <th class="px-4 py-2.5 text-right">Keywords</th>
+                            <th class="px-4 py-2.5 text-right">SV</th>
+                            <th class="px-4 py-2.5 text-right">Sichtbarkeit</th>
+                            <th class="px-4 py-2.5 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach($competitorUrls as $url)
+                            <tr wire:key="comp-url-{{ $url->id }}" class="hover:bg-gray-50 transition-colors">
+                                <td class="px-5 py-2.5">
+                                    <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs font-medium">{{ $url->path ?: '/' }}</a>
+                                    <span class="text-[10px] text-gray-400">{{ $url->domain }}</span>
+                                </td>
+                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ $url->keyword_count }}</td>
+                                <td class="px-4 py-2.5 text-right">@include('seo::partials.sv-badge', ['volume' => $url->total_search_volume])</td>
+                                <td class="px-4 py-2.5 text-right font-semibold text-gray-900 tabular-nums">{{ number_format($url->visibility_score, 1) }}</td>
+                                <td class="px-4 py-2.5 text-center">@include('seo::partials.url-status-badge', ['status' => $url->status, 'httpStatus' => $url->http_status])</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
+            <div class="mb-8">{{ $competitorUrls->links() }}</div>
         @endif
 
         {{-- Gap Table --}}
         @if(!empty($gaps['gaps']))
-            <div>
-                <h3 class="text-sm font-medium text-gray-700 mb-3">Keyword Gaps</h3>
-                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-100 text-left text-gray-400">
-                                <th class="px-4 py-3">Keyword</th>
-                                <th class="px-4 py-3 text-right">SV</th>
-                                <th class="px-4 py-3 text-right">KD</th>
-                                <th class="px-4 py-3 text-right">Unsere Pos.</th>
-                                <th class="px-4 py-3 text-right">Wettbewerber Pos.</th>
-                                <th class="px-4 py-3 text-right">Score</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($gaps['gaps'] as $gap)
-                                <tr class="border-b border-gray-50">
-                                    <td class="px-4 py-2.5 font-medium text-gray-900">{{ $gap['keyword'] }}</td>
-                                    <td class="px-4 py-2.5 text-right">
-                                        @include('seo::partials.sv-badge', ['volume' => $gap['search_volume']])
-                                    </td>
-                                    <td class="px-4 py-2.5 text-right">
-                                        @include('seo::partials.kd-badge', ['value' => $gap['keyword_difficulty']])
-                                    </td>
-                                    <td class="px-4 py-2.5 text-right">
-                                        @include('seo::partials.position-badge', ['position' => $gap['our_position'], 'change' => null])
-                                    </td>
-                                    <td class="px-4 py-2.5 text-right">
-                                        @include('seo::partials.position-badge', ['position' => $gap['best_competitor_position'], 'change' => null])
-                                    </td>
-                                    <td class="px-4 py-2.5 text-right text-gray-600 font-medium">{{ $gap['opportunity_score'] }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-100">
+                    <h3 class="text-[13px] font-semibold text-gray-900">Keyword Gaps</h3>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Keywords, bei denen dein Wettbewerber besser rankt als du. Hoher Opportunity-Score = hohes Suchvolumen bei niedrigem eigenen Ranking.</p>
                 </div>
+                <table class="w-full text-[13px]">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+                            <th class="px-5 py-2.5 text-left">Keyword</th>
+                            <th class="px-4 py-2.5 text-right">SV</th>
+                            <th class="px-4 py-2.5 text-right">KD</th>
+                            <th class="px-4 py-2.5 text-right">Deine Pos.</th>
+                            <th class="px-4 py-2.5 text-right">Wettb. Pos.</th>
+                            <th class="px-4 py-2.5 text-right">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach($gaps['gaps'] as $gap)
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-5 py-2.5 font-medium text-gray-900">{{ $gap['keyword'] }}</td>
+                                <td class="px-4 py-2.5 text-right">@include('seo::partials.sv-badge', ['volume' => $gap['search_volume']])</td>
+                                <td class="px-4 py-2.5 text-right">@include('seo::partials.kd-badge', ['value' => $gap['keyword_difficulty']])</td>
+                                <td class="px-4 py-2.5 text-right">@include('seo::partials.position-badge', ['position' => $gap['our_position'], 'change' => null])</td>
+                                <td class="px-4 py-2.5 text-right">@include('seo::partials.position-badge', ['position' => $gap['best_competitor_position'], 'change' => null])</td>
+                                <td class="px-4 py-2.5 text-right">
+                                    <span class="inline-flex items-center justify-center w-8 h-5 rounded text-[11px] font-bold {{ $gap['opportunity_score'] >= 70 ? 'bg-green-100 text-green-700' : ($gap['opportunity_score'] >= 40 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600') }}">
+                                        {{ $gap['opportunity_score'] }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @else
-            <div class="py-12 text-center text-gray-400">
-                Keine Competitor-Gaps gefunden. Führe zuerst ein Ranking-Update durch.
+            <div class="py-16 text-center">
+                <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                    @svg('heroicon-o-user-group', 'w-5 h-5 text-gray-400')
+                </div>
+                <p class="text-sm text-gray-500 font-medium mb-1">Keine Keyword-Gaps gefunden</p>
+                <p class="text-xs text-gray-400">Führe zuerst ein Ranking-Update durch, damit Wettbewerber-Daten gesammelt werden.</p>
             </div>
         @endif
 
     </x-ui-page-container>
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-[13px] text-gray-400">Letzte Änderungen</div>
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
 </x-ui-page>

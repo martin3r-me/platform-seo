@@ -21,51 +21,106 @@
 
     <x-ui-page-container>
 
-        {{-- Stats Grid --}}
-        <x-ui-stats-grid :cols="6">
-            <x-ui-dashboard-tile title="URLs" :count="$urlCounts['total']" icon="globe-alt" variant="primary" />
-            <x-ui-dashboard-tile title="Eigene URLs" :count="$urlCounts['own']" icon="home" variant="info" />
-            <x-ui-dashboard-tile title="Wettbewerber" :count="$urlCounts['competitor']" icon="user-group" variant="warning" />
-            <x-ui-dashboard-tile title="Keywords" :count="$keywordCount" icon="key" variant="neutral" />
-            <x-ui-dashboard-tile title="Sichtbarkeit" :count="$visibility['percentage']" icon="eye" variant="success" description="%" />
-            <x-ui-dashboard-tile title="Budget" :count="$budgetSummary['percentage'] ?? 0" icon="banknotes" variant="{{ ($budgetSummary['percentage'] ?? 0) > 80 ? 'danger' : 'neutral' }}" description="{{ $budgetSummary['percentage'] !== null ? '%' : '—' }}" />
-        </x-ui-stats-grid>
+        {{-- Intro --}}
+        <div class="mb-2">
+            <p class="text-[13px] text-gray-500">Gesamtübersicht deiner SEO-Performance. Hier siehst du auf einen Blick, wie viele URLs und Keywords getrackt werden, wie sichtbar deine Seiten in Google sind und ob das API-Budget im Rahmen bleibt.</p>
+        </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {{-- Positions-Verteilung --}}
-            <div class="bg-white rounded-xl border border-gray-100 p-6">
-                <h3 class="text-sm font-medium text-gray-700 mb-4">Positions-Verteilung</h3>
+        {{-- Stats Grid --}}
+        <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-globe-alt', 'w-4 h-4 text-indigo-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">URLs</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $urlCounts['total'] }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Alle registrierten Seiten</div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-home', 'w-4 h-4 text-blue-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Eigene URLs</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $urlCounts['own'] }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Deine Domains</div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-user-group', 'w-4 h-4 text-amber-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Wettbewerber</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $urlCounts['competitor'] }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Konkurrenz-Seiten</div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-key', 'w-4 h-4 text-gray-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Keywords</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($keywordCount) }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Getrackte Suchbegriffe</div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-eye', 'w-4 h-4 text-green-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Sichtbarkeit</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $visibility['percentage'] }}<span class="text-sm font-normal text-gray-400">%</span></div>
+                <div class="text-[10px] text-gray-400 mt-1">Google-Sichtbarkeitsindex</div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-banknotes', 'w-4 h-4 {{ ($budgetSummary["percentage"] ?? 0) > 80 ? "text-red-500" : "text-gray-500" }}')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Budget</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $budgetSummary['percentage'] ?? 0 }}<span class="text-sm font-normal text-gray-400">{{ $budgetSummary['percentage'] !== null ? '%' : '' }}</span></div>
+                <div class="text-[10px] text-gray-400 mt-1">API-Nutzung diesen Monat</div>
+            </div>
+        </div>
+
+        {{-- Charts Row --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {{-- Position Distribution --}}
+            <div class="bg-white rounded-lg border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-1">
+                    <h3 class="text-[13px] font-semibold text-gray-900">Positions-Verteilung</h3>
+                </div>
+                <p class="text-[11px] text-gray-400 mb-4">Wie viele deiner Keywords in welchem Positionsbereich ranken. Ziel: möglichst viele in den Top 10.</p>
                 @php
-                    $distChartId = 'pos-dist-' . uniqid();
                     $distData = json_encode(array_values($positionDistribution));
                     $distLabels = json_encode(array_keys($positionDistribution));
                 @endphp
-                <div id="{{ $distChartId }}" style="height: 250px;" wire:ignore></div>
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        if (typeof ApexCharts !== 'undefined') {
-                            new ApexCharts(document.querySelector('#{{ $distChartId }}'), {
-                                chart: { type: 'bar', height: 250, toolbar: { show: false } },
-                                series: [{ name: 'Keywords', data: {!! $distData !!} }],
-                                xaxis: { categories: {!! $distLabels !!} },
-                                colors: ['#2ecc71', '#27ae60', '#f39c12', '#e67e22', '#e74c3c'],
-                                plotOptions: { bar: { distributed: true, borderRadius: 4 } },
-                                legend: { show: false },
-                                dataLabels: { enabled: true },
-                            }).render();
-                        }
-                    });
-                </script>
+                <div wire:ignore x-data x-init="$nextTick(() => {
+                    if (typeof ApexCharts !== 'undefined') {
+                        new ApexCharts($el, {
+                            chart: { type: 'bar', height: 220, toolbar: { show: false }, fontFamily: 'inherit' },
+                            series: [{ name: 'Keywords', data: {{ $distData }} }],
+                            xaxis: { categories: {{ $distLabels }}, labels: { style: { fontSize: '11px', colors: '#9ca3af' } } },
+                            yaxis: { labels: { style: { fontSize: '11px', colors: '#9ca3af' } } },
+                            colors: ['#2ecc71', '#27ae60', '#f39c12', '#e67e22', '#e74c3c'],
+                            plotOptions: { bar: { distributed: true, borderRadius: 4, columnWidth: '60%' } },
+                            grid: { borderColor: '#f3f4f6', strokeDashArray: 3 },
+                            legend: { show: false },
+                            dataLabels: { enabled: true, style: { fontSize: '11px', fontWeight: 600 } },
+                        }).render();
+                    }
+                })" style="height: 220px;"></div>
             </div>
 
-            {{-- Sichtbarkeits-Verlauf --}}
-            <div class="bg-white rounded-xl border border-gray-100 p-6">
-                <h3 class="text-sm font-medium text-gray-700 mb-4">Sichtbarkeits-Verlauf (30 Tage)</h3>
+            {{-- Visibility History --}}
+            <div class="bg-white rounded-lg border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-1">
+                    <h3 class="text-[13px] font-semibold text-gray-900">Sichtbarkeits-Verlauf (30 Tage)</h3>
+                </div>
+                <p class="text-[11px] text-gray-400 mb-4">Tägliche Gesamtsichtbarkeit deiner eigenen URLs. Steigende Kurve = bessere Rankings in Google.</p>
                 @if(!empty($visibilityHistory))
-                    @include('seo::partials.sparkline', ['data' => $visibilityHistory, 'color' => '#6366f1', 'height' => 250])
+                    <div wire:key="vis-history">
+                        @include('seo::partials.sparkline', ['data' => $visibilityHistory, 'color' => '#6366f1', 'height' => 220, 'type' => 'area'])
+                    </div>
                 @else
-                    <div class="flex items-center justify-center h-[250px] text-gray-400 text-sm">
-                        Noch keine Snapshot-Daten vorhanden.
+                    <div class="flex flex-col items-center justify-center h-[220px] text-center">
+                        @svg('heroicon-o-chart-bar', 'w-8 h-8 text-gray-300 mb-2')
+                        <p class="text-[12px] text-gray-400">Noch keine Snapshot-Daten. Die Sichtbarkeit wird täglich berechnet, sobald Ranking-Daten vorliegen.</p>
                     </div>
                 @endif
             </div>
@@ -73,35 +128,38 @@
 
         {{-- Top URLs --}}
         @if($topUrls->isNotEmpty())
-            <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <h3 class="text-sm font-medium text-gray-700">Top URLs nach Sichtbarkeit</h3>
-                    <a href="{{ route('seo.urls') }}" wire:navigate class="text-xs text-indigo-600 hover:underline">Alle URLs</a>
+            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-8">
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-[13px] font-semibold text-gray-900">Top URLs nach Sichtbarkeit</h3>
+                        <p class="text-[11px] text-gray-400 mt-0.5">Die sichtbarsten Seiten in deinem Portfolio. Hohe Sichtbarkeit = viele relevante Rankings mit gutem Suchvolumen.</p>
+                    </div>
+                    <a href="{{ route('seo.urls') }}" wire:navigate class="text-[12px] text-indigo-600 hover:underline font-medium">Alle URLs</a>
                 </div>
-                <table class="w-full text-sm">
+                <table class="w-full text-[13px]">
                     <thead>
-                        <tr class="border-b border-gray-100 text-left text-gray-400">
-                            <th class="px-6 py-3">URL</th>
-                            <th class="px-4 py-3 text-right">Keywords</th>
-                            <th class="px-4 py-3 text-right">SV</th>
-                            <th class="px-4 py-3 text-right">Sichtbarkeit</th>
+                        <tr class="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+                            <th class="px-5 py-2.5 text-left">URL</th>
+                            <th class="px-4 py-2.5 text-right">Keywords</th>
+                            <th class="px-4 py-2.5 text-right">SV</th>
+                            <th class="px-4 py-2.5 text-right">Sichtbarkeit</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-gray-100">
                         @foreach($topUrls as $url)
-                            <tr class="border-b border-gray-50 hover:bg-gray-50/50">
-                                <td class="px-6 py-3">
-                                    <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-md">
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-5 py-2.5">
+                                    <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-md font-medium">
                                         {{ $url->path ?: '/' }}
                                     </a>
-                                    <span class="text-xs text-gray-400">{{ $url->domain }}</span>
+                                    <span class="text-[10px] text-gray-400">{{ $url->domain }}</span>
                                 </td>
-                                <td class="px-4 py-3 text-right text-gray-600">{{ $url->keyword_count }}</td>
-                                <td class="px-4 py-3 text-right">
+                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ $url->keyword_count }}</td>
+                                <td class="px-4 py-2.5 text-right">
                                     @include('seo::partials.sv-badge', ['volume' => $url->total_search_volume])
                                 </td>
-                                <td class="px-4 py-3 text-right">
-                                    <span class="font-medium text-gray-900">{{ number_format($url->visibility_score, 1) }}</span>
+                                <td class="px-4 py-2.5 text-right">
+                                    <span class="font-semibold text-gray-900 tabular-nums">{{ number_format($url->visibility_score, 1) }}</span>
                                 </td>
                             </tr>
                         @endforeach
@@ -114,27 +172,41 @@
         @if($recentSignals->isNotEmpty())
             <div>
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-medium text-gray-700">Aktuelle Signale</h3>
+                    <div>
+                        <h3 class="text-[13px] font-semibold text-gray-900">Aktuelle Signale</h3>
+                        <p class="text-[11px] text-gray-400 mt-0.5">Automatisch erkannte Veränderungen: Ranking-Sprünge, Traffic-Einbrüche, neue Chancen. Reagiere frühzeitig auf negative Trends.</p>
+                    </div>
                 </div>
                 <div class="space-y-2">
                     @foreach($recentSignals as $signal)
-                        <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100">
-                            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0
-                                @if($signal->severity === 'critical') bg-red-500
-                                @elseif($signal->severity === 'warning') bg-amber-500
-                                @elseif($signal->severity === 'watch') bg-blue-500
-                                @else bg-gray-400
-                                @endif"></span>
+                        @php
+                            $dotColor = match($signal->severity) {
+                                'critical' => 'bg-red-500',
+                                'warning' => 'bg-amber-500',
+                                'watch' => 'bg-blue-500',
+                                'opportunity' => 'bg-green-500',
+                                default => 'bg-gray-400',
+                            };
+                            $borderColor = match($signal->severity) {
+                                'critical' => 'border-l-red-400',
+                                'warning' => 'border-l-amber-400',
+                                'watch' => 'border-l-blue-400',
+                                'opportunity' => 'border-l-green-400',
+                                default => 'border-l-gray-300',
+                            };
+                        @endphp
+                        <div class="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 border-l-4 {{ $borderColor }}">
+                            <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $dotColor }}"></span>
                             <div class="min-w-0 flex-1">
-                                <span class="text-sm text-gray-700 truncate block">{{ $signal->title }}</span>
-                                <div class="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                                <span class="text-[13px] text-gray-700 block">{{ $signal->title }}</span>
+                                <div class="flex items-center gap-2 text-[11px] text-gray-400 mt-0.5">
                                     <span>{{ $signal->detected_at->format('d.m.Y') }}</span>
                                     @if($signal->url)
                                         <a href="{{ route('seo.urls.show', $signal->url) }}" wire:navigate class="text-indigo-500 hover:underline truncate">{{ $signal->url->path }}</a>
                                     @endif
                                 </div>
                             </div>
-                            <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-gray-100 rounded text-gray-500">{{ str_replace('_', ' ', $signal->signal_type) }}</span>
+                            <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-gray-100 rounded text-gray-500 shrink-0">{{ str_replace('_', ' ', $signal->signal_type) }}</span>
                         </div>
                     @endforeach
                 </div>
@@ -148,17 +220,10 @@
         <form wire:submit="saveSettings">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <input type="text" wire:model="editName" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    @error('editName') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
-                    <textarea wire:model="editDescription" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></textarea>
-                </div>
-                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Domain</label>
-                    <input type="text" wire:model="editDomain" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <input type="text" wire:model="editDomain" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                           placeholder="beispiel.de">
+                    <p class="text-[11px] text-gray-400 mt-1">Die Haupt-Domain für die Sichtbarkeitsberechnung.</p>
                 </div>
             </div>
             <x-slot name="footer">
@@ -167,11 +232,4 @@
             </x-slot>
         </form>
     </x-ui-modal>
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-[13px] text-gray-400">Letzte Änderungen</div>
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
 </x-ui-page>

@@ -19,34 +19,39 @@
     <x-ui-page-container>
 
         {{-- Sub-Navigation --}}
-        <div class="flex items-center gap-2 mb-6">
-            <a href="{{ route('seo.lists.show', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
-                Übersicht
-            </a>
-            <a href="{{ route('seo.lists.competitors', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
-                Wettbewerber
-            </a>
-            <a href="{{ route('seo.lists.cannibalization', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg bg-indigo-50 text-indigo-600 font-medium">
-                Kannibalisierung
-            </a>
-            <a href="{{ route('seo.lists.signals', $seoUrlList) }}" wire:navigate
-               class="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:bg-gray-50">
-                Signale
-            </a>
+        <div class="flex items-center gap-1 border-b border-gray-200 mb-6">
+            <a href="{{ route('seo.lists.show', $seoUrlList) }}" wire:navigate class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">Übersicht</a>
+            <a href="{{ route('seo.lists.competitors', $seoUrlList) }}" wire:navigate class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">Wettbewerber</a>
+            <a href="{{ route('seo.lists.cannibalization', $seoUrlList) }}" wire:navigate class="px-4 py-3 text-[13px] font-medium text-[#166EE1] border-b-2 border-[#166EE1]">Kannibalisierung</a>
+            <a href="{{ route('seo.lists.signals', $seoUrlList) }}" wire:navigate class="px-4 py-3 text-[13px] font-medium text-gray-500 hover:text-gray-700 transition-colors">Signale</a>
         </div>
 
-        {{-- Summary --}}
-        <x-ui-stats-grid :cols="2">
-            <x-ui-dashboard-tile title="Kannibalisierte Keywords" :count="count($cannibalization)" icon="exclamation-triangle" variant="warning" />
-            <x-ui-dashboard-tile title="Betroffene URLs" :count="collect($cannibalization)->flatMap(fn($c) => collect($c['urls'])->pluck('url'))->unique()->count()" icon="globe-alt" variant="danger" />
-        </x-ui-stats-grid>
+        {{-- Intro --}}
+        <p class="text-[13px] text-gray-500 mb-6">Keyword-Kannibalisierung tritt auf, wenn mehrere deiner Seiten für dasselbe Keyword ranken und sich gegenseitig Sichtbarkeit stehlen. Google weiß dann nicht, welche Seite es bevorzugen soll. Konsolidiere Inhalte oder setze Canonical-Tags, um das zu lösen.</p>
 
-        {{-- Cannibalization Table --}}
+        {{-- Summary --}}
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-exclamation-triangle', 'w-4 h-4 text-amber-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Betroffene Keywords</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ count($cannibalization) }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Keywords mit mehrfach rankenden URLs</div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    @svg('heroicon-o-globe-alt', 'w-4 h-4 text-red-500')
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Betroffene URLs</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ collect($cannibalization)->flatMap(fn($c) => collect($c['urls'])->pluck('url'))->unique()->count() }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Seiten, die sich gegenseitig konkurrieren</div>
+            </div>
+        </div>
+
+        {{-- Cannibalization Cards --}}
         @if(!empty($cannibalization))
-            <div class="space-y-4">
+            <div class="space-y-3">
                 @foreach($cannibalization as $item)
                     @php
                         $urlCount = count($item['urls']);
@@ -54,29 +59,23 @@
                         $positionSpread = count($positions) >= 2 ? max($positions) - min($positions) : 0;
                         $severity = $urlCount > 2 ? 'red' : ($positionSpread < 5 ? 'red' : 'amber');
                     @endphp
-                    <div class="bg-white rounded-xl border-l-4 {{ $severity === 'red' ? 'border-l-red-500' : 'border-l-amber-500' }} border border-gray-100 overflow-hidden">
-                        <div class="px-6 py-4 flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                                <span class="font-medium text-gray-900">{{ $item['keyword'] }}</span>
+                    <div class="bg-white rounded-lg border-l-4 {{ $severity === 'red' ? 'border-l-red-400' : 'border-l-amber-400' }} border border-gray-200 overflow-hidden">
+                        <div class="px-5 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="font-semibold text-[13px] text-gray-900">{{ $item['keyword'] }}</span>
                                 @include('seo::partials.sv-badge', ['volume' => $item['search_volume']])
-                                <span class="text-xs text-gray-400">{{ $urlCount }} URLs ranken</span>
+                                <span class="text-[11px] text-gray-400">{{ $urlCount }} URLs ranken</span>
                             </div>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $severity === 'red' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700' }}">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider {{ $severity === 'red' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700' }}">
                                 {{ $severity === 'red' ? 'Kritisch' : 'Warnung' }}
                             </span>
                         </div>
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="border-t border-gray-100 text-left text-gray-400">
-                                    <th class="px-6 py-2">URL</th>
-                                    <th class="px-4 py-2 text-right">Position</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        <table class="w-full text-[13px]">
+                            <tbody class="divide-y divide-gray-100">
                                 @foreach($item['urls'] as $urlData)
-                                    <tr class="border-t border-gray-50">
-                                        <td class="px-6 py-2 text-indigo-600 truncate max-w-lg">{{ $urlData['url'] }}</td>
-                                        <td class="px-4 py-2 text-right">
+                                    <tr class="hover:bg-gray-50 transition-colors">
+                                        <td class="px-5 py-2 text-indigo-600 truncate max-w-lg text-[12px]">{{ $urlData['url'] }}</td>
+                                        <td class="px-4 py-2 text-right w-20">
                                             @include('seo::partials.position-badge', ['position' => $urlData['position'], 'change' => null])
                                         </td>
                                     </tr>
@@ -87,17 +86,14 @@
                 @endforeach
             </div>
         @else
-            <div class="py-12 text-center text-gray-400">
-                Keine Keyword-Kannibalisierungen in dieser Liste gefunden.
+            <div class="py-16 text-center">
+                <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
+                    @svg('heroicon-o-check-circle', 'w-6 h-6 text-green-500')
+                </div>
+                <p class="text-sm text-gray-500 font-medium mb-1">Keine Kannibalisierung gefunden</p>
+                <p class="text-xs text-gray-400">Alle Keywords haben eindeutige Landing Pages. Das ist gut — so kann Google jede Seite klar zuordnen.</p>
             </div>
         @endif
 
     </x-ui-page-container>
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-[13px] text-gray-400">Letzte Änderungen</div>
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
 </x-ui-page>
