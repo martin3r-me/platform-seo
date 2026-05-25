@@ -34,6 +34,31 @@
             <div class="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg">{{ session('error') }}</div>
         @endif
 
+        {{-- Aggregate Stats --}}
+        @php $stats = $this->aggregateStats; @endphp
+        <x-ui-stats-grid :cols="4">
+            <x-ui-dashboard-tile title="Keywords" :count="$stats->count ?? 0" icon="heroicon-o-key" variant="primary" />
+            <x-ui-dashboard-tile title="Suchvolumen" :count="$stats->total_sv ?? 0" icon="heroicon-o-magnifying-glass" variant="info" />
+            <div class="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-warning-5 flex items-center justify-center">
+                    @svg('heroicon-o-signal', 'w-5 h-5 text-warning-60')
+                </div>
+                <div>
+                    <div class="text-[11px] text-gray-500 uppercase tracking-wide">Avg KD</div>
+                    <div class="text-xl font-semibold text-gray-900">{{ $stats->avg_kd ?? 0 }}</div>
+                </div>
+            </div>
+            <div class="bg-white border border-gray-100 rounded-xl p-4 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-success-5 flex items-center justify-center">
+                    @svg('heroicon-o-currency-euro', 'w-5 h-5 text-success-60')
+                </div>
+                <div>
+                    <div class="text-[11px] text-gray-500 uppercase tracking-wide">Avg CPC</div>
+                    <div class="text-xl font-semibold text-gray-900">{{ $stats->avg_cpc ?? '0.00' }} €</div>
+                </div>
+            </div>
+        </x-ui-stats-grid>
+
         {{-- Filters --}}
         <div class="flex items-center gap-3 mb-6 flex-wrap">
             <input type="text" wire:model.live.debounce.300ms="search" placeholder="Keywords suchen..."
@@ -89,32 +114,46 @@
                             CPC
                             @if($sortField === 'cpc_cents') <span class="text-xs">{{ $sortDirection === 'asc' ? '↑' : '↓' }}</span> @endif
                         </th>
-                        <th class="px-4 py-3">Intent</th>
+                        <th class="px-4 py-3 text-center">Intent</th>
                         <th class="px-4 py-3 text-right">URLs</th>
-                        <th class="px-4 py-3">Topic</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($keywords as $keyword)
-                        <tr wire:key="kw-{{ $keyword->id }}" class="border-b border-gray-50 hover:bg-gray-50/50 cursor-pointer" wire:click="toggleExpand({{ $keyword->id }})">
+                        <tr wire:key="kw-{{ $keyword->id }}"
+                            class="border-b border-gray-50 hover:bg-gray-50/50 cursor-pointer {{ $selectedKeywordId === $keyword->id ? 'bg-indigo-50' : '' }}"
+                            wire:click="selectKeyword({{ $keyword->id }})">
                             <td class="px-4 py-2.5" wire:click.stop>
                                 <input type="checkbox" wire:model.live="selectedKeywords" value="{{ $keyword->id }}" class="rounded">
                             </td>
                             <td class="px-4 py-2.5">
-                                <div class="flex items-center gap-2">
-                                    <svg class="w-3 h-3 text-gray-300 transition-transform {{ $expandedKeywordId === $keyword->id ? 'rotate-90' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                <div>
                                     <span class="font-medium text-gray-900">{{ $keyword->keyword }}</span>
+                                    @if($keyword->cluster || $keyword->topic)
+                                        <div class="flex items-center gap-2 mt-0.5">
+                                            @if($keyword->cluster)
+                                                <span class="inline-flex items-center gap-1 text-[10px] text-gray-500">
+                                                    @if($keyword->cluster->color)
+                                                        <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ $keyword->cluster->color }}"></span>
+                                                    @endif
+                                                    {{ $keyword->cluster->name }}
+                                                </span>
+                                            @endif
+                                            @if($keyword->topic)
+                                                <span class="text-[10px] text-gray-400">{{ $keyword->topic }}</span>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                             </td>
                             <td class="px-4 py-2.5 text-right">
-                                @include('seo::partials.seasonality-chart', ['keyword' => $keyword])
-                                @include('seo::partials.competitor-domains', ['keyword' => $keyword, 'limit' => 3])
+                                @include('seo::partials.sv-badge', ['volume' => $keyword->search_volume])
                             </td>
                             <td class="px-4 py-2.5 text-right">
                                 @include('seo::partials.kd-badge', ['value' => $keyword->keyword_difficulty])
                             </td>
                             <td class="px-4 py-2.5 text-right text-gray-600">{{ $keyword->cpc_euro !== null ? number_format($keyword->cpc_euro, 2) . ' €' : '—' }}</td>
-                            <td class="px-4 py-2.5">
+                            <td class="px-4 py-2.5 text-center">
                                 @if($keyword->search_intent)
                                     @php
                                         $intentColors = [
@@ -123,52 +162,23 @@
                                             'navigational' => 'bg-purple-100 text-purple-700',
                                             'commercial' => 'bg-amber-100 text-amber-700',
                                         ];
+                                        $intentLetters = [
+                                            'informational' => 'I',
+                                            'transactional' => 'T',
+                                            'navigational' => 'N',
+                                            'commercial' => 'C',
+                                        ];
                                     @endphp
-                                    <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium {{ $intentColors[$keyword->search_intent] ?? 'bg-gray-100 text-gray-600' }}">
-                                        {{ ucfirst($keyword->search_intent) }}
+                                    <span class="inline-block w-6 h-6 leading-6 rounded-full text-[10px] font-bold text-center {{ $intentColors[$keyword->search_intent] ?? 'bg-gray-100 text-gray-600' }}" title="{{ ucfirst($keyword->search_intent) }}">
+                                        {{ $intentLetters[$keyword->search_intent] ?? '?' }}
                                     </span>
                                 @endif
                             </td>
                             <td class="px-4 py-2.5 text-right text-gray-600">{{ $keyword->urls_count }}</td>
-                            <td class="px-4 py-2.5">
-                                @if($keyword->topic)
-                                    <span class="text-xs text-gray-500">{{ $keyword->topic }}</span>
-                                @endif
-                                @if($keyword->cluster)
-                                    <span class="inline-flex items-center gap-1 text-xs text-gray-500 ml-1">
-                                        @if($keyword->cluster->color)
-                                            <span class="w-2 h-2 rounded-full" style="background-color: {{ $keyword->cluster->color }}"></span>
-                                        @endif
-                                        {{ $keyword->cluster->name }}
-                                    </span>
-                                @endif
-                            </td>
                         </tr>
-
-                        {{-- Inline Expand: URLs ranking for this keyword --}}
-                        @if($expandedKeywordId === $keyword->id)
-                            <tr wire:key="kw-expand-{{ $keyword->id }}" class="bg-indigo-50/30">
-                                <td colspan="8" class="px-8 py-3">
-                                    @if($this->expandedUrls->isNotEmpty())
-                                        <div class="text-xs text-gray-500 mb-2">URLs die für dieses Keyword ranken:</div>
-                                        <div class="space-y-1">
-                                            @foreach($this->expandedUrls as $url)
-                                                <div class="flex items-center gap-3">
-                                                    <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline text-sm truncate">{{ $url->path ?: '/' }}</a>
-                                                    <span class="text-xs text-gray-400">{{ $url->domain }}</span>
-                                                    @include('seo::partials.position-badge', ['position' => $url->keywords->first()?->pivot->position, 'change' => null])
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @else
-                                        <div class="text-xs text-gray-400">Keine URLs ranken für dieses Keyword.</div>
-                                    @endif
-                                </td>
-                            </tr>
-                        @endif
                     @empty
                         <tr>
-                            <td colspan="8" class="px-4 py-12 text-center text-gray-400">
+                            <td colspan="7" class="px-4 py-12 text-center text-gray-400">
                                 Noch keine Keywords. Füge welche hinzu, um zu starten.
                             </td>
                         </tr>
@@ -197,11 +207,21 @@
             </x-slot>
         </form>
     </x-ui-modal>
+
     <x-slot name="activity">
-        <x-ui-page-sidebar title="Aktivitäten" width="w-80" :defaultOpen="true" storeKey="activityOpen" side="right">
-            <div class="p-4 space-y-4">
-                <div class="text-[13px] text-gray-400">Letzte Änderungen</div>
-            </div>
+        <x-ui-page-sidebar title="{{ $this->selectedKeyword?->keyword ?? 'Keyword Details' }}" width="w-[480px]" :defaultOpen="true" storeKey="kwDetailOpen" side="right">
+            @if($this->selectedKeyword)
+                @include('seo::partials.keyword-detail-panel', [
+                    'keyword' => $this->selectedKeyword,
+                    'urls' => $this->selectedKeywordUrls,
+                    'positionHistory' => $this->selectedKeywordHistory,
+                ])
+            @else
+                <div class="p-8 text-center text-gray-400">
+                    <div class="mb-2">@svg('heroicon-o-cursor-arrow-rays', 'w-8 h-8 mx-auto text-gray-300')</div>
+                    <p class="text-sm">Keyword auswählen um Details zu sehen</p>
+                </div>
+            @endif
         </x-ui-page-sidebar>
     </x-slot>
 </x-ui-page>

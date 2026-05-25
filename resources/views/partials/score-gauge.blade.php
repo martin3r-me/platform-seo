@@ -18,12 +18,10 @@
     };
 @endphp
 
-<div id="{{ $gaugeId }}" style="width: {{ $s['width'] }}px; height: {{ $s['height'] }}px;" wire:ignore></div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
+<div id="{{ $gaugeId }}" style="width: {{ $s['width'] }}px; height: {{ $s['height'] }}px;" wire:ignore
+     x-data x-init="$nextTick(() => {
         if (typeof ApexCharts !== 'undefined') {
-            new ApexCharts(document.querySelector('#{{ $gaugeId }}'), {
+            new ApexCharts($el, {
                 chart: { type: 'radialBar', height: {{ $s['height'] }}, sparkline: { enabled: true } },
                 series: [{{ round($value) }}],
                 colors: ['{{ $gaugeColor }}'],
@@ -39,8 +37,8 @@
                         }
                     }
                 },
-                labels: ['{!! $label !!}']
+                labels: ['{{ $label }}']
             }).render();
         }
-    });
-</script>
+    })">
+</div>

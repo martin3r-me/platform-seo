@@ -9,6 +9,7 @@ use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
+use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoKeywordService;
@@ -33,7 +34,7 @@ class SeoKeywordExplorer extends Component
     public array $selectedKeywords = [];
     public bool $selectAll = false;
 
-    public ?int $expandedKeywordId = null;
+    public ?int $selectedKeywordId = null;
 
     public function mount(SeoUrl $seoUrl)
     {
@@ -44,6 +45,25 @@ class SeoKeywordExplorer extends Component
     public function updatedSearch()
     {
         $this->resetPage();
+        $this->selectedKeywordId = null;
+    }
+
+    public function updatedFilterIntent()
+    {
+        $this->resetPage();
+        $this->selectedKeywordId = null;
+    }
+
+    public function updatedFilterTopic()
+    {
+        $this->resetPage();
+        $this->selectedKeywordId = null;
+    }
+
+    public function updatedFilterCluster()
+    {
+        $this->resetPage();
+        $this->selectedKeywordId = null;
     }
 
     public function sortBy(string $field)
@@ -56,9 +76,9 @@ class SeoKeywordExplorer extends Component
         }
     }
 
-    public function toggleExpand(int $keywordId)
+    public function selectKeyword(int $keywordId)
     {
-        $this->expandedKeywordId = $this->expandedKeywordId === $keywordId ? null : $keywordId;
+        $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
     }
 
     public function addKeywords()
@@ -112,47 +132,12 @@ class SeoKeywordExplorer extends Component
         return collect([$this->seoUrl->id])->merge($childIds)->all();
     }
 
-    #[Computed]
-    public function clusters()
-    {
-        return SeoKeywordCluster::where('team_id', $this->seoSettings->team_id)->get();
-    }
-
-    #[Computed]
-    public function topics()
-    {
-        $allUrlIds = $this->getAllUrlIds();
-
-        return SeoKeyword::where('team_id', $this->seoSettings->team_id)
-            ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
-            ->whereNotNull('topic')
-            ->distinct()
-            ->pluck('topic');
-    }
-
-    #[Computed]
-    public function expandedUrls()
-    {
-        if (! $this->expandedKeywordId) {
-            return collect();
-        }
-
-        $allUrlIds = $this->getAllUrlIds();
-
-        return SeoUrl::whereIn('id', $allUrlIds)
-            ->whereHas('keywords', fn ($q) => $q->where('seo_keywords.id', $this->expandedKeywordId))
-            ->with(['keywords' => fn ($q) => $q->where('seo_keywords.id', $this->expandedKeywordId)])
-            ->get();
-    }
-
-    public function render()
+    private function buildFilteredQuery()
     {
         $allUrlIds = $this->getAllUrlIds();
 
         $query = SeoKeyword::where('team_id', $this->seoSettings->team_id)
-            ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
-            ->with(['cluster', 'competitors'])
-            ->withCount('urls');
+            ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds));
 
         if ($this->search) {
             $query->where('keyword', 'like', "%{$this->search}%");
@@ -173,6 +158,87 @@ class SeoKeywordExplorer extends Component
                 $query->where('cluster_id', $this->filterCluster);
             }
         }
+
+        return $query;
+    }
+
+    #[Computed]
+    public function clusters()
+    {
+        return SeoKeywordCluster::where('team_id', $this->seoSettings->team_id)->get();
+    }
+
+    #[Computed]
+    public function topics()
+    {
+        $allUrlIds = $this->getAllUrlIds();
+
+        return SeoKeyword::where('team_id', $this->seoSettings->team_id)
+            ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
+            ->whereNotNull('topic')
+            ->distinct()
+            ->pluck('topic');
+    }
+
+    #[Computed]
+    public function selectedKeyword()
+    {
+        if (! $this->selectedKeywordId) {
+            return null;
+        }
+
+        return SeoKeyword::with(['cluster', 'competitors' => fn ($q) => $q->orderBy('position')->limit(10), 'positions' => fn ($q) => $q->latest('tracked_at')->limit(1)])
+            ->find($this->selectedKeywordId);
+    }
+
+    #[Computed]
+    public function selectedKeywordUrls()
+    {
+        if (! $this->selectedKeywordId) {
+            return collect();
+        }
+
+        $allUrlIds = $this->getAllUrlIds();
+
+        return SeoUrl::whereIn('id', $allUrlIds)
+            ->whereHas('keywords', fn ($q) => $q->where('seo_keywords.id', $this->selectedKeywordId))
+            ->with(['keywords' => fn ($q) => $q->where('seo_keywords.id', $this->selectedKeywordId)])
+            ->get();
+    }
+
+    #[Computed]
+    public function selectedKeywordHistory()
+    {
+        if (! $this->selectedKeywordId) {
+            return collect();
+        }
+
+        return SeoRankingHistory::where('keyword_id', $this->selectedKeywordId)
+            ->orderBy('tracked_at', 'desc')
+            ->limit(30)
+            ->get()
+            ->reverse()
+            ->values();
+    }
+
+    #[Computed]
+    public function aggregateStats()
+    {
+        $query = $this->buildFilteredQuery();
+
+        return $query->selectRaw('
+            COUNT(*) as count,
+            COALESCE(SUM(search_volume), 0) as total_sv,
+            ROUND(COALESCE(AVG(keyword_difficulty), 0), 1) as avg_kd,
+            ROUND(COALESCE(AVG(cpc_cents), 0) / 100, 2) as avg_cpc
+        ')->first();
+    }
+
+    public function render()
+    {
+        $query = $this->buildFilteredQuery()
+            ->with(['cluster', 'competitors'])
+            ->withCount('urls');
 
         $query->orderBy($this->sortField, $this->sortDirection);
 
