@@ -102,10 +102,10 @@ class SeoUrlListManager extends Component
 
             // Top 3 keywords by search volume across all URLs in this list
             $list->top_keywords = $allIds->isNotEmpty()
-                ? \DB::table('seo_keyword_url')
-                    ->join('seo_keywords', 'seo_keywords.id', '=', 'seo_keyword_url.seo_keyword_id')
-                    ->whereIn('seo_keyword_url.seo_url_id', $allIds)
-                    ->select('seo_keywords.keyword', 'seo_keywords.search_volume', 'seo_keyword_url.position')
+                ? \DB::table('seo_url_keywords')
+                    ->join('seo_keywords', 'seo_keywords.id', '=', 'seo_url_keywords.keyword_id')
+                    ->whereIn('seo_url_keywords.url_id', $allIds)
+                    ->select('seo_keywords.keyword', 'seo_keywords.search_volume', 'seo_url_keywords.position')
                     ->orderByDesc('seo_keywords.search_volume')
                     ->limit(3)
                     ->get()
