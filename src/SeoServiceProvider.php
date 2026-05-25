@@ -159,6 +159,9 @@ class SeoServiceProvider extends ServiceProvider
             // Signale
             $registry->register(new \Platform\Seo\Tools\ListSignalsTool());
             $registry->register(new \Platform\Seo\Tools\UpdateSignalTool());
+
+            // Wartung
+            $registry->register(new \Platform\Seo\Tools\RepairRelationshipsTool());
         } catch (\Throwable $e) {
             \Log::warning('SEO: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }

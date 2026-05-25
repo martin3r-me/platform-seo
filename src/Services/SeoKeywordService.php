@@ -520,6 +520,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
             // Tracking: welches Keyword geht an welche URL (für Cleanup)
             $keywordUrlAssignments = []; // keyword_id => matched_url_id
+            $autoCreatedUrls = []; // Auto-erstellte URLs für deferred Relationship-Erstellung
 
             $matchedCount = 0;
             foreach ($rankedResults as $rk) {
@@ -557,21 +558,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                     $urlPaths[$newUrl->id] = $rankedPath;
                     $domainUrls[] = $newUrl;
                     $urlsAutoCreated++;
-
-                    // Parent-Child Beziehung zur Root-URL
-                    if ($parentUrlId && $newUrl->id !== $parentUrlId) {
-                        SeoUrlRelationship::firstOrCreate(
-                            [
-                                'source_url_id' => $parentUrlId,
-                                'target_url_id' => $newUrl->id,
-                                'type' => 'parent_child',
-                            ],
-                            [
-                                'team_id' => $teamId,
-                                'detected_at' => now(),
-                            ],
-                        );
-                    }
+                    $autoCreatedUrls[] = $newUrl;
                 }
 
                 $matchedCount++;
@@ -656,6 +643,47 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                     ]);
                 }
                 $positionSnapshots++;
+            }
+
+            // Parent-Child Relationships: deferred erstellen nach dem Loop,
+            // damit die Root-URL korrekt bestimmt wird (auch wenn sie auto-erstellt wurde)
+            if (!empty($autoCreatedUrls)) {
+                // Root-URL neu bestimmen über alle bekannten URLs (inkl. auto-erstellter)
+                $rootUrlId = null;
+                $rootPathLen = PHP_INT_MAX;
+                foreach ($urlPaths as $urlId => $normalizedPath) {
+                    if (strlen($normalizedPath) < $rootPathLen) {
+                        $rootPathLen = strlen($normalizedPath);
+                        $rootUrlId = $urlId;
+                    }
+                }
+
+                if ($rootUrlId) {
+                    $allDomainUrlIds = array_keys($urlPaths);
+
+                    // Fehlerhafte Relationships bereinigen: Root darf nie target sein
+                    SeoUrlRelationship::where('type', 'parent_child')
+                        ->where('target_url_id', $rootUrlId)
+                        ->whereIn('source_url_id', $allDomainUrlIds)
+                        ->delete();
+
+                    // Parent-Child für auto-erstellte URLs anlegen
+                    foreach ($autoCreatedUrls as $newUrl) {
+                        if ($newUrl->id !== $rootUrlId) {
+                            SeoUrlRelationship::firstOrCreate(
+                                [
+                                    'source_url_id' => $rootUrlId,
+                                    'target_url_id' => $newUrl->id,
+                                    'type' => 'parent_child',
+                                ],
+                                [
+                                    'team_id' => $teamId,
+                                    'detected_at' => now(),
+                                ],
+                            );
+                        }
+                    }
+                }
             }
 
             // Stale Pivot-Einträge bereinigen: Keyword nur an die gematchte URL,
