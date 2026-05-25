@@ -7,7 +7,7 @@
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
             ['label' => 'URLs', 'route' => 'seo.urls'],
-            ['label' => Str::limit($seoUrl->path ?: '/', 20), 'href' => route('seo.urls.show', $seoUrl)],
+            ['label' => ($seoUrl->path && $seoUrl->path !== '/') ? Str::limit($seoUrl->path, 20) : $seoUrl->domain, 'href' => route('seo.urls.show', $seoUrl)],
             ['label' => 'Rankings'],
         ]" />
     </x-slot>
