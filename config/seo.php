@@ -80,13 +80,6 @@ return [
     | Signal Detection Thresholds
     |--------------------------------------------------------------------------
     */
-    /*
-    |--------------------------------------------------------------------------
-    | Minimum Search Volume — Keywords below this threshold are ignored
-    |--------------------------------------------------------------------------
-    */
-    'min_search_volume' => 50,
-
     'signals' => [
         'volume_spike_threshold' => 1.0,      // 100% increase
         'volume_drop_threshold' => -0.5,       // 50% decrease

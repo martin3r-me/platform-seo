@@ -34,7 +34,7 @@ class FetchRankingsTool implements ToolContract
                 ],
                 'keywords_limit' => [
                     'type' => 'integer',
-                    'description' => 'Max Keywords pro Domain vom API (Default: 500).',
+                    'description' => 'Max Keywords pro Domain vom API (Default: 1000).',
                 ],
                 'dry_run' => [
                     'type' => 'boolean',
@@ -56,7 +56,7 @@ class FetchRankingsTool implements ToolContract
             $result = $service->fetchRankingsByDomain($team->id, $context->user, [
                 'domain' => $arguments['domain'] ?? null,
                 'max_urls' => $arguments['max_urls'] ?? null,
-                'keywords_limit' => $arguments['keywords_limit'] ?? 500,
+                'keywords_limit' => $arguments['keywords_limit'] ?? 1000,
                 'dry_run' => $arguments['dry_run'] ?? false,
             ]);
 

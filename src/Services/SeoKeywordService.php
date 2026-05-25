@@ -416,7 +416,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     public function fetchRankingsByDomain(int $teamId, ?User $user = null, array $options = []): array
     {
         $settings = SeoTeamSettings::where('team_id', $teamId)->firstOrFail();
-        $keywordsLimit = $options['keywords_limit'] ?? 500;
+        $keywordsLimit = $options['keywords_limit'] ?? 1000;
         $dryRun = $options['dry_run'] ?? false;
         $filterDomain = $options['domain'] ?? null;
         $maxUrls = $options['max_urls'] ?? null;
@@ -522,16 +522,9 @@ class SeoKeywordService implements SeoKeywordServiceInterface
             $keywordUrlAssignments = []; // keyword_id => matched_url_id
             $autoCreatedUrls = []; // Auto-erstellte URLs für deferred Relationship-Erstellung
 
-            $minVolume = config('seo.min_search_volume', 50);
-
             $matchedCount = 0;
             foreach ($rankedResults as $rk) {
                 if (!$rk->position || !$rk->url) {
-                    continue;
-                }
-
-                // Keywords mit zu niedrigem Suchvolumen überspringen
-                if ($minVolume > 0 && ($rk->searchVolume ?? 0) < $minVolume) {
                     continue;
                 }
 
@@ -744,14 +737,8 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     protected function upsertKeywordsFromRanked(int $teamId, array $rankedResults): array
     {
         $models = [];
-        $minVolume = config('seo.min_search_volume', 50);
 
         foreach ($rankedResults as $rk) {
-            // Keywords mit zu niedrigem Suchvolumen überspringen
-            if ($minVolume > 0 && ($rk->searchVolume ?? 0) < $minVolume) {
-                continue;
-            }
-
             $keywordLower = strtolower(trim($rk->keyword));
 
             $monthlyVolumes = null;
