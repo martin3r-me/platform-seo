@@ -73,7 +73,7 @@
                 {{-- Keywords Tab — KWFinder-style split panel --}}
                 <div x-show="tab === 'keywords'">
                     @if($keywords->isNotEmpty())
-                        <div class="flex gap-0 items-stretch" style="min-height: 600px;">
+                        <div class="flex gap-0 items-start" style="min-height: 600px;">
                             {{-- Left: Keyword List --}}
                             <div class="flex-1 min-w-0 bg-white rounded-l-lg border border-gray-200 {{ $this->selectedKeyword ? 'border-r-0' : 'rounded-r-lg' }} overflow-hidden flex flex-col">
                                 <table class="w-full text-[13px]">
@@ -137,7 +137,7 @@
 
                             {{-- Right: Detail Panel --}}
                             @if($this->selectedKeyword)
-                                <div class="w-[400px] shrink-0 bg-white rounded-r-lg border border-gray-200 overflow-y-auto">
+                                <div class="w-[400px] shrink-0 bg-white rounded-r-lg border border-gray-200 overflow-y-auto sticky top-0" style="max-height: calc(100vh - 120px);">
                                     {{-- Panel Header --}}
                                     <div class="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between">
                                         <h3 class="text-[13px] font-semibold text-gray-900 truncate">{{ $this->selectedKeyword->keyword }}</h3>
