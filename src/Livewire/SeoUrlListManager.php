@@ -80,51 +80,99 @@ class SeoUrlListManager extends Component
     {
         $lists = SeoUrlList::withCount('urls')->orderBy('name')->get();
 
-        // Compute aggregate stats per list
+        if ($lists->isEmpty()) {
+            return view('seo::livewire.seo-url-list-manager', [
+                'lists' => $lists,
+            ])->layout('platform::layouts.app');
+        }
+
+        // 1. Bulk: all list-URL entries (one query instead of N)
+        $listEntries = \DB::table('seo_url_list_entries')
+            ->whereIn('list_id', $lists->pluck('id'))
+            ->get()
+            ->groupBy('list_id');
+
+        $allRootUrlIds = $listEntries->flatMap(fn ($entries) => $entries->pluck('url_id'))->unique();
+
+        // 2. Bulk: all child relationships for all root URLs (one query)
+        $childRelations = SeoUrlRelationship::where('type', 'parent_child')
+            ->whereIn('source_url_id', $allRootUrlIds)
+            ->get()
+            ->groupBy('source_url_id');
+
+        $allChildIds = $childRelations->flatMap(fn ($rels) => $rels->pluck('target_url_id'))->unique();
+        $allUrlIds = $allRootUrlIds->merge($allChildIds)->unique();
+
+        // 3. Bulk: load all URLs at once (one query)
+        $allUrls = $allUrlIds->isNotEmpty()
+            ? SeoUrl::whereIn('id', $allUrlIds)->get()->keyBy('id')
+            : collect();
+
+        // 4. Bulk: signal counts grouped by url_id and severity (one query)
+        $signalCounts = $allUrlIds->isNotEmpty()
+            ? SeoSignal::whereIn('url_id', $allUrlIds)
+                ->where('status', 'new')
+                ->whereIn('severity', ['critical', 'warning', 'opportunity'])
+                ->selectRaw('url_id, severity, COUNT(*) as cnt')
+                ->groupBy('url_id', 'severity')
+                ->get()
+            : collect();
+
+        // 5. Bulk: top keywords per URL (one query, will filter per list in PHP)
+        $topKeywordsRaw = $allUrlIds->isNotEmpty()
+            ? \DB::table('seo_url_keywords')
+                ->join('seo_keywords', 'seo_keywords.id', '=', 'seo_url_keywords.keyword_id')
+                ->whereIn('seo_url_keywords.url_id', $allUrlIds)
+                ->select('seo_url_keywords.url_id', 'seo_keywords.keyword', 'seo_keywords.search_volume', 'seo_url_keywords.position')
+                ->orderByDesc('seo_keywords.search_volume')
+                ->get()
+                ->groupBy('url_id')
+            : collect();
+
+        // Compute per-list aggregates from pre-loaded data
         foreach ($lists as $list) {
-            $rootUrlIds = $list->urls()->pluck('seo_urls.id');
-            $childIds = SeoUrlRelationship::where('type', 'parent_child')
-                ->whereIn('source_url_id', $rootUrlIds)
-                ->pluck('target_url_id');
-
-            $allIds = $rootUrlIds->merge($childIds);
-            $allUrls = $allIds->isNotEmpty()
-                ? SeoUrl::whereIn('id', $allIds)->get()
+            $rootIds = isset($listEntries[$list->id])
+                ? $listEntries[$list->id]->pluck('url_id')
                 : collect();
 
-            $list->agg_keywords = $allUrls->sum('keyword_count');
-            $list->agg_search_volume = $allUrls->sum('total_search_volume');
-            $list->agg_visibility = $allUrls->sum('visibility_score');
-            $list->agg_backlinks = $allUrls->sum('backlink_count');
-            $list->agg_own_count = $allUrls->where('is_own', true)->count();
-            $list->agg_competitor_count = $allUrls->where('is_own', false)->count();
-            $list->agg_last_crawled = $allUrls->max('last_crawled_at');
+            $childIds = $rootIds->flatMap(fn ($id) => isset($childRelations[$id])
+                ? $childRelations[$id]->pluck('target_url_id')
+                : collect()
+            );
 
-            // Top 3 keywords by search volume across all URLs in this list
-            $list->top_keywords = $allIds->isNotEmpty()
-                ? \DB::table('seo_url_keywords')
-                    ->join('seo_keywords', 'seo_keywords.id', '=', 'seo_url_keywords.keyword_id')
-                    ->whereIn('seo_url_keywords.url_id', $allIds)
-                    ->select('seo_keywords.keyword', 'seo_keywords.search_volume', 'seo_url_keywords.position')
-                    ->orderByDesc('seo_keywords.search_volume')
-                    ->limit(3)
-                    ->get()
-                : collect();
+            $listUrlIds = $rootIds->merge($childIds)->unique();
+            $listUrls = $listUrlIds->map(fn ($id) => $allUrls->get($id))->filter();
 
-            // Signal counts by severity for URLs in this list
-            $list->agg_signals_critical = $allIds->isNotEmpty()
-                ? SeoSignal::whereIn('url_id', $allIds)->where('status', 'new')->where('severity', 'critical')->count()
-                : 0;
-            $list->agg_signals_warning = $allIds->isNotEmpty()
-                ? SeoSignal::whereIn('url_id', $allIds)->where('status', 'new')->where('severity', 'warning')->count()
-                : 0;
-            $list->agg_signals_opportunity = $allIds->isNotEmpty()
-                ? SeoSignal::whereIn('url_id', $allIds)->where('status', 'new')->where('severity', 'opportunity')->count()
-                : 0;
+            $list->agg_keywords = $listUrls->sum('keyword_count');
+            $list->agg_search_volume = $listUrls->sum('total_search_volume');
+            $list->agg_visibility = $listUrls->sum('visibility_score');
+            $list->agg_backlinks = $listUrls->sum('backlink_count');
+            $list->agg_own_count = $listUrls->where('is_own', true)->count();
+            $list->agg_competitor_count = $listUrls->where('is_own', false)->count();
+            $list->agg_last_crawled = $listUrls->max('last_crawled_at');
+            $list->agg_active = $listUrls->where('status', 'active')->count();
+            $list->agg_errors = $listUrls->filter(fn ($u) => in_array($u->status, ['error', 'redirect']))->count();
 
-            // Status breakdown
-            $list->agg_active = $allUrls->where('status', 'active')->count();
-            $list->agg_errors = $allUrls->whereIn('status', ['error', 'redirect'])->count();
+            // Signal counts from pre-loaded data
+            $listSignals = $signalCounts->whereIn('url_id', $listUrlIds);
+            $list->agg_signals_critical = $listSignals->where('severity', 'critical')->sum('cnt');
+            $list->agg_signals_warning = $listSignals->where('severity', 'warning')->sum('cnt');
+            $list->agg_signals_opportunity = $listSignals->where('severity', 'opportunity')->sum('cnt');
+
+            // Top 3 keywords from pre-loaded data
+            $seenKeywords = [];
+            $topKws = collect();
+            foreach ($listUrlIds as $urlId) {
+                if (isset($topKeywordsRaw[$urlId])) {
+                    foreach ($topKeywordsRaw[$urlId] as $kw) {
+                        if (! isset($seenKeywords[$kw->keyword]) && $topKws->count() < 3) {
+                            $seenKeywords[$kw->keyword] = true;
+                            $topKws->push($kw);
+                        }
+                    }
+                }
+            }
+            $list->top_keywords = $topKws->sortByDesc('search_volume')->values()->take(3);
         }
 
         return view('seo::livewire.seo-url-list-manager', [

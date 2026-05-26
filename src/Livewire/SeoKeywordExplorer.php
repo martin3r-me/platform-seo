@@ -5,7 +5,6 @@ namespace Platform\Seo\Livewire;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
-use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
@@ -16,7 +15,6 @@ use Platform\Seo\Services\SeoKeywordService;
 
 class SeoKeywordExplorer extends Component
 {
-    use WithPagination;
     use ResolvesTeamSettings;
 
     public SeoUrl $seoUrl;
@@ -36,6 +34,8 @@ class SeoKeywordExplorer extends Component
 
     public ?int $selectedKeywordId = null;
 
+    public int $limit = 50;
+
     public function mount(SeoUrl $seoUrl)
     {
         $this->resolveSettings();
@@ -44,26 +44,31 @@ class SeoKeywordExplorer extends Component
 
     public function updatedSearch()
     {
-        $this->resetPage();
+        $this->limit = 50;
         $this->selectedKeywordId = null;
     }
 
     public function updatedFilterIntent()
     {
-        $this->resetPage();
+        $this->limit = 50;
         $this->selectedKeywordId = null;
     }
 
     public function updatedFilterTopic()
     {
-        $this->resetPage();
+        $this->limit = 50;
         $this->selectedKeywordId = null;
     }
 
     public function updatedFilterCluster()
     {
-        $this->resetPage();
+        $this->limit = 50;
         $this->selectedKeywordId = null;
+    }
+
+    public function loadMore(): void
+    {
+        $this->limit += 50;
     }
 
     public function sortBy(string $field)
@@ -242,10 +247,13 @@ class SeoKeywordExplorer extends Component
 
         $query->orderBy($this->sortField, $this->sortDirection);
 
-        $keywords = $query->paginate(50);
+        $allKeywords = $query->take($this->limit + 1)->get();
+        $hasMore = $allKeywords->count() > $this->limit;
+        $keywords = $allKeywords->take($this->limit);
 
         return view('seo::livewire.seo-keyword-explorer', [
             'keywords' => $keywords,
+            'hasMore' => $hasMore,
         ])->layout('platform::layouts.app');
     }
 }

@@ -18,7 +18,15 @@ class SeoUrlDetail extends Component
 
     public SeoUrl $seoUrl;
 
+    public string $activeTab = 'keywords';
+
     public ?int $selectedKeywordId = null;
+
+    // Infinite scroll limits
+    public int $keywordLimit = 50;
+    public int $rankingLimit = 50;
+    public int $backlinkLimit = 50;
+    public int $gscLimit = 50;
 
     public function mount(SeoUrl $seoUrl)
     {
@@ -26,18 +34,54 @@ class SeoUrlDetail extends Component
         $this->seoUrl = $seoUrl;
     }
 
+    public function setTab(string $tab): void
+    {
+        $this->activeTab = $tab;
+        $this->selectedKeywordId = null;
+    }
+
     public function selectKeyword(int $keywordId)
     {
         $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
     }
 
+    public function loadMore(): void
+    {
+        match ($this->activeTab) {
+            'keywords' => $this->keywordLimit += 50,
+            'rankings' => $this->rankingLimit += 50,
+            'backlinks' => $this->backlinkLimit += 50,
+            'gsc' => $this->gscLimit += 50,
+            default => null,
+        };
+    }
+
     private function getAllUrlIds(): array
     {
-        $childIds = SeoUrlRelationship::where('source_url_id', $this->seoUrl->id)
-            ->where('type', 'parent_child')
-            ->pluck('target_url_id');
+        return $this->getChildData()['allUrlIds'];
+    }
 
-        return collect([$this->seoUrl->id])->merge($childIds)->all();
+    #[Computed(persist: true)]
+    public function childData(): array
+    {
+        $childRelations = SeoUrlRelationship::where('source_url_id', $this->seoUrl->id)
+            ->where('type', 'parent_child')
+            ->with('targetUrl')
+            ->get();
+
+        $childUrls = $childRelations->map(fn ($rel) => $rel->targetUrl)->filter();
+        $childIds = $childUrls->pluck('id')->all();
+        $allUrlIds = array_merge([$this->seoUrl->id], $childIds);
+
+        return [
+            'childUrls' => $childUrls,
+            'allUrlIds' => $allUrlIds,
+        ];
+    }
+
+    private function getChildData(): array
+    {
+        return $this->childData;
     }
 
     #[Computed]
@@ -86,88 +130,107 @@ class SeoUrlDetail extends Component
 
     public function render()
     {
-        $scoringService = app(SeoScoringService::class);
-        $urlVisibility = $scoringService->getUrlVisibilityScore($this->seoUrl);
+        $data = $this->getChildData();
+        $childUrls = $data['childUrls'];
+        $allUrlIds = $data['allUrlIds'];
 
-        // Load child URLs (this URL is parent)
-        $childRelations = SeoUrlRelationship::where('source_url_id', $this->seoUrl->id)
-            ->where('type', 'parent_child')
-            ->with('targetUrl')
-            ->get();
+        // Always: aggregate stats (cheap — uses cached fields on SeoUrl)
+        $aggKeywordCount = $this->seoUrl->keyword_count + $childUrls->sum('keyword_count');
+        $aggSearchVolume = $this->seoUrl->total_search_volume + $childUrls->sum('total_search_volume');
+        $aggVisibility = (float) $this->seoUrl->visibility_score + (float) $childUrls->sum('visibility_score');
+        $aggBacklinks = $this->seoUrl->backlink_count + $childUrls->sum('backlink_count');
 
-        $childUrls = $childRelations->map(fn ($rel) => $rel->targetUrl)->filter();
-        $childIds = $childUrls->pluck('id')->all();
-        $allUrlIds = array_merge([$this->seoUrl->id], $childIds);
+        // Always: on-page score for stats bar (just the score, not full data)
+        $onPageScore = $this->seoUrl->onPage?->overall_score;
 
-        // Keywords across root + children
-        $keywords = SeoKeyword::whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
-            ->with(['urls' => fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds), 'competitors'])
-            ->get()
-            ->sortBy(fn ($kw) => $kw->urls->min('pivot.position') ?? 999);
-
-        // Rankings across root + children
-        $rankingHistory = SeoRankingHistory::whereIn('url_id', $allUrlIds)
-            ->with(['keyword', 'url'])
-            ->orderByDesc('tracked_at')
-            ->take(50)
-            ->get();
-
-        // Backlinks across root + children
-        $backlinks = SeoUrlBacklink::whereIn('url_id', $allUrlIds)
-            ->where('is_active', true)
-            ->orderByDesc('source_domain_authority')
-            ->take(50)
-            ->get();
-
-        // On-Page: only root URL
-        $onPage = $this->seoUrl->onPage;
-
-        // GSC data: root only
-        $gscData = $this->seoUrl->gscData()
-            ->with('keyword')
-            ->orderByDesc('date')
-            ->take(50)
-            ->get();
-
-        $registrations = $this->seoUrl->registrations;
-
-        $relationships = $this->seoUrl->sourceRelationships()
-            ->with('targetUrl')
-            ->get()
-            ->merge(
-                $this->seoUrl->targetRelationships()
-                    ->with('sourceUrl')
-                    ->get()
-            );
-
-        // Parent URL (if this is a child)
+        // Always: parent URL for breadcrumb
         $parentRelation = SeoUrlRelationship::where('target_url_id', $this->seoUrl->id)
             ->where('type', 'parent_child')
             ->with('sourceUrl')
             ->first();
         $parentUrl = $parentRelation?->sourceUrl;
 
-        // Aggregated stats
-        $aggKeywordCount = $this->seoUrl->keyword_count + $childUrls->sum('keyword_count');
-        $aggSearchVolume = $this->seoUrl->total_search_volume + $childUrls->sum('total_search_volume');
-        $aggVisibility = (float) $this->seoUrl->visibility_score + (float) $childUrls->sum('visibility_score');
-        $aggBacklinks = $this->seoUrl->backlink_count + $childUrls->sum('backlink_count');
+        // Tab-specific data
+        $keywords = collect();
+        $rankingHistory = collect();
+        $backlinks = collect();
+        $onPage = null;
+        $gscData = collect();
+        $relationships = collect();
+        $hasMore = false;
+
+        switch ($this->activeTab) {
+            case 'keywords':
+                $keywords = SeoKeyword::whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
+                    ->with(['urls' => fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds), 'competitors'])
+                    ->get()
+                    ->sortBy(fn ($kw) => $kw->urls->min('pivot.position') ?? 999)
+                    ->values();
+                $hasMore = $keywords->count() > $this->keywordLimit;
+                $keywords = $keywords->take($this->keywordLimit);
+                break;
+
+            case 'rankings':
+                $rankingHistory = SeoRankingHistory::whereIn('url_id', $allUrlIds)
+                    ->with(['keyword', 'url'])
+                    ->orderByDesc('tracked_at')
+                    ->take($this->rankingLimit + 1)
+                    ->get();
+                $hasMore = $rankingHistory->count() > $this->rankingLimit;
+                $rankingHistory = $rankingHistory->take($this->rankingLimit);
+                break;
+
+            case 'backlinks':
+                $backlinks = SeoUrlBacklink::whereIn('url_id', $allUrlIds)
+                    ->where('is_active', true)
+                    ->orderByDesc('source_domain_authority')
+                    ->take($this->backlinkLimit + 1)
+                    ->get();
+                $hasMore = $backlinks->count() > $this->backlinkLimit;
+                $backlinks = $backlinks->take($this->backlinkLimit);
+                break;
+
+            case 'onpage':
+                $onPage = $this->seoUrl->onPage;
+                break;
+
+            case 'gsc':
+                $gscData = $this->seoUrl->gscData()
+                    ->with('keyword')
+                    ->orderByDesc('date')
+                    ->take($this->gscLimit + 1)
+                    ->get();
+                $hasMore = $gscData->count() > $this->gscLimit;
+                $gscData = $gscData->take($this->gscLimit);
+                break;
+
+            case 'relationships':
+                $relationships = $this->seoUrl->sourceRelationships()
+                    ->with('targetUrl')
+                    ->get()
+                    ->merge(
+                        $this->seoUrl->targetRelationships()
+                            ->with('sourceUrl')
+                            ->get()
+                    );
+                break;
+        }
 
         return view('seo::livewire.seo-url-detail', [
             'parentUrl' => $parentUrl,
-            'urlVisibility' => $urlVisibility,
             'keywords' => $keywords,
             'rankingHistory' => $rankingHistory,
             'backlinks' => $backlinks,
             'onPage' => $onPage,
+            'onPageScore' => $onPageScore,
             'gscData' => $gscData,
-            'registrations' => $registrations,
             'relationships' => $relationships,
             'childUrls' => $childUrls,
             'aggKeywordCount' => $aggKeywordCount,
             'aggSearchVolume' => $aggSearchVolume,
             'aggVisibility' => $aggVisibility,
             'aggBacklinks' => $aggBacklinks,
+            'hasMore' => $hasMore,
         ])->layout('platform::layouts.app');
     }
 }

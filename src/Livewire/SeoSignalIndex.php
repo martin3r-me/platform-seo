@@ -3,7 +3,6 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
-use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrlList;
@@ -12,7 +11,6 @@ use Platform\Seo\Services\SeoSignalService;
 
 class SeoSignalIndex extends Component
 {
-    use WithPagination;
     use ResolvesTeamSettings;
 
     public SeoUrlList $seoUrlList;
@@ -20,6 +18,7 @@ class SeoSignalIndex extends Component
     public string $filterStatus = 'new';
     public ?string $filterType = null;
     public ?string $filterSeverity = null;
+    public int $limit = 25;
 
     public function mount(SeoUrlList $seoUrlList)
     {
@@ -30,7 +29,22 @@ class SeoSignalIndex extends Component
     public function setFilterStatus(string $status)
     {
         $this->filterStatus = $status;
-        $this->resetPage();
+        $this->limit = 25;
+    }
+
+    public function updatedFilterType()
+    {
+        $this->limit = 25;
+    }
+
+    public function updatedFilterSeverity()
+    {
+        $this->limit = 25;
+    }
+
+    public function loadMore(): void
+    {
+        $this->limit += 25;
     }
 
     public function acknowledge(int $signalId)
@@ -66,7 +80,9 @@ class SeoSignalIndex extends Component
             $query->where('severity', $this->filterSeverity);
         }
 
-        $signals = $query->paginate(25);
+        $allSignals = $query->take($this->limit + 1)->get();
+        $hasMore = $allSignals->count() > $this->limit;
+        $signals = $allSignals->take($this->limit);
 
         $statusCounts = SeoSignal::where('team_id', $this->seoSettings->team_id)
             ->whereIn('url_id', $listUrlIds)
@@ -78,6 +94,7 @@ class SeoSignalIndex extends Component
         return view('seo::livewire.seo-signal-index', [
             'signals' => $signals,
             'statusCounts' => $statusCounts,
+            'hasMore' => $hasMore,
         ])->layout('platform::layouts.app');
     }
 

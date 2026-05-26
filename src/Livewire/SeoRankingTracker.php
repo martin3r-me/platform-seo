@@ -3,7 +3,6 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
-use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoUrl;
@@ -13,13 +12,13 @@ use Platform\Seo\Services\SeoUrlService;
 
 class SeoRankingTracker extends Component
 {
-    use WithPagination;
     use ResolvesTeamSettings;
 
     public SeoUrl $seoUrl;
 
     public int $periodDays = 30;
     public string $filterType = 'all';
+    public int $limit = 50;
 
     public function mount(SeoUrl $seoUrl)
     {
@@ -30,13 +29,18 @@ class SeoRankingTracker extends Component
     public function setPeriod(int $days)
     {
         $this->periodDays = $days;
-        $this->resetPage();
+        $this->limit = 50;
     }
 
     public function setFilterType(string $type)
     {
         $this->filterType = $type;
-        $this->resetPage();
+        $this->limit = 50;
+    }
+
+    public function loadMore(): void
+    {
+        $this->limit += 50;
     }
 
     private function getAllUrlIds(): array
@@ -76,12 +80,15 @@ class SeoRankingTracker extends Component
             });
         }
 
-        $rankings = $query->paginate(50);
+        $allRankings = $query->take($this->limit + 1)->get();
+        $hasMore = $allRankings->count() > $this->limit;
+        $rankings = $allRankings->take($this->limit);
 
         return view('seo::livewire.seo-ranking-tracker', [
             'trends' => $trends,
             'positionDistribution' => $positionDistribution,
             'rankings' => $rankings,
+            'hasMore' => $hasMore,
         ])->layout('platform::layouts.app');
     }
 }

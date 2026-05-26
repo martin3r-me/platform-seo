@@ -3,7 +3,6 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
-use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
@@ -12,11 +11,11 @@ use Platform\Seo\Services\SeoAnalysisService;
 
 class SeoCompetitorAnalysis extends Component
 {
-    use WithPagination;
     use ResolvesTeamSettings;
 
     public SeoUrlList $seoUrlList;
     public ?string $filterDomain = null;
+    public int $limit = 30;
 
     public function mount(SeoUrlList $seoUrlList)
     {
@@ -27,7 +26,12 @@ class SeoCompetitorAnalysis extends Component
     public function setDomainFilter(?string $domain)
     {
         $this->filterDomain = $domain;
-        $this->resetPage();
+        $this->limit = 30;
+    }
+
+    public function loadMore(): void
+    {
+        $this->limit += 30;
     }
 
     public function render()
@@ -54,12 +58,15 @@ class SeoCompetitorAnalysis extends Component
             $competitorUrlQuery->where('domain', $this->filterDomain);
         }
 
-        $competitorUrls = $competitorUrlQuery->paginate(30);
+        $allCompetitorUrls = $competitorUrlQuery->take($this->limit + 1)->get();
+        $hasMore = $allCompetitorUrls->count() > $this->limit;
+        $competitorUrls = $allCompetitorUrls->take($this->limit);
 
         return view('seo::livewire.seo-competitor-analysis', [
             'gaps' => $gaps,
             'competitorDomains' => $competitorDomains,
             'competitorUrls' => $competitorUrls,
+            'hasMore' => $hasMore,
         ])->layout('platform::layouts.app');
     }
 

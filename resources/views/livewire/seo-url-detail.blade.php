@@ -55,23 +55,23 @@
                 </div>
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
                     <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">On-Page</div>
-                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $onPage?->overall_score ?? '—' }}</div>
+                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $onPageScore ?? '—' }}</div>
                 </div>
             </div>
 
             {{-- Tabs --}}
-            <div x-data="{ tab: 'keywords' }">
+            <div>
                 <div class="flex items-center gap-1 border-b border-gray-200 mb-6">
-                    <button @click="tab = 'keywords'" :class="tab === 'keywords' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">Keywords</button>
-                    <button @click="tab = 'rankings'" :class="tab === 'rankings' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">Rankings</button>
-                    <button @click="tab = 'backlinks'" :class="tab === 'backlinks' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">Backlinks</button>
-                    <button @click="tab = 'onpage'" :class="tab === 'onpage' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">On-Page</button>
-                    <button @click="tab = 'gsc'" :class="tab === 'gsc' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">GSC</button>
-                    <button @click="tab = 'relationships'" :class="tab === 'relationships' ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700'" class="px-4 py-3 text-[13px] font-medium transition-colors">Beziehungen</button>
+                    @foreach(['keywords' => 'Keywords', 'rankings' => 'Rankings', 'backlinks' => 'Backlinks', 'onpage' => 'On-Page', 'gsc' => 'GSC', 'relationships' => 'Beziehungen'] as $tab => $label)
+                        <button wire:click="setTab('{{ $tab }}')"
+                                class="px-4 py-3 text-[13px] font-medium transition-colors {{ $activeTab === $tab ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700' }}">
+                            {{ $label }}
+                        </button>
+                    @endforeach
                 </div>
 
                 {{-- Keywords Tab — KWFinder-style split panel --}}
-                <div x-show="tab === 'keywords'">
+                @if($activeTab === 'keywords')
                     @if($keywords->isNotEmpty())
                         <div class="flex gap-0 items-start" style="min-height: 600px;">
                             {{-- Left: Keyword List --}}
@@ -133,6 +133,13 @@
                                         @endforeach
                                     </tbody>
                                 </table>
+
+                                {{-- Load more trigger --}}
+                                @if($hasMore)
+                                    <div x-data x-intersect="$wire.loadMore()" class="py-4 text-center">
+                                        <div wire:loading.delay wire:target="loadMore" class="text-[12px] text-gray-400">Laden...</div>
+                                    </div>
+                                @endif
                             </div>
 
                             {{-- Right: Detail Panel --}}
@@ -156,10 +163,10 @@
                     @else
                         <div class="p-8 text-center text-[13px] text-gray-400">Keine Keywords für diese URL.</div>
                     @endif
-                </div>
+                @endif
 
                 {{-- Rankings Tab --}}
-                <div x-show="tab === 'rankings'" x-cloak>
+                @if($activeTab === 'rankings')
                     @if($rankingHistory->isNotEmpty())
                         <section class="bg-white rounded-lg border border-gray-200">
                             <table class="w-full text-[13px]">
@@ -207,13 +214,18 @@
                                 </tbody>
                             </table>
                         </section>
+                        @if($hasMore)
+                            <div x-data x-intersect="$wire.loadMore()" class="py-4 text-center">
+                                <div wire:loading.delay wire:target="loadMore" class="text-[12px] text-gray-400">Laden...</div>
+                            </div>
+                        @endif
                     @else
                         <div class="p-8 text-center text-[13px] text-gray-400">Noch keine Ranking-Historie.</div>
                     @endif
-                </div>
+                @endif
 
                 {{-- Backlinks Tab --}}
-                <div x-show="tab === 'backlinks'" x-cloak>
+                @if($activeTab === 'backlinks')
                     @if($backlinks->isNotEmpty())
                         <section class="bg-white rounded-lg border border-gray-200">
                             <table class="w-full text-[13px]">
@@ -242,13 +254,18 @@
                                 </tbody>
                             </table>
                         </section>
+                        @if($hasMore)
+                            <div x-data x-intersect="$wire.loadMore()" class="py-4 text-center">
+                                <div wire:loading.delay wire:target="loadMore" class="text-[12px] text-gray-400">Laden...</div>
+                            </div>
+                        @endif
                     @else
                         <div class="p-8 text-center text-[13px] text-gray-400">Keine Backlinks gefunden.</div>
                     @endif
-                </div>
+                @endif
 
                 {{-- On-Page Tab --}}
-                <div x-show="tab === 'onpage'" x-cloak>
+                @if($activeTab === 'onpage')
                     @if($onPage)
                         <section class="bg-white rounded-lg border border-gray-200 p-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -298,10 +315,10 @@
                     @else
                         <div class="p-8 text-center text-[13px] text-gray-400">Noch keine On-Page-Analyse.</div>
                     @endif
-                </div>
+                @endif
 
                 {{-- GSC Tab --}}
-                <div x-show="tab === 'gsc'" x-cloak>
+                @if($activeTab === 'gsc')
                     @if($gscData->isNotEmpty())
                         <section class="bg-white rounded-lg border border-gray-200">
                             <table class="w-full text-[13px]">
@@ -329,13 +346,18 @@
                                 </tbody>
                             </table>
                         </section>
+                        @if($hasMore)
+                            <div x-data x-intersect="$wire.loadMore()" class="py-4 text-center">
+                                <div wire:loading.delay wire:target="loadMore" class="text-[12px] text-gray-400">Laden...</div>
+                            </div>
+                        @endif
                     @else
                         <div class="p-8 text-center text-[13px] text-gray-400">Keine GSC-Daten vorhanden.</div>
                     @endif
-                </div>
+                @endif
 
                 {{-- Relationships Tab --}}
-                <div x-show="tab === 'relationships'" x-cloak>
+                @if($activeTab === 'relationships')
                     @if($relationships->isNotEmpty())
                         <section class="bg-white rounded-lg border border-gray-200">
                             <table class="w-full text-[13px]">
@@ -374,7 +396,7 @@
                     @else
                         <div class="p-8 text-center text-[13px] text-gray-400">Keine Beziehungen.</div>
                     @endif
-                </div>
+                @endif
             </div>
         </div>
     </x-ui-page-container>

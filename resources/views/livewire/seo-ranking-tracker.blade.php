@@ -174,8 +174,10 @@
             </table>
         </div>
 
-        @if($rankings->hasPages())
-            <div class="mt-4">{{ $rankings->links() }}</div>
+        @if($hasMore)
+            <div x-data x-intersect="$wire.loadMore()" class="py-4 text-center">
+                <span wire:loading.delay wire:target="loadMore" class="text-[12px] text-gray-400">Laden...</span>
+            </div>
         @endif
 
     </x-ui-page-container>

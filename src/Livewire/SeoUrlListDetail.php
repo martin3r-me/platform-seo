@@ -101,25 +101,42 @@ class SeoUrlListDetail extends Component
     public function render()
     {
         $rootUrls = $this->seoUrlList->urls;
-        $childIds = SeoUrlRelationship::where('type', 'parent_child')
-            ->whereIn('source_url_id', $rootUrls->pluck('id'))
-            ->pluck('target_url_id');
+        $rootUrlIds = $rootUrls->pluck('id');
 
-        $allRelatedUrls = SeoUrl::whereIn('id', $rootUrls->pluck('id')->merge($childIds))->get();
+        // Single bulk query for all child relationships
+        $childRelations = SeoUrlRelationship::where('type', 'parent_child')
+            ->whereIn('source_url_id', $rootUrlIds)
+            ->get()
+            ->groupBy('source_url_id');
 
+        $allChildIds = $childRelations->flatMap(fn ($rels) => $rels->pluck('target_url_id'));
+
+        // Single bulk query for all child URLs
+        $childUrlsMap = $allChildIds->isNotEmpty()
+            ? SeoUrl::whereIn('id', $allChildIds)->get()->keyBy('id')
+            : collect();
+
+        // Compute aggregates from already-loaded data
         $aggregated = ['visibility_score' => 0, 'keyword_count' => 0, 'total_search_volume' => 0, 'backlink_count' => 0];
-        foreach ($allRelatedUrls as $url) {
+        foreach ($rootUrls as $url) {
+            $aggregated['visibility_score'] += (float) $url->visibility_score;
+            $aggregated['keyword_count'] += $url->keyword_count;
+            $aggregated['total_search_volume'] += $url->total_search_volume;
+            $aggregated['backlink_count'] += $url->backlink_count;
+        }
+        foreach ($childUrlsMap as $url) {
             $aggregated['visibility_score'] += (float) $url->visibility_score;
             $aggregated['keyword_count'] += $url->keyword_count;
             $aggregated['total_search_volume'] += $url->total_search_volume;
             $aggregated['backlink_count'] += $url->backlink_count;
         }
 
-        $listUrls = $rootUrls->map(function (SeoUrl $url) {
-            $childIds = SeoUrlRelationship::where('type', 'parent_child')
-                ->where('source_url_id', $url->id)
-                ->pluck('target_url_id');
-            $children = $childIds->isNotEmpty() ? SeoUrl::whereIn('id', $childIds)->get() : collect();
+        // Attach child aggregates per root URL (no extra queries)
+        $listUrls = $rootUrls->map(function (SeoUrl $url) use ($childRelations, $childUrlsMap) {
+            $children = collect();
+            if (isset($childRelations[$url->id])) {
+                $children = $childRelations[$url->id]->map(fn ($rel) => $childUrlsMap->get($rel->target_url_id))->filter();
+            }
 
             $url->agg_visibility = (float) $url->visibility_score + $children->sum('visibility_score');
             $url->agg_keywords = $url->keyword_count + $children->sum('keyword_count');

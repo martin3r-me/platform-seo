@@ -3,7 +3,6 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
-use Livewire\WithPagination;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRelationship;
@@ -11,7 +10,6 @@ use Platform\Seo\Services\SeoUrlService;
 
 class SeoUrlExplorer extends Component
 {
-    use WithPagination;
     use ResolvesTeamSettings;
 
     public string $search = '';
@@ -27,6 +25,8 @@ class SeoUrlExplorer extends Component
     public array $selectedUrls = [];
     public bool $selectAll = false;
 
+    public int $limit = 50;
+
     public function mount()
     {
         $this->resolveSettings();
@@ -34,7 +34,22 @@ class SeoUrlExplorer extends Component
 
     public function updatedSearch()
     {
-        $this->resetPage();
+        $this->limit = 50;
+    }
+
+    public function updatedFilterIsOwn()
+    {
+        $this->limit = 50;
+    }
+
+    public function updatedFilterStatus()
+    {
+        $this->limit = 50;
+    }
+
+    public function loadMore(): void
+    {
+        $this->limit += 50;
     }
 
     public function sortBy(string $field)
@@ -125,9 +140,11 @@ class SeoUrlExplorer extends Component
 
         $query->orderBy($this->sortField, $this->sortDirection);
 
-        $urls = $query->paginate(50);
+        $allUrls = $query->take($this->limit + 1)->get();
+        $hasMore = $allUrls->count() > $this->limit;
+        $urls = $allUrls->take($this->limit);
 
-        // Aggregate children metrics
+        // Aggregate children metrics (bulk)
         $urlIds = $urls->pluck('id');
         $childRelations = SeoUrlRelationship::where('type', 'parent_child')
             ->whereIn('source_url_id', $urlIds)
@@ -139,8 +156,7 @@ class SeoUrlExplorer extends Component
             ? SeoUrl::whereIn('id', $allChildIds)->get()->keyBy('id')
             : collect();
 
-        // Attach aggregated values to each URL
-        $urls->getCollection()->transform(function (SeoUrl $url) use ($childRelations, $childUrls) {
+        $urls->transform(function (SeoUrl $url) use ($childRelations, $childUrls) {
             $children = collect();
             if (isset($childRelations[$url->id])) {
                 $children = $childRelations[$url->id]->map(fn ($rel) => $childUrls->get($rel->target_url_id))->filter();
@@ -157,6 +173,7 @@ class SeoUrlExplorer extends Component
 
         return view('seo::livewire.seo-url-explorer', [
             'urls' => $urls,
+            'hasMore' => $hasMore,
         ])->layout('platform::layouts.app');
     }
 }

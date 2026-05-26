@@ -163,8 +163,10 @@
                 </table>
             </div>
 
-            @if($urls->hasPages())
-                <div>{{ $urls->links() }}</div>
+            @if($hasMore)
+                <div x-data x-intersect="$wire.loadMore()" class="py-4 text-center">
+                    <span wire:loading.delay wire:target="loadMore" class="text-[12px] text-gray-400">Laden...</span>
+                </div>
             @endif
         </div>
     </x-ui-page-container>

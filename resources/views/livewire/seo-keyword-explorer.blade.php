@@ -178,9 +178,9 @@
             </table>
         </div>
 
-        @if($keywords->hasPages())
-            <div class="px-5 py-3 border-t border-gray-100 bg-gray-50/60">
-                {{ $keywords->links() }}
+        @if($hasMore)
+            <div x-data x-intersect="$wire.loadMore()" class="py-4 text-center">
+                <span wire:loading.delay wire:target="loadMore" class="text-[12px] text-gray-400">Laden...</span>
             </div>
         @endif
 
