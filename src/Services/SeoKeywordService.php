@@ -155,6 +155,17 @@ class SeoKeywordService implements SeoKeywordServiceInterface
             $query->where('search_volume', '>=', $options['min_volume']);
         }
 
+        // Only keywords with competitor_tracking_depth set
+        if (!empty($options['only_with_competitor_tracking'])) {
+            $query->whereNotNull('competitor_tracking_depth')
+                ->where('competitor_tracking_depth', '>', 0);
+        }
+
+        // Only keywords without any competitor data yet
+        if (!empty($options['only_new'])) {
+            $query->whereDoesntHave('competitors');
+        }
+
         $limit = $options['limit'] ?? 0;
         if ($limit > 0) {
             $query->limit($limit);

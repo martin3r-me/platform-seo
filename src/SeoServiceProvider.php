@@ -4,6 +4,7 @@ namespace Platform\Seo;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
@@ -34,6 +35,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\RunPipeline::class,
                 \Platform\Seo\Console\Commands\SnapshotUrls::class,
                 \Platform\Seo\Console\Commands\DetectSignals::class,
+                \Platform\Seo\Console\Commands\RefreshCompetitors::class,
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
                 \Platform\Seo\Console\Commands\MigrateFromSyltjunkie::class,
             ]);
@@ -123,6 +125,7 @@ class SeoServiceProvider extends ServiceProvider
 
         $this->registerLivewireComponents();
         $this->registerTools();
+        $this->registerSchedule();
 
         try {
             resolve(\Platform\Organization\Services\EntityLinkRegistry::class)
@@ -130,6 +133,30 @@ class SeoServiceProvider extends ServiceProvider
         } catch (\Throwable $e) {
             // Organization-Modul nicht geladen
         }
+    }
+
+    protected function registerSchedule(): void
+    {
+        // Alle 2 Wochen Sonntag 02:00 — Keywords + Rankings aktualisieren
+        Schedule::command('seo:refresh-keywords')
+            ->weeklyOn(0, '02:00')
+            ->when(fn () => now()->weekOfYear % 2 === 0)
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Alle 2 Wochen Sonntag 02:30 — SERP-Competitors nur für neue Keywords ohne Daten
+        Schedule::command('seo:refresh-competitors --only-new')
+            ->weeklyOn(0, '02:30')
+            ->when(fn () => now()->weekOfYear % 2 === 0)
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Alle 2 Wochen Sonntag 03:00 — Pipeline (Enrichment: Backlinks, OnPage etc.)
+        Schedule::command('seo:pipeline')
+            ->weeklyOn(0, '03:00')
+            ->when(fn () => now()->weekOfYear % 2 === 0)
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     protected function registerTools(): void
