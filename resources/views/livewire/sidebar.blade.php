@@ -32,4 +32,63 @@
             </a>
         </div>
     </div>
+
+    {{-- Entity-basierte Gruppierung --}}
+    <div x-show="!collapsed" class="mt-2">
+        @foreach($entityTypeGroups as $typeGroup)
+            <x-ui-sidebar-list wire:key="type-group-{{ $typeGroup['type_id'] }}" :label="$typeGroup['type_name']">
+                @foreach($typeGroup['entities'] as $entityNode)
+                    @include('seo::livewire.partials.sidebar-entity-node', [
+                        'node' => $entityNode,
+                        'typeIcon' => $typeGroup['type_icon'] ?? null,
+                    ])
+                @endforeach
+            </x-ui-sidebar-list>
+        @endforeach
+
+        {{-- Unverknüpfte Listen --}}
+        @if($unlinkedLists->isNotEmpty())
+            <x-ui-sidebar-list label="Unverknüpft">
+                @foreach($unlinkedLists as $list)
+                    <a wire:key="unlinked-list-{{ $list->id }}"
+                       href="{{ route('seo.lists.show', $list) }}"
+                       wire:navigate
+                       title="{{ $list->name }}"
+                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
+                        @svg('heroicon-o-queue-list', 'w-3 h-3 flex-shrink-0 opacity-40')
+                        <span class="truncate text-[11px]">{{ $list->name }}</span>
+                    </a>
+                @endforeach
+            </x-ui-sidebar-list>
+        @endif
+
+        {{-- Unverknüpfte URLs (nur anzeigen wenn welche existieren, begrenzt auf 20) --}}
+        @if($unlinkedUrls->isNotEmpty())
+            <x-ui-sidebar-list label="URLs (unverknüpft)">
+                @foreach($unlinkedUrls->take(20) as $url)
+                    <a wire:key="unlinked-url-{{ $url->id }}"
+                       href="{{ route('seo.urls.show', $url) }}"
+                       wire:navigate
+                       title="{{ $url->url }}"
+                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
+                        @svg('heroicon-o-globe-alt', 'w-3 h-3 flex-shrink-0 opacity-40')
+                        <span class="truncate text-[11px]">{{ $url->path ?: $url->domain }}</span>
+                    </a>
+                @endforeach
+                @if($unlinkedUrls->count() > 20)
+                    <a href="{{ route('seo.urls') }}" wire:navigate
+                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition text-[10px]">
+                        +{{ $unlinkedUrls->count() - 20 }} weitere
+                    </a>
+                @endif
+            </x-ui-sidebar-list>
+        @endif
+
+        {{-- Leer-Zustand --}}
+        @if($entityTypeGroups->isEmpty() && $unlinkedLists->isEmpty() && $unlinkedUrls->isEmpty())
+            <div class="px-3 py-1 text-xs text-[var(--ui-muted)]">
+                Keine Listen oder URLs
+            </div>
+        @endif
+    </div>
 </div>
