@@ -141,22 +141,24 @@
         </div>
     @endif
 
-    {{-- SERP Overview (KWFinder-style competitor table) --}}
-    @if($keyword->competitors && $keyword->competitors->isNotEmpty())
-        <div class="p-5">
-            <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">SERP Overview</span>
-                <div class="flex items-center gap-2">
-                    <select wire:change="setCompetitorDepth({{ $keyword->id }}, $event.target.value)"
-                            class="text-[11px] border border-gray-200 rounded px-2 py-1 bg-white">
-                        <option value="0" {{ !$keyword->competitor_tracking_depth ? 'selected' : '' }}>Nicht tracken</option>
-                        <option value="3" {{ $keyword->competitor_tracking_depth === 3 ? 'selected' : '' }}>Top 3</option>
-                        <option value="5" {{ $keyword->competitor_tracking_depth === 5 ? 'selected' : '' }}>Top 5</option>
-                        <option value="10" {{ $keyword->competitor_tracking_depth === 10 ? 'selected' : '' }}>Top 10</option>
-                    </select>
+    {{-- Competitor Tracking Depth + SERP Overview --}}
+    <div class="p-5">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">SERP Overview</span>
+            <div class="flex items-center gap-2">
+                <select wire:change="setCompetitorDepth({{ $keyword->id }}, $event.target.value)"
+                        class="text-[11px] border border-gray-200 rounded px-2 py-1 bg-white">
+                    <option value="0" {{ !$keyword->competitor_tracking_depth ? 'selected' : '' }}>Nicht tracken</option>
+                    <option value="3" {{ $keyword->competitor_tracking_depth === 3 ? 'selected' : '' }}>Top 3</option>
+                    <option value="5" {{ $keyword->competitor_tracking_depth === 5 ? 'selected' : '' }}>Top 5</option>
+                    <option value="10" {{ $keyword->competitor_tracking_depth === 10 ? 'selected' : '' }}>Top 10</option>
+                </select>
+                @if($keyword->competitors && $keyword->competitors->isNotEmpty())
                     <span class="text-[10px] text-gray-400">Top {{ $keyword->competitors->count() }}</span>
-                </div>
+                @endif
             </div>
+        </div>
+        @if($keyword->competitors && $keyword->competitors->isNotEmpty())
             <div class="rounded-lg border border-gray-100 overflow-hidden">
                 <table class="w-full text-[11px]">
                     <thead>
@@ -208,8 +210,10 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-    @endif
+        @else
+            <div class="text-xs text-gray-300 text-center py-4">Noch keine SERP-Daten</div>
+        @endif
+    </div>
 
     {{-- Ranking URLs (own) --}}
     @if($urls->isNotEmpty())
