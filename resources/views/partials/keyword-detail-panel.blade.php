@@ -146,7 +146,16 @@
         <div class="p-5">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">SERP Overview</span>
-                <span class="text-[10px] text-gray-400">Top {{ $keyword->competitors->count() }}</span>
+                <div class="flex items-center gap-2">
+                    <select wire:change="setCompetitorDepth({{ $keyword->id }}, $event.target.value)"
+                            class="text-[11px] border border-gray-200 rounded px-2 py-1 bg-white">
+                        <option value="0" {{ !$keyword->competitor_tracking_depth ? 'selected' : '' }}>Nicht tracken</option>
+                        <option value="3" {{ $keyword->competitor_tracking_depth === 3 ? 'selected' : '' }}>Top 3</option>
+                        <option value="5" {{ $keyword->competitor_tracking_depth === 5 ? 'selected' : '' }}>Top 5</option>
+                        <option value="10" {{ $keyword->competitor_tracking_depth === 10 ? 'selected' : '' }}>Top 10</option>
+                    </select>
+                    <span class="text-[10px] text-gray-400">Top {{ $keyword->competitors->count() }}</span>
+                </div>
             </div>
             <div class="rounded-lg border border-gray-100 overflow-hidden">
                 <table class="w-full text-[11px]">
@@ -169,7 +178,12 @@
                                 };
                             @endphp
                             <tr class="hover:bg-indigo-50/30 transition-colors">
-                                <td class="px-2 py-1.5 {{ $posColor }}">{{ $competitor->position }}</td>
+                                <td class="px-2 py-1.5 {{ $posColor }}">
+                                    {{ $competitor->position }}
+                                    @if($keyword->competitor_tracking_depth && $competitor->position <= $keyword->competitor_tracking_depth)
+                                        <span class="text-[9px] bg-indigo-100 text-indigo-600 rounded px-1 py-0.5 font-medium">tracked</span>
+                                    @endif
+                                </td>
                                 <td class="px-2 py-1.5 text-gray-700 truncate max-w-[200px]" title="{{ $competitor->url }}">
                                     <div class="truncate">
                                         <span class="text-gray-900 font-medium">{{ $competitor->domain }}</span>

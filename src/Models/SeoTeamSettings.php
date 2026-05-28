@@ -21,6 +21,7 @@ class SeoTeamSettings extends Model
         'location_code',
         'language_code',
         'language_name',
+        'default_competitor_tracking_depth',
         'clustering_status',
         'clustering_result',
         'settings',
@@ -33,6 +34,7 @@ class SeoTeamSettings extends Model
         'next_refresh_at' => 'datetime',
         'location_code' => 'integer',
         'language_code' => 'integer',
+        'default_competitor_tracking_depth' => 'integer',
         'clustering_result' => 'array',
         'settings' => 'array',
     ];

@@ -250,6 +250,28 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                 }
             }
 
+            // --- Competitor URL auto-enrichment ---
+            if ($keyword->competitor_tracking_depth) {
+                $depth = $keyword->competitor_tracking_depth;
+                $topCompetitors = array_slice($serpResults, 0, $depth);
+                $urlService = app(SeoUrlService::class);
+
+                foreach ($topCompetitors as $serpResult) {
+                    if (!$serpResult->url || !$serpResult->domain) {
+                        continue;
+                    }
+                    if (in_array($serpResult->domain, $ownDomains)) {
+                        continue;
+                    }
+
+                    $urlService->register($teamId, $serpResult->url, [
+                        'is_own' => false,
+                        'reason' => 'competitor_tracking',
+                        'keyword_id' => $keyword->id,
+                    ]);
+                }
+            }
+
             $fetchedCount++;
         }
 

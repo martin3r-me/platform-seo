@@ -86,6 +86,14 @@ class SeoKeywordExplorer extends Component
         $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
     }
 
+    public function setCompetitorDepth(int $keywordId, ?int $depth): void
+    {
+        $keyword = SeoKeyword::findOrFail($keywordId);
+        $keyword->update([
+            'competitor_tracking_depth' => $depth ?: null,
+        ]);
+    }
+
     public function addKeywords()
     {
         $lines = array_filter(array_map('trim', explode("\n", $this->newKeywords)));

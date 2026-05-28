@@ -45,6 +45,14 @@ class SeoUrlDetail extends Component
         $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
     }
 
+    public function setCompetitorDepth(int $keywordId, ?int $depth): void
+    {
+        $keyword = SeoKeyword::findOrFail($keywordId);
+        $keyword->update([
+            'competitor_tracking_depth' => $depth ?: null,
+        ]);
+    }
+
     public function loadMore(): void
     {
         match ($this->activeTab) {
