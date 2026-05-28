@@ -23,16 +23,16 @@ class Sidebar extends Component
             ]);
         }
 
-        // 1. Load URL-Lists and URLs for this team
-        $lists = SeoUrlList::where('team_id', $teamId)
-            ->orderBy('name')
-            ->get();
-
+        // 1. Load URLs for this team, then lists via URL relationship
         $urls = SeoUrl::where('team_id', $teamId)
             ->where('status', 'active')
-            ->whereNull('deleted_at')
             ->orderBy('url')
             ->get();
+
+        // Lists don't have team_id — scope through URLs belonging to this team
+        $lists = SeoUrlList::whereHas('urls', function ($q) use ($teamId) {
+            $q->where('seo_urls.team_id', $teamId);
+        })->orderBy('name')->get();
 
         // 2. Get entity links for both types
         $listIds = $lists->pluck('id')->toArray();
