@@ -227,7 +227,7 @@
                     <div class="flex items-center gap-2 group">
                         @include('seo::partials.position-badge', ['position' => $url->keywords->first()?->pivot->position, 'change' => null])
                         <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-[12px] text-indigo-600 hover:text-indigo-800 truncate flex-1 group-hover:underline">
-                            {{ $url->path ?: '/' }}
+                            {{ ($url->path && $url->path !== '/') ? $url->path : $url->domain }}
                         </a>
                     </div>
                 @endforeach

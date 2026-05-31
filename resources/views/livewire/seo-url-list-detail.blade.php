@@ -88,8 +88,10 @@
                                 wire:click="selectUrl({{ $url->id }})"
                                 class="cursor-pointer transition-colors {{ $selectedUrlId === $url->id ? 'bg-blue-50' : 'hover:bg-gray-50' }}">
                                 <td class="px-4 py-2.5">
-                                    <div class="font-medium text-gray-900 truncate max-w-xs">{{ $url->path ?: '/' }}</div>
-                                    <div class="text-[10px] text-gray-400">{{ $url->domain }}</div>
+                                    <div class="font-medium text-gray-900 truncate max-w-xs">{{ ($url->path && $url->path !== '/') ? $url->path : $url->domain }}</div>
+                                    @if($url->path && $url->path !== '/')
+                                        <div class="text-[10px] text-gray-400">{{ $url->domain }}</div>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">
                                     @if($url->child_count > 0)
@@ -134,8 +136,10 @@
                     {{-- Panel Header --}}
                     <div class="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-3 flex items-center justify-between">
                         <div class="min-w-0">
-                            <h3 class="text-[13px] font-semibold text-gray-900 truncate">{{ $this->selectedUrl->path ?: '/' }}</h3>
-                            <div class="text-[10px] text-gray-400 truncate">{{ $this->selectedUrl->domain }}</div>
+                            <h3 class="text-[13px] font-semibold text-gray-900 truncate">{{ ($this->selectedUrl->path && $this->selectedUrl->path !== '/') ? $this->selectedUrl->path : $this->selectedUrl->domain }}</h3>
+                            @if($this->selectedUrl->path && $this->selectedUrl->path !== '/')
+                                <div class="text-[10px] text-gray-400 truncate">{{ $this->selectedUrl->domain }}</div>
+                            @endif
                         </div>
                         <div class="flex items-center gap-2 shrink-0 ml-3">
                             <a href="{{ route('seo.urls.show', $this->selectedUrl) }}" wire:navigate class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium">Öffnen</a>
@@ -219,8 +223,10 @@
                     <label wire:key="avail-{{ $url->id }}" class="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer">
                         <input type="checkbox" wire:model="selectedUrlIds" value="{{ $url->id }}" class="rounded">
                         <div class="min-w-0">
-                            <div class="text-sm text-gray-900 truncate">{{ $url->path ?: '/' }}</div>
-                            <div class="text-xs text-gray-400">{{ $url->domain }}</div>
+                            <div class="text-sm text-gray-900 truncate">{{ ($url->path && $url->path !== '/') ? $url->path : $url->domain }}</div>
+                            @if($url->path && $url->path !== '/')
+                                <div class="text-xs text-gray-400">{{ $url->domain }}</div>
+                            @endif
                         </div>
                     </label>
                 @empty

@@ -131,7 +131,7 @@
                             <td class="px-4 py-2.5">
                                 @if($entry->url)
                                     <a href="{{ route('seo.urls.show', $entry->url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-[200px]">
-                                        {{ $entry->url->path ?: '/' }}
+                                        {{ ($entry->url->path && $entry->url->path !== '/') ? $entry->url->path : $entry->url->domain }}
                                     </a>
                                 @else
                                     <span class="text-gray-300">—</span>

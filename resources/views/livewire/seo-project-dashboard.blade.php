@@ -150,9 +150,11 @@
                             <tr class="hover:bg-gray-50 transition-colors">
                                 <td class="px-5 py-2.5">
                                     <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-md font-medium">
-                                        {{ $url->path ?: '/' }}
+                                        {{ ($url->path && $url->path !== '/') ? $url->path : $url->domain }}
                                     </a>
-                                    <span class="text-[10px] text-gray-400">{{ $url->domain }}</span>
+                                    @if($url->path && $url->path !== '/')
+                                        <span class="text-[10px] text-gray-400">{{ $url->domain }}</span>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ $url->keyword_count }}</td>
                                 <td class="px-4 py-2.5 text-right">

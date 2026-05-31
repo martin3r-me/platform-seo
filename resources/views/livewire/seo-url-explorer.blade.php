@@ -111,10 +111,12 @@
                                             <span class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Wettbewerber"></span>
                                         @endif
                                         <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs font-medium">
-                                            {{ $url->path ?: '/' }}
+                                            {{ ($url->path && $url->path !== '/') ? $url->path : $url->domain }}
                                         </a>
                                     </div>
-                                    <div class="text-[10px] text-gray-400 ml-{{ $url->is_own ? '0' : '3.5' }}">{{ $url->domain }}</div>
+                                    @if($url->path && $url->path !== '/')
+                                        <div class="text-[10px] text-gray-400 ml-{{ $url->is_own ? '0' : '3.5' }}">{{ $url->domain }}</div>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-2.5 text-center">
                                     @include('seo::partials.url-status-badge', ['status' => $url->status, 'httpStatus' => $url->http_status])

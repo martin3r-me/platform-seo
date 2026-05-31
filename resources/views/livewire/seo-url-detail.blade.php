@@ -96,7 +96,7 @@
                                                 <td class="px-4 py-2.5">
                                                     <div class="font-medium text-gray-900">{{ $keyword->keyword }}</div>
                                                     @if($bestUrl && $bestUrl->id !== $seoUrl->id)
-                                                        <div class="text-[10px] text-gray-400 mt-0.5">{{ $bestUrl->path ?: '/' }}</div>
+                                                        <div class="text-[10px] text-gray-400 mt-0.5">{{ ($bestUrl->path && $bestUrl->path !== '/') ? $bestUrl->path : $bestUrl->domain }}</div>
                                                     @endif
                                                 </td>
                                                 <td class="px-1 py-2.5">
@@ -186,9 +186,9 @@
                                             <td class="px-4 py-2.5 font-medium text-gray-900">{{ $entry->keyword?->keyword ?? '—' }}</td>
                                             <td class="px-4 py-2.5 text-[11px] text-gray-400">
                                                 @if($entry->url && $entry->url->id !== $seoUrl->id)
-                                                    <a href="{{ route('seo.urls.show', $entry->url) }}" wire:navigate class="text-[#166EE1] hover:underline">{{ $entry->url->path ?: '/' }}</a>
+                                                    <a href="{{ route('seo.urls.show', $entry->url) }}" wire:navigate class="text-[#166EE1] hover:underline">{{ ($entry->url->path && $entry->url->path !== '/') ? $entry->url->path : $entry->url->domain }}</a>
                                                 @else
-                                                    {{ $seoUrl->path ?: '/' }}
+                                                    {{ ($seoUrl->path && $seoUrl->path !== '/') ? $seoUrl->path : $seoUrl->domain }}
                                                 @endif
                                             </td>
                                             <td class="px-4 py-2.5 text-right">@include('seo::partials.position-badge', ['position' => $entry->position, 'change' => $entry->position_delta])</td>
