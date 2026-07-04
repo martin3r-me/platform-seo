@@ -99,16 +99,42 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
         $urls = DB::table('seo_urls')
             ->whereIn('id', $allIds)
             ->whereNull('deleted_at')
-            ->select('id', 'visibility_score', 'keyword_count', 'total_search_volume', 'backlink_count')
+            ->select('id', 'visibility_score', 'keyword_count', 'total_search_volume',
+                'backlink_count', 'http_status', 'last_crawled_at', 'redirect_detected_at')
             ->get()
             ->keyBy('id');
 
+        // Sichtbarkeits-Puls: neue Signale je URL im 7d-Fenster, kritisch offene, Redirects.
+        $window7d = now()->subDays(7);
+        $signals = DB::table('seo_signals')
+            ->whereIn('url_id', $allIds)
+            ->select('url_id', 'severity', 'status', 'detected_at')
+            ->get();
+
+        $signalsNewByUrl = [];
+        $criticalOpenByUrl = [];
+        foreach ($signals as $s) {
+            if ($s->detected_at && $s->detected_at >= $window7d->toDateString()) {
+                $signalsNewByUrl[$s->url_id] = ($signalsNewByUrl[$s->url_id] ?? 0) + 1;
+            }
+            if ($s->severity === 'critical' && $s->status === 'open') {
+                $criticalOpenByUrl[$s->url_id] = ($criticalOpenByUrl[$s->url_id] ?? 0) + 1;
+            }
+        }
+
         $result = [];
+        $now = now();
         foreach ($linksByEntity as $entityId => $ids) {
             $visibility = 0;
             $keywords = 0;
             $searchVolume = 0;
             $backlinks = 0;
+            $signalsNew7d = 0;
+            $signalsCriticalOpen = 0;
+            $crawlErrors = 0;
+            $redirectsNew7d = 0;
+            $staleCrawlSumDays = 0.0;
+            $crawlableCount = 0;
 
             foreach ($ids as $id) {
                 $url = $urls->get($id);
@@ -119,13 +145,35 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 $keywords += (int) $url->keyword_count;
                 $searchVolume += (int) $url->total_search_volume;
                 $backlinks += (int) $url->backlink_count;
+
+                $signalsNew7d += (int) ($signalsNewByUrl[$id] ?? 0);
+                $signalsCriticalOpen += (int) ($criticalOpenByUrl[$id] ?? 0);
+
+                if ((int) $url->http_status >= 400) {
+                    $crawlErrors++;
+                }
+                if ($url->redirect_detected_at && $url->redirect_detected_at >= $window7d->toDateTimeString()) {
+                    $redirectsNew7d++;
+                }
+                if ($url->last_crawled_at) {
+                    $crawlableCount++;
+                    $staleCrawlSumDays += (float) $now->diffInDays(\Carbon\Carbon::parse($url->last_crawled_at), false);
+                    $staleCrawlSumDays = abs($staleCrawlSumDays);
+                }
             }
+
+            $seoStaleCrawl = $crawlableCount > 0 ? round($staleCrawlSumDays / $crawlableCount, 1) : 0.0;
 
             $result[$entityId] = [
                 'seo_visibility' => $visibility,
                 'seo_keywords' => $keywords,
                 'seo_search_volume' => $searchVolume,
                 'seo_backlinks' => $backlinks,
+                'seo_signals_new_7d' => $signalsNew7d,
+                'seo_signals_critical_open' => $signalsCriticalOpen,
+                'seo_crawl_errors' => $crawlErrors,
+                'seo_redirects_new_7d' => $redirectsNew7d,
+                'seo_stale_crawl_days' => $seoStaleCrawl,
             ];
         }
 
@@ -222,10 +270,18 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
     public function metricDefinitions(): array
     {
         return [
-            'seo_visibility'    => ['label' => 'Sichtbarkeit (SEO)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'score', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up'],
-            'seo_keywords'      => ['label' => 'Ranking-Keywords', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up'],
-            'seo_search_volume' => ['label' => 'Suchvolumen', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up'],
-            'seo_backlinks'     => ['label' => 'Backlinks', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up'],
+            // Bestehende Stichtag-KPIs — basis explizit gesetzt.
+            'seo_visibility'    => ['label' => 'Sichtbarkeit (SEO)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'score', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_keywords'      => ['label' => 'Ranking-Keywords', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_search_volume' => ['label' => 'Suchvolumen', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_backlinks'     => ['label' => 'Backlinks', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+
+            // Neu — Sichtbarkeits-Puls: Delta-Signale und Qualitaets-Indikatoren.
+            'seo_signals_new_7d'         => ['label' => 'Neue SEO-Signale (7 Tage)', 'group' => 'seo', 'direction' => 'neutral', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_7d'],
+            'seo_signals_critical_open'  => ['label' => 'Kritische SEO-Signale (offen)', 'group' => 'seo', 'direction' => 'down', 'unit' => 'count', 'dimension' => 'quality', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_crawl_errors'           => ['label' => 'Crawl-Fehler (HTTP >= 400)', 'group' => 'seo', 'direction' => 'down', 'unit' => 'count', 'dimension' => 'quality', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_redirects_new_7d'       => ['label' => 'Neue Redirects (7 Tage)', 'group' => 'seo', 'direction' => 'down', 'unit' => 'count', 'dimension' => 'quality', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_7d'],
+            'seo_stale_crawl_days'       => ['label' => 'Ø Tage seit letztem Crawl', 'group' => 'seo', 'direction' => 'down', 'unit' => 'days', 'dimension' => 'quality', 'type' => 'modulator', 'aggregation_mode' => 'rolled_up', 'roll_up_function' => 'avg', 'basis' => 'modulator_factor'],
         ];
     }
 }
