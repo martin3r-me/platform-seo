@@ -117,7 +117,10 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             if ($s->detected_at && $s->detected_at >= $window7d->toDateString()) {
                 $signalsNewByUrl[$s->url_id] = ($signalsNewByUrl[$s->url_id] ?? 0) + 1;
             }
-            if ($s->severity === 'critical' && $s->status === 'open') {
+            // "Offen" = noch nicht abgeschlossen. Signale durchlaufen new → acknowledged
+            // → resolved; nur 'resolved' gilt als geschlossen. (Der frühere Vergleich auf
+            // 'open' traf nie zu, wodurch diese Metrik konstant 0 blieb.)
+            if ($s->severity === 'critical' && $s->status !== 'resolved') {
                 $criticalOpenByUrl[$s->url_id] = ($criticalOpenByUrl[$s->url_id] ?? 0) + 1;
             }
         }
