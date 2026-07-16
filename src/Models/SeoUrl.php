@@ -32,6 +32,9 @@ class SeoUrl extends Model
         'total_search_volume',
         'backlink_count',
         'visibility_score',
+        'visitors_30d',
+        'pageviews_30d',
+        'traffic_fetched_at',
         'redirect_url',
         'redirect_detected_at',
         'meta',
@@ -48,6 +51,9 @@ class SeoUrl extends Model
         'total_search_volume' => 'integer',
         'backlink_count' => 'integer',
         'visibility_score' => 'decimal:4',
+        'visitors_30d' => 'integer',
+        'pageviews_30d' => 'integer',
+        'traffic_fetched_at' => 'datetime',
         'redirect_detected_at' => 'datetime',
         'meta' => 'array',
     ];
@@ -119,6 +125,11 @@ class SeoUrl extends Model
     public function gscData(): HasMany
     {
         return $this->hasMany(SeoUrlGscData::class, 'url_id');
+    }
+
+    public function traffic(): HasMany
+    {
+        return $this->hasMany(SeoUrlTraffic::class, 'url_id')->orderByDesc('date');
     }
 
     public function onPage(): HasOne

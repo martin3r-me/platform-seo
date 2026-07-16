@@ -123,6 +123,7 @@ return [
         \Platform\Seo\Collectors\SerpRankingCollector::class,
         \Platform\Seo\Collectors\BacklinkCollector::class,
         \Platform\Seo\Collectors\OnPageCollector::class,
+        \Platform\Seo\Collectors\PlausibleCollector::class,
     ],
 
     /*
@@ -148,6 +149,7 @@ return [
         'serp_ranking' => 168,       // weekly
         'backlinks' => 336,          // bi-weekly
         'on_page' => 336,            // bi-weekly
+        'plausible' => 24,           // daily
     ],
 
     /*
