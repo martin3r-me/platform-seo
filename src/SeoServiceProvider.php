@@ -39,6 +39,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
                 \Platform\Seo\Console\Commands\MigrateFromSyltjunkie::class,
                 \Platform\Seo\Console\Commands\InspectLinks::class,
+                \Platform\Seo\Console\Commands\SnapshotClusters::class,
             ]);
         }
 
@@ -51,6 +52,7 @@ class SeoServiceProvider extends ServiceProvider
         $this->app->singleton(SeoSignalService::class);
         $this->app->singleton(SeoScoringService::class);
         $this->app->singleton(\Platform\Seo\Services\SeoOrganizationLinker::class);
+        $this->app->singleton(\Platform\Seo\Services\SeoClusterMetricsService::class);
 
         // URL-centric services
         $this->app->singleton(SeoUrlPipelineService::class, function ($app) {
@@ -159,6 +161,12 @@ class SeoServiceProvider extends ServiceProvider
         Schedule::command('seo:pipeline')
             ->weeklyOn(0, '03:00')
             ->when(fn () => now()->weekOfYear % 2 === 0)
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Täglich 04:00 — Cluster-Erfolgsmessung (reine DB-Aggregation, keine API-Kosten)
+        Schedule::command('seo:snapshot-clusters')
+            ->dailyAt('04:00')
             ->withoutOverlapping()
             ->runInBackground();
     }

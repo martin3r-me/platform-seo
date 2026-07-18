@@ -314,21 +314,34 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             return [];
         }
 
-        $keywordCounts = DB::table('seo_keywords')
-            ->whereIn('cluster_id', $allIds)
-            ->select('cluster_id', DB::raw('COUNT(*) as c'))
-            ->groupBy('cluster_id')
-            ->pluck('c', 'cluster_id');
+        $clusters = DB::table('seo_keyword_clusters')
+            ->whereIn('id', $allIds)
+            ->select('id', 'keyword_count', 'visibility', 'clicks_30d', 'visitors_30d')
+            ->get()
+            ->keyBy('id');
 
         $result = [];
         foreach ($linksByEntity as $entityId => $ids) {
             $keywords = 0;
+            $visibility = 0.0;
+            $clicks = 0;
+            $visitors = 0;
             foreach ($ids as $id) {
-                $keywords += (int) ($keywordCounts[$id] ?? 0);
+                $c = $clusters->get($id);
+                if (! $c) {
+                    continue;
+                }
+                $keywords += (int) $c->keyword_count;
+                $visibility += (float) $c->visibility;
+                $clicks += (int) $c->clicks_30d;
+                $visitors += (int) $c->visitors_30d;
             }
             $result[$entityId] = [
                 'seo_clusters_total' => count($ids),
                 'seo_cluster_keywords' => $keywords,
+                'seo_cluster_visibility' => round($visibility, 4),
+                'seo_cluster_clicks_30d' => $clicks,
+                'seo_cluster_visitors_30d' => $visitors,
             ];
         }
 
@@ -373,9 +386,12 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_stale_crawl_days'       => ['label' => 'Ø Tage seit letztem Crawl', 'group' => 'seo', 'direction' => 'down', 'unit' => 'days', 'dimension' => 'quality', 'type' => 'modulator', 'aggregation_mode' => 'rolled_up', 'roll_up_function' => 'avg', 'basis' => 'modulator_factor'],
 
             // Cluster & Signale — Knoten-Verlinkung (P1). Reiche Cluster-KPIs folgen in P2.
-            'seo_clusters_total'   => ['label' => 'Keyword-Cluster', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
-            'seo_cluster_keywords' => ['label' => 'Keywords in Clustern', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
-            'seo_signals_linked'   => ['label' => 'Verlinkte SEO-Signale', 'group' => 'seo', 'direction' => 'neutral', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_clusters_total'        => ['label' => 'Keyword-Cluster', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_cluster_keywords'      => ['label' => 'Keywords in Clustern', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_cluster_visibility'    => ['label' => 'Cluster-Sichtbarkeit', 'group' => 'seo', 'direction' => 'up', 'unit' => 'score', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_cluster_clicks_30d'    => ['label' => 'Cluster-Clicks (30 Tage)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'throughput', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_30d'],
+            'seo_cluster_visitors_30d'  => ['label' => 'Cluster-Visitors (30 Tage)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'throughput', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_30d'],
+            'seo_signals_linked'        => ['label' => 'Verlinkte SEO-Signale', 'group' => 'seo', 'direction' => 'neutral', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
         ];
     }
 }
