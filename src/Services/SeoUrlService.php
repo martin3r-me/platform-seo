@@ -3,6 +3,7 @@
 namespace Platform\Seo\Services;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Platform\Core\Contracts\SeoUrlServiceInterface;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoTeamSettings;
@@ -348,22 +349,25 @@ class SeoUrlService implements SeoUrlServiceInterface
 
     protected function attachKeywordsToUrl(int $teamId, SeoUrl $seoUrl, array $keywords): void
     {
-        foreach ($keywords as $kw) {
-            $keywordText = is_string($kw) ? $kw : ($kw['keyword'] ?? null);
-            if (! $keywordText) {
-                continue;
+        // Keyword-Anlage + Pivot-Zuordnung atomar — kein teilweises Anhängen bei Fehler.
+        DB::transaction(function () use ($teamId, $seoUrl, $keywords) {
+            foreach ($keywords as $kw) {
+                $keywordText = is_string($kw) ? $kw : ($kw['keyword'] ?? null);
+                if (! $keywordText) {
+                    continue;
+                }
+
+                $keyword = SeoKeyword::firstOrCreate(
+                    ['team_id' => $teamId, 'keyword' => strtolower(trim($keywordText))],
+                    [
+                        'search_intent' => is_array($kw) ? ($kw['search_intent'] ?? null) : null,
+                        'topic' => is_array($kw) ? ($kw['topic'] ?? null) : null,
+                    ],
+                );
+
+                $seoUrl->keywords()->syncWithoutDetaching([$keyword->id]);
             }
-
-            $keyword = SeoKeyword::firstOrCreate(
-                ['team_id' => $teamId, 'keyword' => strtolower(trim($keywordText))],
-                [
-                    'search_intent' => is_array($kw) ? ($kw['search_intent'] ?? null) : null,
-                    'topic' => is_array($kw) ? ($kw['topic'] ?? null) : null,
-                ],
-            );
-
-            $seoUrl->keywords()->syncWithoutDetaching([$keyword->id]);
-        }
+        });
     }
 
     protected function formatUrlData(SeoUrl $seoUrl): array

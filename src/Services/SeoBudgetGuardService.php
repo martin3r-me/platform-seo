@@ -2,6 +2,7 @@
 
 namespace Platform\Seo\Services;
 
+use Illuminate\Support\Facades\DB;
 use Platform\Core\Models\User;
 use Platform\Seo\Models\SeoBudgetLog;
 use Platform\Seo\Models\SeoTeamSettings;
@@ -19,18 +20,23 @@ class SeoBudgetGuardService
 
     public function recordCost(SeoTeamSettings $settings, string $action, int $count, int $costCents, ?User $user = null, ?string $collector = null): SeoBudgetLog
     {
-        $log = SeoBudgetLog::create([
-            'team_id' => $settings->team_id,
-            'action' => $action,
-            'collector' => $collector,
-            'keyword_count' => $count,
-            'cost_cents' => $costCents,
-            'user_id' => $user?->id,
-        ]);
+        // Log und Verbrauch konsistent halten. Der increment() selbst ist atomar
+        // (SET budget_spent_cents = budget_spent_cents + n) — daher kein Lost-Update
+        // bei nebenläufigen Fetches; die Transaktion koppelt nur Log + Verbrauch.
+        return DB::transaction(function () use ($settings, $action, $count, $costCents, $user, $collector) {
+            $log = SeoBudgetLog::create([
+                'team_id' => $settings->team_id,
+                'action' => $action,
+                'collector' => $collector,
+                'keyword_count' => $count,
+                'cost_cents' => $costCents,
+                'user_id' => $user?->id,
+            ]);
 
-        $settings->increment('budget_spent_cents', $costCents);
+            $settings->increment('budget_spent_cents', $costCents);
 
-        return $log;
+            return $log;
+        });
     }
 
     public function resetMonthlyBudget(SeoTeamSettings $settings): void

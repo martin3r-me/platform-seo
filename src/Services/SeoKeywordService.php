@@ -3,6 +3,7 @@
 namespace Platform\Seo\Services;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Platform\Core\Contracts\SeoKeywordServiceInterface;
 use Platform\Core\Models\Team;
 use Platform\Core\Models\User;
@@ -567,6 +568,10 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                 continue;
             }
 
+            // Alle Schreibvorgänge dieser Domain atomar — bei Fehler kein Teilzustand.
+            try {
+                DB::beginTransaction();
+
             // Phase 1: Keywords upserten mit Metriken
             $keywordModels = $this->upsertKeywordsFromRanked($teamId, $rankedResults);
             $totalKeywordsUpserted += count($keywordModels);
@@ -771,6 +776,13 @@ class SeoKeywordService implements SeoKeywordServiceInterface
             foreach ($domainUrls as $url) {
                 $this->updateUrlDenormalized($url);
                 $urlsUpdated++;
+            }
+
+                DB::commit();
+            } catch (\Throwable $e) {
+                DB::rollBack();
+                $domainResults[$domain] = ['error' => 'persist: '.$e->getMessage()];
+                continue;
             }
 
             $domainResults[$domain] = [
