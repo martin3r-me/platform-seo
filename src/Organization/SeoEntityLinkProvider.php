@@ -11,7 +11,7 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
 {
     public function morphAliases(): array
     {
-        return ['seo_url', 'seo_url_list'];
+        return ['seo_url', 'seo_url_list', 'seo_cluster', 'seo_signal'];
     }
 
     public function linkTypeConfig(): array
@@ -29,6 +29,18 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'icon' => 'queue-list',
                 'route' => 'seo.lists.show',
             ],
+            'seo_cluster' => [
+                'label' => 'Keyword-Cluster',
+                'singular' => 'Cluster',
+                'icon' => 'squares-2x2',
+                'route' => null,
+            ],
+            'seo_signal' => [
+                'label' => 'SEO-Signale',
+                'singular' => 'Signal',
+                'icon' => 'signal',
+                'route' => null,
+            ],
         ];
     }
 
@@ -36,6 +48,9 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
     {
         if ($morphAlias === 'seo_url_list') {
             $query->withCount('urls');
+        }
+        if ($morphAlias === 'seo_cluster') {
+            $query->withCount('keywords');
         }
     }
 
@@ -52,6 +67,15 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_url_list' => [
                 'urls_count' => $model->urls_count ?? 0,
             ],
+            'seo_cluster' => [
+                'name' => $model->name,
+                'keyword_count' => $model->keywords_count ?? 0,
+            ],
+            'seo_signal' => [
+                'severity' => $model->severity,
+                'status' => $model->status,
+                'signal_type' => $model->signal_type,
+            ],
             default => [],
         };
     }
@@ -67,6 +91,13 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_url_list' => [
                 ['field' => 'urls_count', 'format' => 'count', 'label' => 'URLs', 'suffix' => 'URLs'],
             ],
+            'seo_cluster' => [
+                ['field' => 'keyword_count', 'format' => 'count', 'label' => 'Keywords'],
+            ],
+            'seo_signal' => [
+                ['field' => 'severity', 'format' => 'badge', 'label' => 'Severity'],
+                ['field' => 'status', 'format' => 'badge', 'label' => 'Status'],
+            ],
         ];
     }
 
@@ -80,6 +111,8 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
         return match ($morphAlias) {
             'seo_url' => $this->urlMetrics($linksByEntity),
             'seo_url_list' => $this->urlListMetrics($linksByEntity),
+            'seo_cluster' => $this->clusterMetrics($linksByEntity),
+            'seo_signal' => $this->signalMetrics($linksByEntity),
             default => [],
         };
     }
@@ -265,6 +298,59 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
         return $result;
     }
 
+    /**
+     * Cluster-Metriken je Knoten (P1: modest — Anzahl Cluster + summierte Keywords).
+     * Reiche Cluster-KPIs (Abdeckung, Share of Voice, Trajektorie) folgen in P2.
+     */
+    protected function clusterMetrics(array $linksByEntity): array
+    {
+        $allIds = [];
+        foreach ($linksByEntity as $ids) {
+            $allIds = array_merge($allIds, $ids);
+        }
+        $allIds = array_values(array_unique($allIds));
+
+        if (empty($allIds)) {
+            return [];
+        }
+
+        $keywordCounts = DB::table('seo_keywords')
+            ->whereIn('cluster_id', $allIds)
+            ->select('cluster_id', DB::raw('COUNT(*) as c'))
+            ->groupBy('cluster_id')
+            ->pluck('c', 'cluster_id');
+
+        $result = [];
+        foreach ($linksByEntity as $entityId => $ids) {
+            $keywords = 0;
+            foreach ($ids as $id) {
+                $keywords += (int) ($keywordCounts[$id] ?? 0);
+            }
+            $result[$entityId] = [
+                'seo_clusters_total' => count($ids),
+                'seo_cluster_keywords' => $keywords,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Signal-Metriken je Knoten (P1: Anzahl direkt verlinkter Signale).
+     * Empfehlungs-spezifische Kennzahlen folgen in P4.
+     */
+    protected function signalMetrics(array $linksByEntity): array
+    {
+        $result = [];
+        foreach ($linksByEntity as $entityId => $ids) {
+            $result[$entityId] = [
+                'seo_signals_linked' => count($ids),
+            ];
+        }
+
+        return $result;
+    }
+
     public function activityChildren(string $morphAlias, array $linkableIds): array
     {
         return [];
@@ -285,6 +371,11 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_crawl_errors'           => ['label' => 'Crawl-Fehler (HTTP >= 400)', 'group' => 'seo', 'direction' => 'down', 'unit' => 'count', 'dimension' => 'quality', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
             'seo_redirects_new_7d'       => ['label' => 'Neue Redirects (7 Tage)', 'group' => 'seo', 'direction' => 'down', 'unit' => 'count', 'dimension' => 'quality', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_7d'],
             'seo_stale_crawl_days'       => ['label' => 'Ø Tage seit letztem Crawl', 'group' => 'seo', 'direction' => 'down', 'unit' => 'days', 'dimension' => 'quality', 'type' => 'modulator', 'aggregation_mode' => 'rolled_up', 'roll_up_function' => 'avg', 'basis' => 'modulator_factor'],
+
+            // Cluster & Signale — Knoten-Verlinkung (P1). Reiche Cluster-KPIs folgen in P2.
+            'seo_clusters_total'   => ['label' => 'Keyword-Cluster', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_cluster_keywords' => ['label' => 'Keywords in Clustern', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_signals_linked'   => ['label' => 'Verlinkte SEO-Signale', 'group' => 'seo', 'direction' => 'neutral', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
         ];
     }
 }

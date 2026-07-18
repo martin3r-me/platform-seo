@@ -14,6 +14,7 @@ class SeoUrlService implements SeoUrlServiceInterface
 {
     public function __construct(
         protected SeoUrlPipelineService $pipeline,
+        protected SeoOrganizationLinker $linker,
     ) {}
 
     public function register(int $teamId, string $url, array $options = []): array
@@ -72,6 +73,11 @@ class SeoUrlService implements SeoUrlServiceInterface
         // Attach keywords if provided
         if (! empty($options['keywords'])) {
             $this->attachKeywordsToUrl($teamId, $seoUrl, $options['keywords']);
+        }
+
+        // Aus einem Marken-/Knoten-Kontext registriert? URL an den Knoten hängen (D3).
+        if (! empty($options['entity_id'])) {
+            $this->linker->setNode(SeoOrganizationLinker::ALIAS_URL, $seoUrl->id, (int) $options['entity_id']);
         }
 
         return [

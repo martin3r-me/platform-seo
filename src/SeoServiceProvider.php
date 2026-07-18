@@ -38,6 +38,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\RefreshCompetitors::class,
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
                 \Platform\Seo\Console\Commands\MigrateFromSyltjunkie::class,
+                \Platform\Seo\Console\Commands\InspectLinks::class,
             ]);
         }
 
@@ -49,6 +50,7 @@ class SeoServiceProvider extends ServiceProvider
         $this->app->singleton(SeoAnalysisService::class);
         $this->app->singleton(SeoSignalService::class);
         $this->app->singleton(SeoScoringService::class);
+        $this->app->singleton(\Platform\Seo\Services\SeoOrganizationLinker::class);
 
         // URL-centric services
         $this->app->singleton(SeoUrlPipelineService::class, function ($app) {
@@ -92,6 +94,8 @@ class SeoServiceProvider extends ServiceProvider
         Relation::morphMap([
             'seo_url' => \Platform\Seo\Models\SeoUrl::class,
             'seo_url_list' => \Platform\Seo\Models\SeoUrlList::class,
+            'seo_cluster' => \Platform\Seo\Models\SeoKeywordCluster::class,
+            'seo_signal' => \Platform\Seo\Models\SeoSignal::class,
         ]);
 
         if (
