@@ -142,6 +142,13 @@ class SeoServiceProvider extends ServiceProvider
         } catch (\Throwable $e) {
             // Organization-Modul nicht geladen
         }
+
+        try {
+            resolve(\Platform\FlynkConnector\Services\FlynkContextRegistry::class)
+                ->register(new \Platform\Seo\Organization\SeoFlynkContextProvider());
+        } catch (\Throwable $e) {
+            // Flynk-Connector nicht geladen
+        }
     }
 
     protected function registerSchedule(): void

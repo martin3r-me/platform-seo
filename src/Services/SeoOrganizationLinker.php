@@ -124,6 +124,31 @@ class SeoOrganizationLinker
     }
 
     /**
+     * Rückrichtung: Record-IDs eines Typs, die an einem Knoten hängen.
+     *
+     * @return int[]
+     */
+    public function linkableIdsForNode(string $morphAlias, int $entityId): array
+    {
+        $bridge = $this->bridge();
+        if (! $bridge) {
+            return [];
+        }
+
+        try {
+            return $bridge::linksForEntity($entityId)
+                ->filter(fn ($link) => $link->linkable_type === $morphAlias)
+                ->pluck('linkable_id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
      * Batch: Knoten (id + name) je Record — für Anzeige/Diagnose.
      *
      * @param  int[]  $ids
