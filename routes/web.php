@@ -5,6 +5,7 @@ use Platform\Seo\Livewire\SeoCompetitorAnalysis;
 use Platform\Seo\Livewire\SeoKeywordExplorer;
 use Platform\Seo\Livewire\SeoProjectDashboard;
 use Platform\Seo\Livewire\SeoRankingTracker;
+use Platform\Seo\Livewire\SeoRecommendations;
 use Platform\Seo\Livewire\SeoSignalIndex;
 use Platform\Seo\Livewire\SeoUrlDetail;
 use Platform\Seo\Livewire\SeoUrlExplorer;
@@ -13,6 +14,7 @@ use Platform\Seo\Livewire\SeoUrlListManager;
 
 // Top-Level
 Route::get('/', SeoProjectDashboard::class)->name('seo.dashboard');
+Route::get('/recommendations', SeoRecommendations::class)->name('seo.recommendations');
 Route::get('/lists', SeoUrlListManager::class)->name('seo.lists');
 Route::get('/urls', SeoUrlExplorer::class)->name('seo.urls');
 Route::get('/urls/{seoUrl}', SeoUrlDetail::class)->name('seo.urls.show');
