@@ -41,6 +41,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\InspectLinks::class,
                 \Platform\Seo\Console\Commands\SnapshotClusters::class,
                 \Platform\Seo\Console\Commands\GenerateRecommendations::class,
+                \Platform\Seo\Console\Commands\MigrateFromBrands::class,
             ]);
         }
 
