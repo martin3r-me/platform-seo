@@ -40,6 +40,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\MigrateFromSyltjunkie::class,
                 \Platform\Seo\Console\Commands\InspectLinks::class,
                 \Platform\Seo\Console\Commands\SnapshotClusters::class,
+                \Platform\Seo\Console\Commands\GenerateRecommendations::class,
             ]);
         }
 
@@ -53,6 +54,7 @@ class SeoServiceProvider extends ServiceProvider
         $this->app->singleton(SeoScoringService::class);
         $this->app->singleton(\Platform\Seo\Services\SeoOrganizationLinker::class);
         $this->app->singleton(\Platform\Seo\Services\SeoClusterMetricsService::class);
+        $this->app->singleton(\Platform\Seo\Services\SeoRecommendationService::class);
 
         // URL-centric services
         $this->app->singleton(SeoUrlPipelineService::class, function ($app) {
@@ -168,6 +170,12 @@ class SeoServiceProvider extends ServiceProvider
         // Täglich 04:00 — Cluster-Erfolgsmessung (reine DB-Aggregation, keine API-Kosten)
         Schedule::command('seo:snapshot-clusters')
             ->dailyAt('04:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Wöchentlich Montag 05:00 — Handlungsempfehlungen ableiten (keine API-Kosten)
+        Schedule::command('seo:generate-recommendations')
+            ->weeklyOn(1, '05:00')
             ->withoutOverlapping()
             ->runInBackground();
     }

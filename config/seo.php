@@ -99,6 +99,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Recommendation Engine — Schwellwerte für die Handlungsempfehlungen (P4)
+    |--------------------------------------------------------------------------
+    */
+    'recommendations' => [
+        'near_top_min' => 4,            // "knapp außerhalb Top-3" Untergrenze
+        'near_top_max' => 10,           // ... Obergrenze (Position 4–10)
+        'min_volume' => 200,            // Mindest-Suchvolumen für URL-Empfehlungen
+        'thin_word_count' => 600,       // darunter gilt Content als dünn → ausbauen
+        'low_backlinks' => 5,           // darunter gilt Backlink-Profil als schwach
+        'cluster_coverage_max_pct' => 20,  // darunter: Cluster-Lücke → neue URL
+        'cluster_min_keywords' => 3,
+        'cluster_min_volume' => 300,
+        'quick_win_max_difficulty' => 20,
+        'quick_win_min_volume' => 200,
+        'quick_win_weak_position' => 20,   // keine/schwache eigene Position darüber
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | DataForSeo Cost Estimates (cents per action)
     |--------------------------------------------------------------------------
     */

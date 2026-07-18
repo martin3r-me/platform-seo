@@ -370,10 +370,32 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
      */
     protected function signalMetrics(array $linksByEntity): array
     {
+        $allIds = [];
+        foreach ($linksByEntity as $ids) {
+            $allIds = array_merge($allIds, $ids);
+        }
+        $allIds = array_values(array_unique($allIds));
+
+        $signals = empty($allIds)
+            ? collect()
+            : DB::table('seo_signals')
+                ->whereIn('id', $allIds)
+                ->select('id', 'signal_type', 'status')
+                ->get()
+                ->keyBy('id');
+
         $result = [];
         foreach ($linksByEntity as $entityId => $ids) {
+            $openRecommendations = 0;
+            foreach ($ids as $id) {
+                $s = $signals->get($id);
+                if ($s && str_starts_with((string) $s->signal_type, 'rec_') && $s->status !== 'resolved') {
+                    $openRecommendations++;
+                }
+            }
             $result[$entityId] = [
                 'seo_signals_linked' => count($ids),
+                'seo_recommendations_open' => $openRecommendations,
             ];
         }
 
@@ -449,6 +471,7 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_content_briefs_total'     => ['label' => 'Content-Briefs', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
             'seo_content_briefs_published' => ['label' => 'Content-Briefs (veröffentlicht)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'pair' => 'seo_content_briefs_total', 'dimension' => 'throughput', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'cumulative_since_start'],
             'seo_signals_linked'        => ['label' => 'Verlinkte SEO-Signale', 'group' => 'seo', 'direction' => 'neutral', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_recommendations_open'  => ['label' => 'Offene SEO-Empfehlungen', 'group' => 'seo', 'direction' => 'down', 'unit' => 'count', 'dimension' => 'quality', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
         ];
     }
 }
