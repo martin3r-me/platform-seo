@@ -224,7 +224,12 @@ class SeoUrlDetail extends Component
                 break;
         }
 
+        // Organisations-Knoten, an denen diese URL hängt (lose gekoppelt, guarded).
+        $contextNodes = app(\Platform\Seo\Services\SeoOrganizationLinker::class)
+            ->nodesForMany(\Platform\Seo\Services\SeoOrganizationLinker::ALIAS_URL, [$this->seoUrl->id])[$this->seoUrl->id] ?? [];
+
         return view('seo::livewire.seo-url-detail', [
+            'contextNodes' => $contextNodes,
             'parentUrl' => $parentUrl,
             'keywords' => $keywords,
             'rankingHistory' => $rankingHistory,

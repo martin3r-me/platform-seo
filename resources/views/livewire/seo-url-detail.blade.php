@@ -35,8 +35,26 @@
                 @include('seo::partials.url-status-badge', ['status' => $seoUrl->status, 'httpStatus' => $seoUrl->http_status])
             </div>
 
+            {{-- Kontext: Organisations-Knoten, an denen die URL hängt (lose in Organization verlinkt) --}}
+            @if(!empty($contextNodes))
+                @php $hasEntityRoute = \Illuminate\Support\Facades\Route::has('organization.entities.show'); @endphp
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Kontext</span>
+                    @foreach($contextNodes as $node)
+                        <a @if($hasEntityRoute) href="{{ route('organization.entities.show', $node['id']) }}" @endif
+                           class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 hover:text-gray-800 transition-colors">
+                            @svg('heroicon-o-rectangle-stack', 'w-3 h-3')
+                            <span>{{ $node['name'] ?? 'Knoten #'.$node['id'] }}</span>
+                            @if($hasEntityRoute)
+                                @svg('heroicon-o-arrow-top-right-on-square', 'w-3 h-3 text-gray-400')
+                            @endif
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+
             {{-- Stats --}}
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
                     <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Keywords</div>
                     <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $aggKeywordCount }}</div>
@@ -56,6 +74,13 @@
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
                     <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">On-Page</div>
                     <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $onPageScore ?? '—' }}</div>
+                </div>
+                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                    <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Traffic (30T)</div>
+                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($seoUrl->visitors_30d) }}</div>
+                    @if($seoUrl->traffic_fetched_at)
+                        <div class="text-[10px] text-gray-400 mt-1">Plausible · {{ $seoUrl->traffic_fetched_at->format('d.m.Y') }}</div>
+                    @endif
                 </div>
             </div>
 
