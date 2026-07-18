@@ -7,6 +7,7 @@
                     $items = [
                         'dashboard' => ['label' => 'Dashboard', 'route' => 'seo.dashboard', 'icon' => 'heroicon-o-chart-bar-square'],
                         'recommendations' => ['label' => 'Empfehlungen', 'route' => 'seo.recommendations', 'icon' => 'heroicon-o-light-bulb'],
+                        'clusters' => ['label' => 'Cluster', 'route' => 'seo.clusters', 'icon' => 'heroicon-o-squares-2x2'],
                         'lists' => ['label' => 'Listen', 'route' => 'seo.lists', 'icon' => 'heroicon-o-queue-list'],
                         'urls' => ['label' => 'URLs', 'route' => 'seo.urls', 'icon' => 'heroicon-o-globe-alt'],
                     ];
