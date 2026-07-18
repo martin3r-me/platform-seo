@@ -11,7 +11,7 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
 {
     public function morphAliases(): array
     {
-        return ['seo_url', 'seo_url_list', 'seo_cluster', 'seo_signal'];
+        return ['seo_url', 'seo_url_list', 'seo_cluster', 'seo_content_brief', 'seo_signal'];
     }
 
     public function linkTypeConfig(): array
@@ -33,6 +33,12 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'label' => 'Keyword-Cluster',
                 'singular' => 'Cluster',
                 'icon' => 'squares-2x2',
+                'route' => null,
+            ],
+            'seo_content_brief' => [
+                'label' => 'Content-Briefs',
+                'singular' => 'Content-Brief',
+                'icon' => 'document-text',
                 'route' => null,
             ],
             'seo_signal' => [
@@ -71,6 +77,11 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'name' => $model->name,
                 'keyword_count' => $model->keywords_count ?? 0,
             ],
+            'seo_content_brief' => [
+                'name' => $model->name,
+                'status' => $model->status,
+                'content_type' => $model->content_type,
+            ],
             'seo_signal' => [
                 'severity' => $model->severity,
                 'status' => $model->status,
@@ -94,6 +105,10 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_cluster' => [
                 ['field' => 'keyword_count', 'format' => 'count', 'label' => 'Keywords'],
             ],
+            'seo_content_brief' => [
+                ['field' => 'status', 'format' => 'badge', 'label' => 'Status'],
+                ['field' => 'content_type', 'format' => 'text', 'label' => 'Typ'],
+            ],
             'seo_signal' => [
                 ['field' => 'severity', 'format' => 'badge', 'label' => 'Severity'],
                 ['field' => 'status', 'format' => 'badge', 'label' => 'Status'],
@@ -112,6 +127,7 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_url' => $this->urlMetrics($linksByEntity),
             'seo_url_list' => $this->urlListMetrics($linksByEntity),
             'seo_cluster' => $this->clusterMetrics($linksByEntity),
+            'seo_content_brief' => $this->contentBriefMetrics($linksByEntity),
             'seo_signal' => $this->signalMetrics($linksByEntity),
             default => [],
         };
@@ -364,6 +380,45 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
         return $result;
     }
 
+    /**
+     * Content-Brief-Metriken je Knoten (P3: Anzahl + veröffentlichte).
+     */
+    protected function contentBriefMetrics(array $linksByEntity): array
+    {
+        $allIds = [];
+        foreach ($linksByEntity as $ids) {
+            $allIds = array_merge($allIds, $ids);
+        }
+        $allIds = array_values(array_unique($allIds));
+
+        if (empty($allIds)) {
+            return [];
+        }
+
+        $briefs = DB::table('seo_content_briefs')
+            ->whereIn('id', $allIds)
+            ->select('id', 'status')
+            ->get()
+            ->keyBy('id');
+
+        $result = [];
+        foreach ($linksByEntity as $entityId => $ids) {
+            $published = 0;
+            foreach ($ids as $id) {
+                $brief = $briefs->get($id);
+                if ($brief && $brief->status === 'published') {
+                    $published++;
+                }
+            }
+            $result[$entityId] = [
+                'seo_content_briefs_total' => count($ids),
+                'seo_content_briefs_published' => $published,
+            ];
+        }
+
+        return $result;
+    }
+
     public function activityChildren(string $morphAlias, array $linkableIds): array
     {
         return [];
@@ -391,6 +446,8 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_cluster_visibility'    => ['label' => 'Cluster-Sichtbarkeit', 'group' => 'seo', 'direction' => 'up', 'unit' => 'score', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
             'seo_cluster_clicks_30d'    => ['label' => 'Cluster-Clicks (30 Tage)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'throughput', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_30d'],
             'seo_cluster_visitors_30d'  => ['label' => 'Cluster-Visitors (30 Tage)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'throughput', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_30d'],
+            'seo_content_briefs_total'     => ['label' => 'Content-Briefs', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_content_briefs_published' => ['label' => 'Content-Briefs (veröffentlicht)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'pair' => 'seo_content_briefs_total', 'dimension' => 'throughput', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'cumulative_since_start'],
             'seo_signals_linked'        => ['label' => 'Verlinkte SEO-Signale', 'group' => 'seo', 'direction' => 'neutral', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
         ];
     }

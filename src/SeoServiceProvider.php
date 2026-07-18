@@ -97,6 +97,7 @@ class SeoServiceProvider extends ServiceProvider
             'seo_url' => \Platform\Seo\Models\SeoUrl::class,
             'seo_url_list' => \Platform\Seo\Models\SeoUrlList::class,
             'seo_cluster' => \Platform\Seo\Models\SeoKeywordCluster::class,
+            'seo_content_brief' => \Platform\Seo\Models\SeoContentBrief::class,
             'seo_signal' => \Platform\Seo\Models\SeoSignal::class,
         ]);
 

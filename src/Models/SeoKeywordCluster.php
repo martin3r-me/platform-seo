@@ -3,6 +3,7 @@
 namespace Platform\Seo\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Symfony\Component\Uid\UuidV7;
 
@@ -63,5 +64,15 @@ class SeoKeywordCluster extends Model
     public function snapshots(): HasMany
     {
         return $this->hasMany(SeoClusterSnapshot::class, 'cluster_id')->orderByDesc('snapshot_date');
+    }
+
+    public function contentBriefs(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            SeoContentBrief::class,
+            'seo_content_brief_clusters',
+            'cluster_id',
+            'content_brief_id',
+        )->withPivot('role')->withTimestamps();
     }
 }
