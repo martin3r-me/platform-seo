@@ -22,8 +22,58 @@
     <x-ui-page-container>
 
         {{-- Intro --}}
-        <div class="mb-2">
+        <div class="mb-4">
             <p class="text-[13px] text-gray-500">Gesamtübersicht deiner SEO-Performance. Hier siehst du auf einen Blick, wie viele URLs und Keywords getrackt werden, wie sichtbar deine Seiten in Google sind und ob das API-Budget im Rahmen bleibt.</p>
+        </div>
+
+        {{-- Strategie-KPIs --}}
+        @php
+            $healthColor = match(true) {
+                $avgClusterHealth === null => 'text-gray-300',
+                $avgClusterHealth >= 70 => 'text-green-600',
+                $avgClusterHealth >= 40 => 'text-amber-600',
+                default => 'text-red-500',
+            };
+        @endphp
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <a href="{{ route('seo.recommendations') }}" wire:navigate
+               class="group bg-white rounded-lg border border-gray-200 p-5 hover:border-indigo-300 hover:shadow-sm transition-all">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        @svg('heroicon-o-light-bulb', 'w-4 h-4 ' . ($openRecommendations > 0 ? 'text-amber-500' : 'text-gray-400'))
+                        <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Offene Empfehlungen</span>
+                    </div>
+                    @svg('heroicon-o-arrow-right', 'w-4 h-4 text-gray-300 group-hover:text-indigo-400 transition-colors')
+                </div>
+                <div class="text-3xl font-bold tabular-nums {{ $openRecommendations > 0 ? 'text-gray-900' : 'text-gray-300' }}">{{ $openRecommendations }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Konkrete Handlungen aus der Engine</div>
+            </a>
+
+            <a href="{{ route('seo.clusters') }}" wire:navigate
+               class="group bg-white rounded-lg border border-gray-200 p-5 hover:border-indigo-300 hover:shadow-sm transition-all">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        @svg('heroicon-o-squares-2x2', 'w-4 h-4 text-indigo-500')
+                        <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Cluster</span>
+                    </div>
+                    @svg('heroicon-o-arrow-right', 'w-4 h-4 text-gray-300 group-hover:text-indigo-400 transition-colors')
+                </div>
+                <div class="text-3xl font-bold text-gray-900 tabular-nums">{{ number_format($clusterCount) }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Strategische Themen-Einheiten</div>
+            </a>
+
+            <a href="{{ route('seo.clusters') }}" wire:navigate
+               class="group bg-white rounded-lg border border-gray-200 p-5 hover:border-indigo-300 hover:shadow-sm transition-all">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        @svg('heroicon-o-heart', 'w-4 h-4 text-rose-400')
+                        <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Ø Cluster-Health</span>
+                    </div>
+                    @svg('heroicon-o-arrow-right', 'w-4 h-4 text-gray-300 group-hover:text-indigo-400 transition-colors')
+                </div>
+                <div class="text-3xl font-bold tabular-nums {{ $healthColor }}">{{ $avgClusterHealth ?? '—' }}</div>
+                <div class="text-[10px] text-gray-400 mt-1">Abdeckung × Sichtbarkeit über alle Cluster</div>
+            </a>
         </div>
 
         {{-- Stats Grid --}}

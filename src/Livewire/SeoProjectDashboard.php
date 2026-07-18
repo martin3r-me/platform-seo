@@ -4,6 +4,7 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlSnapshot;
@@ -97,7 +98,21 @@ class SeoProjectDashboard extends Component
             ->take(5)
             ->get();
 
+        // Strategie-KPIs (Empfehlungs-Engine + Cluster-Erfolgsmessung)
+        $openRecommendations = SeoSignal::where('team_id', $teamId)
+            ->where('signal_type', 'like', 'rec\_%')
+            ->whereIn('status', ['new', 'acknowledged'])
+            ->count();
+
+        $clusterCount = SeoKeywordCluster::where('team_id', $teamId)->count();
+        $avgClusterHealth = SeoKeywordCluster::where('team_id', $teamId)
+            ->whereNotNull('health_score')
+            ->avg('health_score');
+
         return view('seo::livewire.seo-project-dashboard', [
+            'openRecommendations' => $openRecommendations,
+            'clusterCount' => $clusterCount,
+            'avgClusterHealth' => $avgClusterHealth !== null ? (int) round($avgClusterHealth) : null,
             'visibility' => $visibility,
             'budgetSummary' => $budgetSummary,
             'urlCounts' => $urlCounts,
