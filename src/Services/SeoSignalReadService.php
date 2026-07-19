@@ -101,6 +101,20 @@ class SeoSignalReadService implements SeoSignalServiceInterface
     }
 
     /**
+     * Ein Signal (z.B. eine Empfehlung) zentral als erledigt markieren.
+     * Team-scoped; nur offene Signale werden geschlossen (idempotent).
+     */
+    public function resolveSignal(int $teamId, int $signalId): bool
+    {
+        $updated = \Platform\Seo\Models\SeoSignal::where('id', $signalId)
+            ->where('team_id', $teamId)
+            ->where('status', '!=', 'resolved')
+            ->update(['status' => 'resolved']);
+
+        return $updated > 0;
+    }
+
+    /**
      * Baut die Signal-Bündel für eine Menge URLs — bulk, ohne N+1.
      *
      * @return array<int,array>  [url_id => Bündel]
@@ -152,10 +166,11 @@ class SeoSignalReadService implements SeoSignalServiceInterface
             ->where('signal_type', 'like', 'rec\_%')
             ->where('status', '!=', 'resolved')
             ->orderByDesc('detected_at')
-            ->get(['url_id', 'signal_type', 'severity', 'title', 'status', 'detected_at']);
+            ->get(['id', 'url_id', 'signal_type', 'severity', 'title', 'status', 'detected_at']);
         $recsByUrl = [];
         foreach ($recRows as $row) {
             $recsByUrl[$row->url_id][] = [
+                'id' => (int) $row->id,
                 'type' => $row->signal_type,
                 'severity' => $row->severity,
                 'title' => $row->title,
