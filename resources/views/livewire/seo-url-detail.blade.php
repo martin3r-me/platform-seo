@@ -436,7 +436,7 @@
     </x-ui-page-container>
 
     <x-slot name="sidebar">
-        @include('seo::partials.sidebar', ['active' => 'urls'])
+        <livewire:seo.sidebar />
     </x-slot>
 
     <x-slot name="activity">

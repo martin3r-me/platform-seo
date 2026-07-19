@@ -16,7 +16,7 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        @include('seo::partials.sidebar', ['active' => 'urls'])
+        <livewire:seo.sidebar />
     </x-slot>
 
     <x-ui-page-container>
@@ -151,10 +151,6 @@
             @endif
         </div>
     </x-ui-page-container>
-
-    <x-slot name="sidebar">
-        @include('seo::partials.sidebar', ['active' => 'urls'])
-    </x-slot>
 
     {{-- Add URL Modal --}}
     <x-ui-modal wire:model="showAddModal" title="URLs hinzufügen">

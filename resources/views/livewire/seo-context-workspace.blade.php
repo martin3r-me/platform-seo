@@ -18,7 +18,7 @@
     </x-slot>
 
     <x-slot name="sidebar">
-        @include('seo::partials.sidebar', ['active' => ''])
+        <livewire:seo.sidebar />
     </x-slot>
 
     <x-ui-page-container>
