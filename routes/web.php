@@ -4,6 +4,7 @@ use Platform\Seo\Livewire\SeoCannibalization;
 use Platform\Seo\Livewire\SeoClusterDetail;
 use Platform\Seo\Livewire\SeoClusters;
 use Platform\Seo\Livewire\SeoCompetitorAnalysis;
+use Platform\Seo\Livewire\SeoCompetitors;
 use Platform\Seo\Livewire\SeoContextWorkspace;
 use Platform\Seo\Livewire\SeoKeywordExplorer;
 use Platform\Seo\Livewire\SeoProjectDashboard;
@@ -23,6 +24,7 @@ Route::get('/clusters/{cluster}', SeoClusterDetail::class)->name('seo.clusters.s
 Route::get('/context/{entity}', SeoContextWorkspace::class)->name('seo.context');
 Route::get('/lists', SeoUrlListManager::class)->name('seo.lists');
 Route::get('/urls', SeoUrlExplorer::class)->name('seo.urls');
+Route::get('/competitors', SeoCompetitors::class)->name('seo.competitors');
 Route::get('/urls/{seoUrl}', SeoUrlDetail::class)->name('seo.urls.show');
 
 // Listen-Kontext

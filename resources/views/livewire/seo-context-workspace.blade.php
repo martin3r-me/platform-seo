@@ -104,5 +104,30 @@
             @endforelse
         </div>
 
+        {{-- Wettbewerber im Kontext --}}
+        @if($competitors->isNotEmpty())
+        <div class="mt-8">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-[13px] font-semibold text-gray-700">Wettbewerber im Kontext</h2>
+                <a href="{{ route('seo.competitors') }}" wire:navigate class="text-[11px] text-indigo-500 hover:underline">Alle Wettbewerber →</a>
+            </div>
+            <p class="text-[12px] text-gray-400 mb-3">Domains, die auf denselben Keywords ranken wie die eigenen URLs dieses Kontexts — die reale Konkurrenz um diese Themen.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                @foreach($competitors as $c)
+                    <div class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="text-[12px] font-medium text-gray-800 truncate">{{ $c->domain }}</div>
+                            <div class="text-[10px] text-gray-400 tabular-nums">{{ $c->url_count }} URLs · {{ number_format($c->total_keywords) }} KW</div>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <div class="text-[10px] text-gray-400 uppercase tracking-wide">Ø Sichtb.</div>
+                            <div class="text-[13px] font-medium text-gray-700 tabular-nums">{{ number_format((float) $c->avg_visibility, 0) }}</div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
     </x-ui-page-container>
 </x-ui-page>
