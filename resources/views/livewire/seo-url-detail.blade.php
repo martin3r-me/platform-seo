@@ -35,21 +35,35 @@
                 @include('seo::partials.url-status-badge', ['status' => $seoUrl->status, 'httpStatus' => $seoUrl->http_status])
             </div>
 
-            {{-- Kontext: Organisations-Knoten, an denen die URL hängt (lose in Organization verlinkt) --}}
-            @if(!empty($contextNodes))
+            {{-- Kontext: URL an Organisations-Knoten hängen (lose in Organization verlinkt) --}}
+            @if(!empty($contextNodes) || !empty($availableNodes))
                 @php $hasEntityRoute = \Illuminate\Support\Facades\Route::has('organization.entities.show'); @endphp
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Kontext</span>
                     @foreach($contextNodes as $node)
-                        <a @if($hasEntityRoute) href="{{ route('organization.entities.show', $node['id']) }}" @endif
-                           class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100 hover:text-gray-800 transition-colors">
+                        <span class="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full text-[11px] font-medium bg-gray-50 text-gray-600 border border-gray-200">
                             @svg('heroicon-o-rectangle-stack', 'w-3 h-3')
-                            <span>{{ $node['name'] ?? 'Knoten #'.$node['id'] }}</span>
                             @if($hasEntityRoute)
-                                @svg('heroicon-o-arrow-top-right-on-square', 'w-3 h-3 text-gray-400')
+                                <a href="{{ route('organization.entities.show', $node['id']) }}" class="hover:text-gray-900">{{ $node['name'] ?? 'Knoten #'.$node['id'] }}</a>
+                            @else
+                                <span>{{ $node['name'] ?? 'Knoten #'.$node['id'] }}</span>
                             @endif
-                        </a>
+                            <button wire:click="removeFromNode({{ $node['id'] }})" title="Aus Kontext entfernen"
+                                    class="ml-0.5 w-4 h-4 flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50">
+                                @svg('heroicon-o-x-mark', 'w-3 h-3')
+                            </button>
+                        </span>
                     @endforeach
+                    @if(!empty($availableNodes))
+                        <select x-data
+                                x-on:change="if($event.target.value){ $wire.assignToNode(parseInt($event.target.value)); $event.target.value=''; }"
+                                class="text-[11px] border border-dashed border-gray-300 rounded-full px-2.5 py-1 bg-white text-gray-500 hover:border-gray-400 focus:outline-none">
+                            <option value="">+ Kontext zuweisen…</option>
+                            @foreach($availableNodes as $n)
+                                <option value="{{ $n['id'] }}">{{ $n['name'] }}</option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
             @endif
 

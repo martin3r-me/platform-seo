@@ -69,6 +69,18 @@ class SeoUrlDetail extends Component
         return $this->getChildData()['allUrlIds'];
     }
 
+    public function assignToNode(int $entityId): void
+    {
+        app(\Platform\Seo\Services\SeoOrganizationLinker::class)
+            ->addNode(\Platform\Seo\Services\SeoOrganizationLinker::ALIAS_URL, $this->seoUrl->id, $entityId);
+    }
+
+    public function removeFromNode(int $entityId): void
+    {
+        app(\Platform\Seo\Services\SeoOrganizationLinker::class)
+            ->unlink(\Platform\Seo\Services\SeoOrganizationLinker::ALIAS_URL, $this->seoUrl->id, $entityId);
+    }
+
     #[Computed(persist: true)]
     public function childData(): array
     {
@@ -224,12 +236,14 @@ class SeoUrlDetail extends Component
                 break;
         }
 
-        // Organisations-Knoten, an denen diese URL hängt (lose gekoppelt, guarded).
-        $contextNodes = app(\Platform\Seo\Services\SeoOrganizationLinker::class)
-            ->nodesForMany(\Platform\Seo\Services\SeoOrganizationLinker::ALIAS_URL, [$this->seoUrl->id])[$this->seoUrl->id] ?? [];
+        // Organisations-Knoten: aktuell verlinkte + verfügbare (lose gekoppelt, guarded).
+        $linker = app(\Platform\Seo\Services\SeoOrganizationLinker::class);
+        $contextNodes = $linker->nodesForMany(\Platform\Seo\Services\SeoOrganizationLinker::ALIAS_URL, [$this->seoUrl->id])[$this->seoUrl->id] ?? [];
+        $availableNodes = $linker->availableNodes((int) $this->seoUrl->team_id);
 
         return view('seo::livewire.seo-url-detail', [
             'contextNodes' => $contextNodes,
+            'availableNodes' => $availableNodes,
             'parentUrl' => $parentUrl,
             'keywords' => $keywords,
             'rankingHistory' => $rankingHistory,

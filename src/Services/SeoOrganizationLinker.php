@@ -180,6 +180,33 @@ class SeoOrganizationLinker
         }
     }
 
+    /**
+     * Verfügbare Organisations-Knoten eines Teams — für Kontext-Picker in der UI.
+     * Guarded: leeres Array, wenn das Organization-Modul nicht geladen ist.
+     *
+     * @return array<int,array{id:int,name:string}>
+     */
+    public function availableNodes(int $teamId): array
+    {
+        $class = \Platform\Organization\Models\OrganizationEntity::class;
+        if (! class_exists($class)) {
+            return [];
+        }
+
+        try {
+            return $class::query()
+                ->where('team_id', $teamId)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->limit(500)
+                ->get(['id', 'name'])
+                ->map(fn ($e) => ['id' => (int) $e->id, 'name' => (string) $e->name])
+                ->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     protected function logFailure(string $op, string $alias, int $id, int $entityId, \Throwable $e): void
     {
         Log::warning('SEO: Knoten-Verlinkung fehlgeschlagen', [
