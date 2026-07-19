@@ -207,6 +207,23 @@ class SeoOrganizationLinker
         }
     }
 
+    /**
+     * Name eines Organisations-Knotens (guarded; null ohne Organization-Modul).
+     */
+    public function nodeName(int $entityId): ?string
+    {
+        $class = \Platform\Organization\Models\OrganizationEntity::class;
+        if (! class_exists($class)) {
+            return null;
+        }
+
+        try {
+            return $class::query()->whereKey($entityId)->value('name');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     protected function logFailure(string $op, string $alias, int $id, int $entityId, \Throwable $e): void
     {
         Log::warning('SEO: Knoten-Verlinkung fehlgeschlagen', [
