@@ -32,7 +32,7 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
         $clusterIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_CLUSTER, $nodeId);
         $urlIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_URL, $nodeId);
 
-        $recommendations = $this->recommendations($signalIds);
+        $recommendations = $this->recommendations($signalIds, $urlIds, (int) $node->team_id);
         $clusters = $this->clusters($clusterIds);
         $urls = $this->urlSummary($urlIds);
 
@@ -47,15 +47,28 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
         ], fn ($value) => $value !== null);
     }
 
-    protected function recommendations(array $signalIds): array
+    /**
+     * Offene Empfehlungen des Knotens: sowohl direkt an den Knoten gehängte Signale
+     * (ALIAS_SIGNAL) als auch die offenen Empfehlungen seiner URLs (ALIAS_URL) —
+     * so trägt der Flynk-Push dieselben Empfehlungen wie der Agentur-Workspace (U1).
+     */
+    protected function recommendations(array $signalIds, array $urlIds, int $teamId): array
     {
-        if (empty($signalIds)) {
+        if (empty($signalIds) && empty($urlIds)) {
             return [];
         }
 
-        return SeoSignal::whereIn('id', $signalIds)
+        return SeoSignal::where('team_id', $teamId)
             ->where('signal_type', 'like', 'rec\_%')
             ->where('status', '!=', 'resolved')
+            ->where(function ($q) use ($signalIds, $urlIds) {
+                if (! empty($signalIds)) {
+                    $q->orWhereIn('id', $signalIds);
+                }
+                if (! empty($urlIds)) {
+                    $q->orWhereIn('url_id', $urlIds);
+                }
+            })
             ->with('url:id,url')
             ->orderByDesc('detected_at')
             ->limit(50)
