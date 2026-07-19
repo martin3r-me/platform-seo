@@ -48,6 +48,12 @@
                     <option value="error">Fehler</option>
                     <option value="pending">Ausstehend</option>
                 </select>
+                <button wire:click="$toggle('groupByContext')"
+                        class="inline-flex items-center gap-1.5 border rounded-lg px-3 py-2 text-[13px] transition-colors {{ $groupByContext ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}"
+                        title="URLs nach Organisations-Kontext gruppieren">
+                    @svg('heroicon-o-rectangle-group', 'w-4 h-4')
+                    <span>Nach Kontext</span>
+                </button>
                 @if(!empty($selectedUrls))
                     <div class="flex items-center gap-2 ml-auto">
                         <x-ui-button variant="secondary" size="sm" wire:click="enrichSelected">
@@ -100,57 +106,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        @forelse($urls as $url)
-                            <tr wire:key="url-{{ $url->id }}" class="hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-2.5">
-                                    <input type="checkbox" wire:model.live="selectedUrls" value="{{ $url->id }}" class="rounded border-gray-300">
-                                </td>
-                                <td class="px-4 py-2.5">
-                                    <div class="flex items-center gap-2">
-                                        @if(!$url->is_own)
-                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Wettbewerber"></span>
-                                        @endif
-                                        <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs font-medium">
-                                            {{ ($url->path && $url->path !== '/') ? $url->path : $url->domain }}
-                                        </a>
-                                    </div>
-                                    @if($url->path && $url->path !== '/')
-                                        <div class="text-[10px] text-gray-400 ml-{{ $url->is_own ? '0' : '3.5' }}">{{ $url->domain }}</div>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-2.5 text-center">
-                                    @include('seo::partials.url-status-badge', ['status' => $url->status, 'httpStatus' => $url->http_status])
-                                </td>
-                                <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">
-                                    @if($url->child_count > 0)
-                                        <span class="inline-flex items-center gap-0.5 text-[11px]">
-                                            @svg('heroicon-o-document-duplicate', 'w-3 h-3 text-gray-400')
-                                            {{ $url->child_count }}
-                                        </span>
-                                    @else
-                                        <span class="text-gray-300">—</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ $url->agg_keyword_count }}</td>
-                                <td class="px-4 py-2.5 text-right">
-                                    @include('seo::partials.sv-badge', ['volume' => $url->agg_search_volume])
-                                </td>
-                                <td class="px-4 py-2.5 text-right">
-                                    <span class="font-semibold text-gray-900 tabular-nums">{{ number_format($url->agg_visibility, 1) }}</span>
-                                </td>
-                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ $url->agg_backlinks }}</td>
-                                <td class="px-4 py-2.5 text-right">
-                                    @if($url->onPage && $url->onPage->overall_score !== null)
-                                        @include('seo::partials.score-gauge', ['value' => $url->onPage->overall_score, 'label' => '', 'size' => 'sm'])
-                                    @else
-                                        <span class="text-gray-300">—</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-2.5 text-right text-[11px] text-gray-400 tabular-nums">
-                                    {{ $url->last_crawled_at?->format('d.m.Y') ?? '—' }}
-                                </td>
-                            </tr>
-                        @empty
+                        @if($urls->isEmpty())
                             <tr>
                                 <td colspan="10" class="px-4 py-16 text-center">
                                     <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
@@ -160,7 +116,30 @@
                                     <p class="text-xs text-gray-400">Füge URLs hinzu, um mit dem Tracking zu starten.</p>
                                 </td>
                             </tr>
-                        @endforelse
+                        @elseif($grouped !== null)
+                            @foreach($grouped as $group)
+                                <tr wire:key="group-{{ $group['entityId'] ?? 'none' }}" class="bg-gray-50/80 border-y border-gray-100">
+                                    <td colspan="10" class="px-4 py-2">
+                                        <div class="flex items-center gap-2 text-[12px]">
+                                            @svg('heroicon-o-rectangle-group', 'w-3.5 h-3.5 text-gray-400')
+                                            @if($group['entityId'])
+                                                <a href="{{ route('seo.context', $group['entityId']) }}" wire:navigate class="font-semibold text-gray-700 hover:text-indigo-600">{{ $group['label'] }}</a>
+                                            @else
+                                                <span class="font-semibold text-gray-500">{{ $group['label'] }}</span>
+                                            @endif
+                                            <span class="text-[11px] text-gray-400 tabular-nums">· {{ $group['urls']->count() }} URL(s)</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @foreach($group['urls'] as $url)
+                                    @include('seo::partials.url-row', ['url' => $url])
+                                @endforeach
+                            @endforeach
+                        @else
+                            @foreach($urls as $url)
+                                @include('seo::partials.url-row', ['url' => $url])
+                            @endforeach
+                        @endif
                     </tbody>
                 </table>
             </div>

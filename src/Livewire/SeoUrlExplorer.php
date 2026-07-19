@@ -6,6 +6,7 @@ use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRelationship;
+use Platform\Seo\Services\SeoOrganizationLinker;
 use Platform\Seo\Services\SeoUrlService;
 
 class SeoUrlExplorer extends Component
@@ -17,6 +18,8 @@ class SeoUrlExplorer extends Component
     public ?string $filterStatus = null;
     public string $sortField = 'visibility_score';
     public string $sortDirection = 'desc';
+
+    public bool $groupByContext = false;
 
     public bool $showAddModal = false;
     public string $newUrls = '';
@@ -171,8 +174,37 @@ class SeoUrlExplorer extends Component
             return $url;
         });
 
+        // Gruppieren nach Kontext (U5): die Baum-Ordnung sichtbar statt flach.
+        // Jede URL landet unter ihrem/ihren Org-Knoten, der Rest unter „Ohne Kontext".
+        $grouped = null;
+        if ($this->groupByContext && $urls->isNotEmpty()) {
+            $nodesByUrl = app(SeoOrganizationLinker::class)
+                ->nodesForMany(SeoOrganizationLinker::ALIAS_URL, $urls->pluck('id')->all());
+
+            $buckets = [];
+            foreach ($urls as $url) {
+                $nodes = $nodesByUrl[$url->id] ?? [];
+                if (empty($nodes)) {
+                    $buckets['__none__'] ??= ['label' => 'Ohne Kontext', 'entityId' => null, 'urls' => collect()];
+                    $buckets['__none__']['urls']->push($url);
+                    continue;
+                }
+                foreach ($nodes as $n) {
+                    $key = 'e'.$n['id'];
+                    $buckets[$key] ??= ['label' => $n['name'] ?: ('Knoten #'.$n['id']), 'entityId' => (int) $n['id'], 'urls' => collect()];
+                    $buckets[$key]['urls']->push($url);
+                }
+            }
+
+            $named = collect($buckets)->filter(fn ($b) => $b['entityId'] !== null)
+                ->sortByDesc(fn ($b) => $b['urls']->count())->values();
+            $none = collect($buckets)->filter(fn ($b) => $b['entityId'] === null)->values();
+            $grouped = $named->concat($none)->all();
+        }
+
         return view('seo::livewire.seo-url-explorer', [
             'urls' => $urls,
+            'grouped' => $grouped,
             'hasMore' => $hasMore,
         ])->layout('platform::layouts.app');
     }
