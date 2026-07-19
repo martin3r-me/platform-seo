@@ -76,6 +76,15 @@ class SeoUrl extends Model
         });
     }
 
+    /**
+     * Kurzes, sprechendes Label für Listen/Sidebar: Pfad bei Unterseiten,
+     * sonst die Domain (Root-URLs sollen nicht als „/" erscheinen).
+     */
+    public function getDisplayLabelAttribute(): string
+    {
+        return ($this->path && $this->path !== '/') ? $this->path : $this->domain;
+    }
+
     public static function normalizeUrl(string $url): string
     {
         $url = trim($url);

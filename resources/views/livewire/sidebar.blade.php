@@ -46,17 +46,18 @@
             </x-ui-sidebar-list>
         @endforeach
 
-        {{-- Unverknüpfte Listen --}}
+        {{-- Listen ohne Kontext --}}
         @if($unlinkedLists->isNotEmpty())
-            <x-ui-sidebar-list label="Unverknüpft">
+            <x-ui-sidebar-list label="Listen · ohne Kontext">
                 @foreach($unlinkedLists as $list)
                     <a wire:key="unlinked-list-{{ $list->id }}"
                        href="{{ route('seo.lists.show', $list) }}"
                        wire:navigate
-                       title="{{ $list->name }}"
-                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
+                       title="{{ $list->name ?: 'Liste' }}"
+                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition">
                         @svg('heroicon-o-queue-list', 'w-3 h-3 flex-shrink-0 opacity-40')
-                        <span class="truncate text-[11px]">{{ $list->name }}</span>
+                        <span class="truncate text-[11px]">{{ $list->name ?: 'Liste' }}</span>
+                        @isset($list->urls_count)<span class="ml-auto text-[10px] tabular-nums text-[var(--ui-muted)] opacity-60">{{ $list->urls_count }}</span>@endisset
                     </a>
                 @endforeach
             </x-ui-sidebar-list>
@@ -64,7 +65,7 @@
 
         {{-- Unverknüpfte URLs (nur anzeigen wenn welche existieren, begrenzt auf 20) --}}
         @if($unlinkedUrls->isNotEmpty())
-            <x-ui-sidebar-list label="URLs (unverknüpft)">
+            <x-ui-sidebar-list label="URLs · ohne Kontext">
                 @foreach($unlinkedUrls->take(20) as $url)
                     <a wire:key="unlinked-url-{{ $url->id }}"
                        href="{{ route('seo.urls.show', $url) }}"
@@ -72,7 +73,7 @@
                        title="{{ $url->url }}"
                        class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
                         @svg('heroicon-o-globe-alt', 'w-3 h-3 flex-shrink-0 opacity-40')
-                        <span class="truncate text-[11px]">{{ $url->path ?: $url->domain }}</span>
+                        <span class="truncate text-[11px]">{{ $url->display_label }}</span>
                     </a>
                 @endforeach
                 @if($unlinkedUrls->count() > 20)

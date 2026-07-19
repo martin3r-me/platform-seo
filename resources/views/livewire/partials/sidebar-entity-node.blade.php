@@ -23,10 +23,11 @@
             <a wire:key="entity-{{ $node['entity_id'] }}-list-{{ $list->id }}"
                href="{{ route('seo.lists.show', $list) }}"
                wire:navigate
-               title="{{ $list->name }}"
-               class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
+               title="{{ $list->name ?: 'Liste' }}"
+               class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition">
                 @svg('heroicon-o-queue-list', 'w-3 h-3 flex-shrink-0 opacity-40')
-                <span class="truncate text-[11px]">{{ $list->name }}</span>
+                <span class="truncate text-[11px]">{{ $list->name ?: 'Liste' }}</span>
+                @isset($list->urls_count)<span class="ml-auto text-[10px] tabular-nums text-[var(--ui-muted)] opacity-60">{{ $list->urls_count }}</span>@endisset
             </a>
         @endforeach
 
@@ -38,7 +39,7 @@
                title="{{ $url->url }}"
                class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
                 @svg('heroicon-o-globe-alt', 'w-3 h-3 flex-shrink-0 opacity-40')
-                <span class="truncate text-[11px]">{{ $url->path ?: $url->domain }}</span>
+                <span class="truncate text-[11px]">{{ $url->display_label }}</span>
             </a>
         @endforeach
 

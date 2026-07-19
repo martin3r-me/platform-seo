@@ -32,7 +32,7 @@ class Sidebar extends Component
         // Lists don't have team_id — scope through URLs belonging to this team
         $lists = SeoUrlList::whereHas('urls', function ($q) use ($teamId) {
             $q->where('seo_urls.team_id', $teamId);
-        })->orderBy('name')->get();
+        })->withCount('urls')->orderBy('name')->get();
 
         // 2. Get entity links for both types
         $listIds = $lists->pluck('id')->toArray();
