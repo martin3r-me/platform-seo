@@ -16,6 +16,8 @@
 
     <x-ui-page-container>
 
+        @include('seo::partials.help-banner', ['lens' => 'recommendations'])
+
         {{-- Intro --}}
         <p class="text-[13px] text-gray-500 mb-6">Konkrete Handlungsempfehlungen, automatisch aus den konsolidierten SEO-Daten abgeleitet — mit Datenbeleg. Erledige oder markiere sie als gesehen; offene Empfehlungen fließen an den Organisations-Knoten und ins Kundenportal.</p>
 

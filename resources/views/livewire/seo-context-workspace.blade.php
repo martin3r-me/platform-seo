@@ -23,6 +23,8 @@
 
     <x-ui-page-container>
 
+        @include('seo::partials.help-banner', ['lens' => 'context'])
+
         <p class="text-[13px] text-gray-500 mb-6">Die SEO-Sicht dieses Kontexts: alle hier verankerten URLs samt zentral gemessener Signale. Daten laufen über die Knoten-Verlinkung in den Baum.</p>
 
         {{-- KPI-Kacheln --}}

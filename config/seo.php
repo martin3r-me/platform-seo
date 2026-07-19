@@ -29,6 +29,70 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | In-Modul-Hilfe (Konzept-Anker + Pro-Linse-Banner)
+    |--------------------------------------------------------------------------
+    | Eine Quelle für alle Erklärungstexte. Das „?" in der Sidebar öffnet den
+    | Konzept-Anker; jede Linse zeigt oben ein wegklickbares Banner aus 'lenses'.
+    */
+    'help' => [
+        'concept' => [
+            'title' => 'So funktioniert SEO',
+            'intro' => 'Alles hier ist eine Linse auf dieselbe Grundlage: deine URLs und ihre zentral gemessenen Signale. Der Weg von der Idee zum Ergebnis läuft in Etappen.',
+            'pipeline' => [
+                ['step' => 'Modellieren', 'text' => 'Struktur schaffen — welche Entitäten/Knoten gehören zusammen (Kunde, Marke, Thema).'],
+                ['step' => 'Nachfrage',   'text' => 'Keywords — wonach wird gesucht, mit welchem Volumen und welcher Absicht.'],
+                ['step' => 'Cluster',     'text' => 'Keywords zu strategischen Themen bündeln und deren Erfolg über die Zeit messen.'],
+                ['step' => 'Erden',       'text' => 'Signale — Sichtbarkeit, Rankings, Traffic, Backlinks: die reale Messung je URL.'],
+                ['step' => 'Content',     'text' => 'Aus Lücken und Signalen werden konkrete Empfehlungen (Maßnahmen).'],
+                ['step' => 'Distribution','text' => 'Empfehlungen laufen in den Kontext (Org-Baum), zurück ins Quell-Modul und nach Flynk zum Kunden.'],
+            ],
+            'lenses_intro' => 'Die Navigation sind Blickwinkel auf genau diese Grundlage:',
+            'lenses' => [
+                'URLs — die gemessenen Seiten (die Atome).',
+                'Listen — manuelle Gruppen von URLs.',
+                'Cluster — Themen-/Keyword-Gruppen als strategische Einheit.',
+                'Wettbewerber — die fremden URLs (is_own = false) auf denselben Keywords.',
+                'Empfehlungen — die abgeleiteten Handlungen aus den Signalen.',
+                'Kontext — dieselben URLs, gruppiert am Org-Baum (Kunde/Knoten).',
+            ],
+        ],
+
+        'lenses' => [
+            'dashboard' => [
+                'title' => 'Dashboard',
+                'what'  => 'Der Gesamtüberblick: wie sichtbar bist du, wo bewegt sich etwas, was ist dringend. Startpunkt, kein Arbeitsplatz.',
+                'next'  => ['label' => 'Empfehlungen ansehen', 'route' => 'seo.recommendations'],
+            ],
+            'recommendations' => [
+                'title' => 'Empfehlungen',
+                'what'  => 'Konkrete Maßnahmen, die das Modul aus den Signalen ableitet — nach Wirkung priorisiert. Das ist die Handlungsliste.',
+                'next'  => ['label' => 'Betroffene URLs ansehen', 'route' => 'seo.urls'],
+            ],
+            'clusters' => [
+                'title' => 'Cluster',
+                'what'  => 'Die strategische Einheit: Keywords zu Themen gebündelt. Abdeckung, Sichtbarkeit und Trajektorie zeigen, ob ein Thema gewonnen wird.',
+            ],
+            'lists' => [
+                'title' => 'Listen',
+                'what'  => 'Manuelle Gruppen von URLs — nützlich für Projekte oder Auswertungen. Für die strategische Sicht nutze eher Cluster oder Kontext.',
+            ],
+            'urls' => [
+                'title' => 'URLs',
+                'what'  => 'Die Atome des Moduls: jede registrierte Seite wird zentral gemessen (Keywords, Rankings, Backlinks, On-Page). „Nach Kontext" gruppiert sie am Org-Baum.',
+            ],
+            'competitors' => [
+                'title' => 'Wettbewerber',
+                'what'  => 'Fremde Domains (is_own = false), die auf denselben Keywords ranken wie du — team-weit statt pro Liste. Die reale Konkurrenz um deine Themen.',
+            ],
+            'context' => [
+                'title' => 'Kontext',
+                'what'  => 'Die SEO-Sicht eines Org-Knotens (z. B. Kunde): alle hier verankerten URLs samt Signalen. Hier laufen die Daten in den Baum — und weiter nach Flynk.',
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Industry Presets
     |--------------------------------------------------------------------------
     */

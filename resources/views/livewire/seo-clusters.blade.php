@@ -16,6 +16,8 @@
 
     <x-ui-page-container>
 
+        @include('seo::partials.help-banner', ['lens' => 'clusters'])
+
         {{-- Intro --}}
         <p class="text-[13px] text-gray-500 mb-6">Der Cluster ist die strategische Einheit: systematisch aufgebaut und über die Zeit gemessen. Abdeckung, Sichtbarkeit und Trajektorie zeigen, ob ein Thema gewonnen wird.</p>
 

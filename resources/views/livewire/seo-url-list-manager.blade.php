@@ -21,6 +21,8 @@
 
     <x-ui-page-container>
 
+        @include('seo::partials.help-banner', ['lens' => 'lists'])
+
         {{-- Intro --}}
         <p class="text-[13px] text-gray-500 mb-6">URL-Listen gruppieren Seiten thematisch oder nach Projekt. Jede Liste trackt Keywords, Rankings und Wettbewerber unabhaengig. So behältst du den Überblick über verschiedene Bereiche deiner Website.</p>
 

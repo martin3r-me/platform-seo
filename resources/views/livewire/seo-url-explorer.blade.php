@@ -20,6 +20,8 @@
     </x-slot>
 
     <x-ui-page-container>
+
+        @include('seo::partials.help-banner', ['lens' => 'urls'])
         <div class="space-y-6">
 
             {{-- Intro --}}

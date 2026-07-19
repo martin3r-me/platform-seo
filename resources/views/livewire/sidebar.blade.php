@@ -1,7 +1,12 @@
-<div>
-    {{-- Modul-Header --}}
-    <div x-show="!collapsed" class="p-3 text-sm italic text-[var(--ui-secondary)] uppercase border-b border-[var(--ui-border)] mb-2">
-        SEO
+<div x-data="{ helpOpen: false }">
+    {{-- Modul-Header + Konzept-Anker („?") --}}
+    <div x-show="!collapsed" class="p-3 flex items-center justify-between border-b border-[var(--ui-border)] mb-2">
+        <span class="text-sm italic text-[var(--ui-secondary)] uppercase">SEO</span>
+        <button type="button" @click="helpOpen = true"
+                class="text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition"
+                title="So funktioniert SEO">
+            @svg('heroicon-o-question-mark-circle', 'w-4 h-4')
+        </button>
     </div>
 
     {{-- Linsen-Navigation (alle Perspektiven auf URLs + Signale) --}}
@@ -91,4 +96,6 @@
             </div>
         @endif
     </div>
+
+    @include('seo::partials.help-concept-modal')
 </div>

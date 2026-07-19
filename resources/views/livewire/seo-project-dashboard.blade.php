@@ -21,6 +21,8 @@
 
     <x-ui-page-container>
 
+        @include('seo::partials.help-banner', ['lens' => 'dashboard'])
+
         {{-- Intro --}}
         <div class="mb-4">
             <p class="text-[13px] text-gray-500">Gesamtübersicht deiner SEO-Performance. Hier siehst du auf einen Blick, wie viele URLs und Keywords getrackt werden, wie sichtbar deine Seiten in Google sind und ob das API-Budget im Rahmen bleibt.</p>

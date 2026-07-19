@@ -16,6 +16,8 @@
 
     <x-ui-page-container>
 
+        @include('seo::partials.help-banner', ['lens' => 'competitors'])
+
         <p class="text-[13px] text-gray-500 mb-6">Alle getrackten Wettbewerber-Domains und -URLs deines Teams — team-weit, nicht mehr pro Liste. Klick eine Domain, um die Wettbewerber-URLs zu filtern.</p>
 
         {{-- Wettbewerber-Domains --}}
