@@ -56,6 +56,11 @@ class SeoServiceProvider extends ServiceProvider
         $this->app->singleton(\Platform\Seo\Services\SeoOrganizationLinker::class);
         $this->app->singleton(\Platform\Seo\Services\SeoClusterMetricsService::class);
         $this->app->singleton(\Platform\Seo\Services\SeoRecommendationService::class);
+        $this->app->singleton(\Platform\Seo\Services\SeoSignalReadService::class);
+        $this->app->singleton(
+            \Platform\Core\Contracts\SeoSignalServiceInterface::class,
+            fn ($app) => $app->make(\Platform\Seo\Services\SeoSignalReadService::class)
+        );
 
         // URL-centric services
         $this->app->singleton(SeoUrlPipelineService::class, function ($app) {
