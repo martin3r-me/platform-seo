@@ -7,6 +7,7 @@ use Platform\Organization\Models\OrganizationEntity;
 use Platform\Organization\Services\EntityDimensionBridge;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
+use Platform\Seo\Models\SeoUrlRelationship;
 
 class Sidebar extends Component
 {
@@ -23,9 +24,15 @@ class Sidebar extends Component
             ]);
         }
 
-        // 1. Load URLs for this team, then lists via URL relationship
+        // 1. Load URLs for this team (root-only — Child-URLs würden die Sidebar
+        //    unübersichtlich machen; wie im URL-Explorer nur Parent-URLs zeigen).
+        $childUrlIds = SeoUrlRelationship::where('team_id', $teamId)
+            ->where('type', 'parent_child')
+            ->pluck('target_url_id');
+
         $urls = SeoUrl::where('team_id', $teamId)
             ->where('status', 'active')
+            ->when($childUrlIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $childUrlIds))
             ->orderBy('url')
             ->get();
 
