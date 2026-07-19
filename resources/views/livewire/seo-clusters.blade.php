@@ -54,7 +54,7 @@
                         <div class="flex items-center gap-2.5 min-w-[180px] flex-1">
                             <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background: {{ $cluster->color ?: '#94a3b8' }}"></span>
                             <div class="min-w-0">
-                                <div class="font-medium text-[13px] text-gray-900 truncate">{{ $cluster->name }}</div>
+                                <a href="{{ route('seo.clusters.show', $cluster) }}" wire:navigate class="font-medium text-[13px] text-gray-900 hover:text-indigo-600 truncate block">{{ $cluster->name }}</a>
                                 <div class="text-[11px] text-gray-400">{{ $cluster->keyword_count }} Keywords · {{ $cluster->covered_keywords }} abgedeckt</div>
                             </div>
                         </div>
