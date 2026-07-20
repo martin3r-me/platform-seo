@@ -7,7 +7,6 @@ use Platform\Organization\Models\OrganizationEntity;
 use Platform\Organization\Services\EntityDimensionBridge;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
-use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
 
 class Sidebar extends Component
@@ -20,9 +19,6 @@ class Sidebar extends Component
         if (!$user || !$teamId) {
             return view('seo::livewire.sidebar', [
                 'entityTypeGroups' => collect(),
-                'unlinkedLists' => collect(),
-                'moduleGroups' => collect(),
-                'unassignedUrls' => collect(),
             ]);
         }
 
@@ -225,49 +221,11 @@ class Sidebar extends Component
                 ->values();
         }
 
-        // 5. Nicht am Baum hängende Listen + URLs
-        $unlinkedLists = $lists->filter(fn ($list) => !in_array($list->id, $linkedListIds))->values();
-        $unlinkedUrls = $urls->filter(fn ($url) => !in_array($url->id, $linkedUrlIds))->values();
-
-        // Owner-Segmentierung (das Werkzeug): woher stammt eine nicht-verankerte URL?
-        //  - Modul-URLs (source_module != seo) → eigene Gruppe je Modul (haben ein Zuhause)
-        //  - Agentur-URLs ohne Knoten → „Einzuordnen" (die echte Arbeit)
-        //  - Wettbewerber (is_own=false) → nicht in der Sidebar (eigene Linse)
-        $ownerByUrl = [];
-        $unlinkedIds = $unlinkedUrls->pluck('id')->all();
-        if (!empty($unlinkedIds)) {
-            foreach (SeoUrlRegistration::whereIn('url_id', $unlinkedIds)
-                        ->where('source_module', '!=', 'seo')
-                        ->get(['url_id', 'source_module']) as $reg) {
-                $ownerByUrl[$reg->url_id] ??= $reg->source_module;
-            }
-        }
-
-        $moduleUrlGroups = [];
-        $unassignedUrls = collect();
-        foreach ($unlinkedUrls as $url) {
-            if (! $url->is_own) {
-                continue; // Wettbewerber gehören in die Wettbewerber-Linse
-            }
-            $owner = $ownerByUrl[$url->id] ?? null;
-            if ($owner) {
-                $moduleUrlGroups[$owner][] = $url;
-            } else {
-                $unassignedUrls->push($url);
-            }
-        }
-
-        $moduleGroups = collect($moduleUrlGroups)->map(fn ($groupUrls, $module) => [
-            'module' => $module,
-            'label' => config('seo.provenance.'.$module.'.label') ?? ucfirst($module),
-            'urls' => collect($groupUrls),
-        ])->values();
-
+        // Die Sidebar ist der reine, klickbare Baum: jeder Knoten/Typ ist eine
+        // Perspektive. URLs sind kein Sidebar-Element mehr — sie sind der Inhalt
+        // einer Perspektive (siehe SeoPerspective).
         return view('seo::livewire.sidebar', [
             'entityTypeGroups' => $entityTypeGroups,
-            'unlinkedLists' => $unlinkedLists,
-            'moduleGroups' => $moduleGroups,
-            'unassignedUrls' => $unassignedUrls,
         ]);
     }
 }

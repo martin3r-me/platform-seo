@@ -7,6 +7,7 @@ use Platform\Seo\Livewire\SeoCompetitorAnalysis;
 use Platform\Seo\Livewire\SeoCompetitors;
 use Platform\Seo\Livewire\SeoContextWorkspace;
 use Platform\Seo\Livewire\SeoKeywordExplorer;
+use Platform\Seo\Livewire\SeoPerspective;
 use Platform\Seo\Livewire\SeoProjectDashboard;
 use Platform\Seo\Livewire\SeoRankingTracker;
 use Platform\Seo\Livewire\SeoRecommendations;
@@ -22,6 +23,7 @@ Route::get('/recommendations', SeoRecommendations::class)->name('seo.recommendat
 Route::get('/clusters', SeoClusters::class)->name('seo.clusters');
 Route::get('/clusters/{cluster}', SeoClusterDetail::class)->name('seo.clusters.show');
 Route::get('/context/{entity}', SeoContextWorkspace::class)->name('seo.context');
+Route::get('/perspective/{entity}', SeoPerspective::class)->name('seo.perspective');
 Route::get('/lists', SeoUrlListManager::class)->name('seo.lists');
 Route::get('/urls', SeoUrlExplorer::class)->name('seo.urls');
 Route::get('/competitors', SeoCompetitors::class)->name('seo.competitors');

@@ -37,7 +37,7 @@
         </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
-    {{-- Kontext: Entity-basierte Gruppierung (URLs/Listen am Org-Baum) --}}
+    {{-- Der Baum = der Perspektiv-Wähler. Jeder Knoten/Typ ist eine Perspektive. --}}
     <div x-show="!collapsed" class="mt-2">
         @foreach($entityTypeGroups as $typeGroup)
             <x-ui-sidebar-list wire:key="type-group-{{ $typeGroup['type_id'] }}" :label="$typeGroup['type_name']">
@@ -50,69 +50,10 @@
             </x-ui-sidebar-list>
         @endforeach
 
-        {{-- Listen ohne Kontext --}}
-        @if($unlinkedLists->isNotEmpty())
-            <x-ui-sidebar-list label="Listen · ohne Kontext">
-                @foreach($unlinkedLists as $list)
-                    <a wire:key="unlinked-list-{{ $list->id }}"
-                       href="{{ route('seo.lists.show', $list) }}"
-                       wire:navigate
-                       title="{{ $list->name ?: 'Liste' }}"
-                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition">
-                        @svg('heroicon-o-queue-list', 'w-3 h-3 flex-shrink-0 opacity-40')
-                        <span class="truncate text-[11px]">{{ $list->name ?: 'Liste' }}</span>
-                        @isset($list->urls_count)<span class="ml-auto text-[10px] tabular-nums text-[var(--ui-muted)] opacity-60">{{ $list->urls_count }}</span>@endisset
-                    </a>
-                @endforeach
-            </x-ui-sidebar-list>
-        @endif
-
-        {{-- Modul-URLs: haben ein Zuhause (Syltjunkie …) — nach Herkunft gruppiert --}}
-        @foreach($moduleGroups as $group)
-            <x-ui-sidebar-list :label="$group['label']">
-                @foreach($group['urls']->take(20) as $url)
-                    <a wire:key="mod-{{ $group['module'] }}-url-{{ $url->id }}"
-                       href="{{ route('seo.urls.show', $url) }}" wire:navigate
-                       title="{{ $url->url }}"
-                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
-                        @svg('heroicon-o-globe-alt', 'w-3 h-3 flex-shrink-0 opacity-40')
-                        <span class="truncate text-[11px]">{{ $url->display_label }}</span>
-                    </a>
-                @endforeach
-                @if($group['urls']->count() > 20)
-                    <a href="{{ route('seo.urls') }}" wire:navigate
-                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition text-[10px]">
-                        +{{ $group['urls']->count() - 20 }} weitere
-                    </a>
-                @endif
-            </x-ui-sidebar-list>
-        @endforeach
-
-        {{-- Einzuordnen: echte Agentur-URLs ohne Kontext (die eigentliche Arbeit) --}}
-        @if($unassignedUrls->isNotEmpty())
-            <x-ui-sidebar-list label="Einzuordnen">
-                @foreach($unassignedUrls->take(20) as $url)
-                    <a wire:key="unassigned-url-{{ $url->id }}"
-                       href="{{ route('seo.urls.show', $url) }}" wire:navigate
-                       title="{{ $url->url }}"
-                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
-                        @svg('heroicon-o-globe-alt', 'w-3 h-3 flex-shrink-0 opacity-40')
-                        <span class="truncate text-[11px]">{{ $url->display_label }}</span>
-                    </a>
-                @endforeach
-                @if($unassignedUrls->count() > 20)
-                    <a href="{{ route('seo.urls') }}" wire:navigate
-                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition text-[10px]">
-                        +{{ $unassignedUrls->count() - 20 }} weitere
-                    </a>
-                @endif
-            </x-ui-sidebar-list>
-        @endif
-
         {{-- Leer-Zustand --}}
-        @if($entityTypeGroups->isEmpty() && $unlinkedLists->isEmpty() && $moduleGroups->isEmpty() && $unassignedUrls->isEmpty())
-            <div class="px-3 py-1 text-xs text-[var(--ui-muted)]">
-                Keine Listen oder URLs
+        @if($entityTypeGroups->isEmpty())
+            <div class="px-3 py-2 text-xs text-[var(--ui-muted)]">
+                Noch keine Knoten mit SEO-URLs. Hänge URLs im URL-Detail an einen Org-Knoten, dann erscheint hier der Baum.
             </div>
         @endif
     </div>

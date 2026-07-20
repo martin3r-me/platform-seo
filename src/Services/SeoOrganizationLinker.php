@@ -149,6 +149,58 @@ class SeoOrganizationLinker
     }
 
     /**
+     * Der Knoten selbst + alle Nachfahren (Teilbaum) — Basis der Perspektive.
+     * Guarded: nur der Knoten selbst, wenn das Organization-Modul fehlt.
+     *
+     * @return int[]
+     */
+    public function descendantEntityIds(int $entityId): array
+    {
+        $class = \Platform\Organization\Models\OrganizationEntity::class;
+        if (! class_exists($class)) {
+            return [$entityId];
+        }
+
+        try {
+            $all = [$entityId];
+            $frontier = [$entityId];
+            $guard = 0;
+            while (! empty($frontier) && $guard++ < 50) {
+                $children = $class::whereIn('parent_entity_id', $frontier)
+                    ->pluck('id')->map(fn ($i) => (int) $i)->all();
+                $children = array_values(array_diff($children, $all));
+                if (empty($children)) {
+                    break;
+                }
+                $all = array_merge($all, $children);
+                $frontier = $children;
+            }
+
+            return $all;
+        } catch (\Throwable $e) {
+            return [$entityId];
+        }
+    }
+
+    /**
+     * Record-IDs eines Typs, die an einer Menge von Knoten hängen (Union).
+     *
+     * @param  int[]  $entityIds
+     * @return int[]
+     */
+    public function linkableIdsForNodes(string $morphAlias, array $entityIds): array
+    {
+        $ids = [];
+        foreach ($entityIds as $entityId) {
+            foreach ($this->linkableIdsForNode($morphAlias, (int) $entityId) as $lid) {
+                $ids[$lid] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($ids));
+    }
+
+    /**
      * Batch: Knoten (id + name) je Record — für Anzeige/Diagnose.
      *
      * @param  int[]  $ids
