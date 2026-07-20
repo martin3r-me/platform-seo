@@ -5,6 +5,7 @@ namespace Platform\Seo\Livewire;
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoOrganizationLinker;
 use Platform\Seo\Services\SeoUrlService;
@@ -172,6 +173,17 @@ class SeoUrlExplorer extends Component
             $url->agg_backlinks = $url->backlink_count + $children->sum('backlink_count');
 
             return $url;
+        });
+
+        // Herkunft (Werkzeug): Modul-Owner je URL sichtbar machen (source_module != seo).
+        $ownerByUrl = [];
+        foreach (SeoUrlRegistration::whereIn('url_id', $urlIds)
+                    ->where('source_module', '!=', 'seo')
+                    ->get(['url_id', 'source_module']) as $reg) {
+            $ownerByUrl[$reg->url_id] ??= $reg->source_module;
+        }
+        $urls->each(function (SeoUrl $url) use ($ownerByUrl) {
+            $url->provenance_key = ! $url->is_own ? 'competitor' : ($ownerByUrl[$url->id] ?? 'seo');
         });
 
         // Gruppieren nach Kontext (U5): die Baum-Ordnung sichtbar statt flach.

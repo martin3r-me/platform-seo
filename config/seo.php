@@ -29,6 +29,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Herkunft (Provenance) — woher stammt eine URL?
+    |--------------------------------------------------------------------------
+    | Owner-Achse des Werkzeugs. Abgeleitet aus seo_url_registrations.source_module.
+    | 'seo' = Agentur/manuell (Default), sonst das Quell-Modul (syltjunkie …).
+    | is_own=false wird als 'competitor' geführt. Label + Badge-Klassen zentral.
+    */
+    'provenance' => [
+        'seo'        => ['label' => 'Agentur',      'classes' => 'bg-indigo-50 text-indigo-700 border-indigo-200'],
+        'syltjunkie' => ['label' => 'Syltjunkie',   'classes' => 'bg-violet-50 text-violet-700 border-violet-200'],
+        'competitor' => ['label' => 'Wettbewerber', 'classes' => 'bg-amber-50 text-amber-700 border-amber-200'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | In-Modul-Hilfe (Konzept-Anker + Pro-Linse-Banner)
     |--------------------------------------------------------------------------
     | Eine Quelle für alle Erklärungstexte. Das „?" in der Sidebar öffnet den

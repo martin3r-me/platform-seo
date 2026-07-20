@@ -67,30 +67,50 @@
             </x-ui-sidebar-list>
         @endif
 
-        {{-- Unverknüpfte URLs (nur anzeigen wenn welche existieren, begrenzt auf 20) --}}
-        @if($unlinkedUrls->isNotEmpty())
-            <x-ui-sidebar-list label="URLs · ohne Kontext">
-                @foreach($unlinkedUrls->take(20) as $url)
-                    <a wire:key="unlinked-url-{{ $url->id }}"
-                       href="{{ route('seo.urls.show', $url) }}"
-                       wire:navigate
+        {{-- Modul-URLs: haben ein Zuhause (Syltjunkie …) — nach Herkunft gruppiert --}}
+        @foreach($moduleGroups as $group)
+            <x-ui-sidebar-list :label="$group['label']">
+                @foreach($group['urls']->take(20) as $url)
+                    <a wire:key="mod-{{ $group['module'] }}-url-{{ $url->id }}"
+                       href="{{ route('seo.urls.show', $url) }}" wire:navigate
                        title="{{ $url->url }}"
                        class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
                         @svg('heroicon-o-globe-alt', 'w-3 h-3 flex-shrink-0 opacity-40')
                         <span class="truncate text-[11px]">{{ $url->display_label }}</span>
                     </a>
                 @endforeach
-                @if($unlinkedUrls->count() > 20)
+                @if($group['urls']->count() > 20)
                     <a href="{{ route('seo.urls') }}" wire:navigate
                        class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition text-[10px]">
-                        +{{ $unlinkedUrls->count() - 20 }} weitere
+                        +{{ $group['urls']->count() - 20 }} weitere
+                    </a>
+                @endif
+            </x-ui-sidebar-list>
+        @endforeach
+
+        {{-- Einzuordnen: echte Agentur-URLs ohne Kontext (die eigentliche Arbeit) --}}
+        @if($unassignedUrls->isNotEmpty())
+            <x-ui-sidebar-list label="Einzuordnen">
+                @foreach($unassignedUrls->take(20) as $url)
+                    <a wire:key="unassigned-url-{{ $url->id }}"
+                       href="{{ route('seo.urls.show', $url) }}" wire:navigate
+                       title="{{ $url->url }}"
+                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] transition truncate">
+                        @svg('heroicon-o-globe-alt', 'w-3 h-3 flex-shrink-0 opacity-40')
+                        <span class="truncate text-[11px]">{{ $url->display_label }}</span>
+                    </a>
+                @endforeach
+                @if($unassignedUrls->count() > 20)
+                    <a href="{{ route('seo.urls') }}" wire:navigate
+                       class="flex items-center gap-1.5 py-0.5 pl-3 pr-2 text-[var(--ui-muted)] hover:text-[var(--ui-secondary)] transition text-[10px]">
+                        +{{ $unassignedUrls->count() - 20 }} weitere
                     </a>
                 @endif
             </x-ui-sidebar-list>
         @endif
 
         {{-- Leer-Zustand --}}
-        @if($entityTypeGroups->isEmpty() && $unlinkedLists->isEmpty() && $unlinkedUrls->isEmpty())
+        @if($entityTypeGroups->isEmpty() && $unlinkedLists->isEmpty() && $moduleGroups->isEmpty() && $unassignedUrls->isEmpty())
             <div class="px-3 py-1 text-xs text-[var(--ui-muted)]">
                 Keine Listen oder URLs
             </div>

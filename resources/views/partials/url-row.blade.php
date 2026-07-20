@@ -10,6 +10,9 @@
             <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs font-medium">
                 {{ ($url->path && $url->path !== '/') ? $url->path : $url->domain }}
             </a>
+            @if(!empty($url->provenance_key) && !in_array($url->provenance_key, ['seo', 'competitor']))
+                @include('seo::partials.url-provenance-badge', ['key' => $url->provenance_key])
+            @endif
         </div>
         @if($url->path && $url->path !== '/')
             <div class="text-[10px] text-gray-400 ml-{{ $url->is_own ? '0' : '3.5' }}">{{ $url->domain }}</div>
