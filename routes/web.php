@@ -3,6 +3,7 @@
 use Platform\Seo\Livewire\SeoCannibalization;
 use Platform\Seo\Livewire\SeoClusterDetail;
 use Platform\Seo\Livewire\SeoClusters;
+use Platform\Seo\Livewire\SeoCockpit;
 use Platform\Seo\Livewire\SeoCompetitorAnalysis;
 use Platform\Seo\Livewire\SeoCompetitors;
 use Platform\Seo\Livewire\SeoContextWorkspace;
@@ -18,7 +19,8 @@ use Platform\Seo\Livewire\SeoUrlListDetail;
 use Platform\Seo\Livewire\SeoUrlListManager;
 
 // Top-Level
-Route::get('/', SeoProjectDashboard::class)->name('seo.dashboard');
+Route::get('/', SeoCockpit::class)->name('seo.dashboard');
+Route::get('/overview', SeoProjectDashboard::class)->name('seo.overview');
 Route::get('/recommendations', SeoRecommendations::class)->name('seo.recommendations');
 Route::get('/clusters', SeoClusters::class)->name('seo.clusters');
 Route::get('/clusters/{cluster}', SeoClusterDetail::class)->name('seo.clusters.show');

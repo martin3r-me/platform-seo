@@ -298,6 +298,36 @@ class SeoOrganizationLinker
         }
     }
 
+    /**
+     * Alle Kunden des Teams über die Engagement-Ebene — das „Kundenbuch" der
+     * Agentur, root-unabhängig (alle engagement_with-Relationen des Teams). Guarded.
+     *
+     * @return int[]  Kunden-Entity-IDs
+     */
+    public function customerEntityIdsForTeam(int $teamId, string $relationCode = 'engagement_with'): array
+    {
+        $relClass = \Platform\Organization\Models\OrganizationEntityRelationship::class;
+        $typeClass = \Platform\Organization\Models\OrganizationEntityRelationType::class;
+        if (! class_exists($relClass) || ! class_exists($typeClass)) {
+            return [];
+        }
+
+        try {
+            $typeId = $typeClass::where('code', $relationCode)->value('id');
+            if (! $typeId) {
+                return [];
+            }
+
+            return $relClass::where('team_id', $teamId)
+                ->where('relation_type_id', $typeId)
+                ->pluck('to_entity_id')
+                ->map(fn ($i) => (int) $i)
+                ->unique()->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public function relationName(string $code): ?string
     {
         $typeClass = \Platform\Organization\Models\OrganizationEntityRelationType::class;
