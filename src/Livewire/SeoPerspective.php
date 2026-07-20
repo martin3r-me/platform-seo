@@ -39,7 +39,13 @@ class SeoPerspective extends Component
         $this->resolveSettings();
         $linker = app(SeoOrganizationLinker::class);
 
-        if ($module !== null) {
+        if ($entity !== null && request()->route()?->getName() === 'seo.perspective.customers') {
+            $this->mode = 'customers';
+            $this->entityId = $entity;
+            $anchor = $linker->nodeName($entity) ?: ('Knoten #'.$entity);
+            $this->heading = 'Kunden von '.$anchor;
+            $this->subtitle = 'alle Kunden über die Engagement-Ebene';
+        } elseif ($module !== null) {
             $this->mode = 'source';
             $this->module = $module;
             $this->heading = config('seo.provenance.'.$module.'.label') ?? ucfirst($module);
@@ -130,6 +136,7 @@ class SeoPerspective extends Component
         $nodesCount = 0;
         $relations = [];
         $subPerspectives = [];
+        $customerCount = 0;
 
         switch ($this->mode) {
             case 'subtree':
@@ -138,6 +145,20 @@ class SeoPerspective extends Component
                 $urlIds = $linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $subtree);
                 $relations = $linker->availableRelations($this->entityId);
                 $subPerspectives = $this->entityPerspectives($this->childEntityIds($this->entityId), $linker);
+                $customerCount = count($linker->customersViaEngagement($this->entityId));
+                break;
+
+            case 'customers':
+                $customerIds = $linker->customersViaEngagement($this->entityId);
+                $nodesCount = count($customerIds);
+                $allIds = [];
+                foreach ($customerIds as $cid) {
+                    foreach ($linker->descendantEntityIds((int) $cid) as $d) {
+                        $allIds[$d] = true;
+                    }
+                }
+                $urlIds = $linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, array_keys($allIds));
+                $subPerspectives = $this->entityPerspectives($customerIds, $linker);
                 break;
 
             case 'relation':
@@ -201,6 +222,7 @@ class SeoPerspective extends Component
             'kpis' => $kpis,
             'relations' => $relations,
             'subPerspectives' => $subPerspectives,
+            'customerCount' => $customerCount,
             'availableNodes' => $linker->availableNodes($teamId),
         ])->layout('platform::layouts.app');
     }

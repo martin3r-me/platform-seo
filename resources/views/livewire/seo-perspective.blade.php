@@ -57,6 +57,18 @@
             </div>
         </div>
 
+        {{-- Kunden über die Engagement-Ebene (VSM-sauber, Mehr-Hop) --}}
+        @if($customerCount > 0)
+            <div class="mb-6">
+                <a href="{{ route('seo.perspective.customers', $entityId) }}" wire:navigate
+                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm">
+                    @svg('heroicon-o-user-group', 'w-4 h-4')
+                    <span class="font-medium">Alle Kunden</span>
+                    <span class="text-[11px] bg-white/20 rounded px-1.5 py-0.5 tabular-nums">{{ $customerCount }}</span>
+                </a>
+            </div>
+        @endif
+
         {{-- Relationen als Unter-Perspektiven (datengetrieben, z.B. „alle Kunden") --}}
         @if(!empty($relations))
             <div class="mb-6">

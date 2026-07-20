@@ -264,6 +264,40 @@ class SeoOrganizationLinker
         }
     }
 
+    /**
+     * Kunden eines Ankers über die Engagement-Ebene (VSM-sauber): sammelt im
+     * Teilbaum alle Ziele der Engagement-Relation (Standard: engagement_with).
+     * So werden „alle Kunden der BHG.DIGITAL" erreichbar, ohne dass die Relation
+     * direkt am Anker hängt. Eine Query über den Teilbaum. Guarded.
+     *
+     * @return int[]  Kunden-Entity-IDs
+     */
+    public function customersViaEngagement(int $entityId, string $relationCode = 'engagement_with'): array
+    {
+        $relClass = \Platform\Organization\Models\OrganizationEntityRelationship::class;
+        $typeClass = \Platform\Organization\Models\OrganizationEntityRelationType::class;
+        if (! class_exists($relClass) || ! class_exists($typeClass)) {
+            return [];
+        }
+
+        try {
+            $typeId = $typeClass::where('code', $relationCode)->value('id');
+            if (! $typeId) {
+                return [];
+            }
+
+            $subtree = $this->descendantEntityIds($entityId);
+
+            return $relClass::whereIn('from_entity_id', $subtree)
+                ->where('relation_type_id', $typeId)
+                ->pluck('to_entity_id')
+                ->map(fn ($i) => (int) $i)
+                ->unique()->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public function relationName(string $code): ?string
     {
         $typeClass = \Platform\Organization\Models\OrganizationEntityRelationType::class;
