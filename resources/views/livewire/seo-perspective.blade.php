@@ -91,16 +91,38 @@
             </div>
         @endif
 
-        {{-- URLs der Perspektive --}}
+        @if($notice)
+            <div class="mb-4 text-[12px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">{{ $notice }}</div>
+        @endif
+
+        {{-- URLs der Perspektive + Arbeitsplatz (Auswahl → zuweisen/klassifizieren) --}}
         <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div class="px-4 py-3 border-b border-gray-100">
+            <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
                 <h2 class="text-[13px] font-semibold text-gray-700">URLs in dieser Perspektive</h2>
+                @if(!empty($selected))
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[11px] text-gray-500 tabular-nums">{{ count($selected) }} ausgewählt</span>
+                        <select wire:model="assignNodeId" class="border border-gray-200 rounded-lg px-2 py-1.5 text-[12px] bg-white">
+                            <option value="">Kontext wählen…</option>
+                            @foreach($availableNodes as $node)
+                                <option value="{{ $node['id'] }}">{{ $node['name'] }}</option>
+                            @endforeach
+                        </select>
+                        <button wire:click="assignSelected(false)" class="text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40" @disabled(!$assignNodeId)>Zuweisen</button>
+                        <button wire:click="assignSelected(true)" class="text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 disabled:opacity-40" @disabled(!$assignNodeId)>Als Wettbewerber zuweisen</button>
+                        <button wire:click="markCompetitor" class="text-[11px] px-2.5 py-1.5 rounded-lg text-gray-500 hover:text-amber-700">Nur als Wettbewerber</button>
+                        <button wire:click="clearSelection" class="text-[11px] text-gray-400 hover:text-gray-600">×</button>
+                    </div>
+                @endif
             </div>
             @if($urls->isNotEmpty())
                 <div class="overflow-x-auto">
                     <table class="w-full text-[12px]">
                         <thead>
                             <tr class="text-left text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50">
+                                <th class="px-4 py-2 w-8">
+                                    <button wire:click="selectAll({{ $urls->pluck('id')->toJson() }})" title="Alle auswählen" class="hover:text-gray-600">☐</button>
+                                </th>
                                 <th class="px-4 py-2">URL</th>
                                 <th class="px-4 py-2 text-right">Keywords</th>
                                 <th class="px-4 py-2 text-right">Suchvolumen</th>
@@ -111,6 +133,9 @@
                         <tbody class="divide-y divide-gray-50">
                             @foreach($urls as $url)
                                 <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-2">
+                                        <input type="checkbox" wire:model.live="selected" value="{{ $url->id }}" class="rounded border-gray-300">
+                                    </td>
                                     <td class="px-4 py-2">
                                         <div class="flex items-center gap-2">
                                             @if(!$url->is_own)

@@ -6,6 +6,7 @@ use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRegistration;
+use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoOrganizationLinker;
 
 /**
@@ -27,6 +28,11 @@ class SeoPerspective extends Component
     public ?string $module = null;
     public ?string $heading = null;
     public ?string $subtitle = null;
+
+    // Arbeitsplatz: Auswahl + Ziel-Knoten für Bulk-Zuweisung/Klassifizierung.
+    public array $selected = [];
+    public ?int $assignNodeId = null;
+    public ?string $notice = null;
 
     public function mount(?int $entity = null, ?string $relation = null, ?string $module = null): void
     {
@@ -55,6 +61,64 @@ class SeoPerspective extends Component
             $this->heading = 'Nicht eingeordnet';
             $this->subtitle = 'Ablage · Agentur-URLs ohne Kontext — hier verteilen oder klassifizieren';
         }
+    }
+
+    public function selectAll(array $ids): void
+    {
+        $this->selected = array_map('intval', $ids);
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected = [];
+    }
+
+    /**
+     * Ausgewählte URLs einem Knoten zuweisen — optional zugleich als Wettbewerber
+     * klassifizieren (is_own=false). Der Kern des Arbeitsplatzes: verteilen + rollen.
+     */
+    public function assignSelected(bool $asCompetitor = false): void
+    {
+        if (empty($this->selected) || ! $this->assignNodeId) {
+            return;
+        }
+
+        $teamId = (int) $this->seoSettings->team_id;
+        $ids = array_map('intval', $this->selected);
+
+        if ($asCompetitor) {
+            SeoUrl::whereIn('id', $ids)->where('team_id', $teamId)->update(['is_own' => false]);
+        }
+
+        $linker = app(SeoOrganizationLinker::class);
+        foreach ($ids as $urlId) {
+            $linker->addNode(SeoOrganizationLinker::ALIAS_URL, $urlId, (int) $this->assignNodeId);
+        }
+
+        $count = count($ids);
+        $this->notice = $asCompetitor
+            ? "{$count} URL(s) als Wettbewerber diesem Kontext zugeordnet."
+            : "{$count} URL(s) dem Kontext zugeordnet.";
+        $this->selected = [];
+        $this->assignNodeId = null;
+    }
+
+    /**
+     * Nur als Wettbewerber markieren (ohne Knoten) — schiebt sie aus der Ablage
+     * in die Wettbewerber-Linse.
+     */
+    public function markCompetitor(): void
+    {
+        if (empty($this->selected)) {
+            return;
+        }
+
+        $teamId = (int) $this->seoSettings->team_id;
+        $ids = array_map('intval', $this->selected);
+        SeoUrl::whereIn('id', $ids)->where('team_id', $teamId)->update(['is_own' => false]);
+
+        $this->notice = count($ids).' URL(s) als Wettbewerber markiert.';
+        $this->selected = [];
     }
 
     public function render()
@@ -93,11 +157,18 @@ class SeoPerspective extends Component
                 break;
         }
 
+        // Root-only: Unterseiten nicht einzeln listen — man ordnet Seiten zu, die
+        // Kinder folgen. Hält Ablage & Perspektive handlungsrelevant.
+        $childUrlIds = SeoUrlRelationship::where('team_id', $teamId)
+            ->where('type', 'parent_child')
+            ->pluck('target_url_id')->all();
+
         $urls = collect();
         if (! empty($urlIds)) {
             $urls = SeoUrl::where('team_id', $teamId)
                 ->whereIn('id', $urlIds)
                 ->where('status', 'active')
+                ->when(! empty($childUrlIds), fn ($q) => $q->whereNotIn('id', $childUrlIds))
                 ->orderByDesc('visibility_score')
                 ->get();
 
@@ -130,6 +201,7 @@ class SeoPerspective extends Component
             'kpis' => $kpis,
             'relations' => $relations,
             'subPerspectives' => $subPerspectives,
+            'availableNodes' => $linker->availableNodes($teamId),
         ])->layout('platform::layouts.app');
     }
 
