@@ -25,7 +25,7 @@
 
         <div class="mb-6">
             <h1 class="text-lg font-semibold text-gray-900">{{ $heading ?: 'Perspektive' }}</h1>
-            <p class="text-[13px] text-gray-500 mt-0.5">{{ $subtitle }}@if($kpis['nodes']) · {{ $kpis['nodes'] }} Knoten@endif</p>
+            <p class="text-[13px] text-gray-500 mt-0.5">{{ $subtitle }}{{ $kpis['nodes'] ? ' · '.$kpis['nodes'].' Knoten' : '' }}</p>
         </div>
 
         {{-- Aggregierte KPIs (eigene URLs) --}}
