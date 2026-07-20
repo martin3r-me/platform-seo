@@ -23,7 +23,10 @@ Route::get('/recommendations', SeoRecommendations::class)->name('seo.recommendat
 Route::get('/clusters', SeoClusters::class)->name('seo.clusters');
 Route::get('/clusters/{cluster}', SeoClusterDetail::class)->name('seo.clusters.show');
 Route::get('/context/{entity}', SeoContextWorkspace::class)->name('seo.context');
+Route::get('/perspective/{entity}/rel/{relation}', SeoPerspective::class)->name('seo.perspective.relation');
 Route::get('/perspective/{entity}', SeoPerspective::class)->name('seo.perspective');
+Route::get('/quelle/{module}', SeoPerspective::class)->name('seo.perspective.source');
+Route::get('/eingang', SeoPerspective::class)->name('seo.perspective.unassigned');
 Route::get('/lists', SeoUrlListManager::class)->name('seo.lists');
 Route::get('/urls', SeoUrlExplorer::class)->name('seo.urls');
 Route::get('/competitors', SeoCompetitors::class)->name('seo.competitors');

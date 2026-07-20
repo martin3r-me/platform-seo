@@ -58,5 +58,25 @@
         @endif
     </div>
 
+    {{-- Quellen & Ablage: abgeleitete Perspektiven (Quelle/Status), keine URL-Listen --}}
+    @if($sourcePerspectives->isNotEmpty() || $unassignedCount > 0)
+        <x-ui-sidebar-list label="Quellen & Ablage">
+            @foreach($sourcePerspectives as $src)
+                <x-ui-sidebar-item wire:key="src-{{ $src['module'] }}" :href="route('seo.perspective.source', $src['module'])">
+                    @svg('heroicon-o-cube', 'w-4 h-4 text-[var(--ui-secondary)]')
+                    <span class="ml-2 text-sm">{{ $src['label'] }}</span>
+                    <x-slot name="trailing"><span class="text-[10px] tabular-nums text-[var(--ui-muted)] opacity-60">{{ $src['count'] }}</span></x-slot>
+                </x-ui-sidebar-item>
+            @endforeach
+            @if($unassignedCount > 0)
+                <x-ui-sidebar-item :href="route('seo.perspective.unassigned')">
+                    @svg('heroicon-o-inbox', 'w-4 h-4 text-[var(--ui-secondary)]')
+                    <span class="ml-2 text-sm">Nicht eingeordnet</span>
+                    <x-slot name="trailing"><span class="text-[10px] tabular-nums text-[var(--ui-muted)] opacity-60">{{ $unassignedCount }}</span></x-slot>
+                </x-ui-sidebar-item>
+            @endif
+        </x-ui-sidebar-list>
+    @endif
+
     @include('seo::partials.help-concept-modal')
 </div>

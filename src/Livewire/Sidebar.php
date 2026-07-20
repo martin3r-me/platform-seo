@@ -7,6 +7,7 @@ use Platform\Organization\Models\OrganizationEntity;
 use Platform\Organization\Services\EntityDimensionBridge;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
+use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
 
 class Sidebar extends Component
@@ -19,6 +20,8 @@ class Sidebar extends Component
         if (!$user || !$teamId) {
             return view('seo::livewire.sidebar', [
                 'entityTypeGroups' => collect(),
+                'sourcePerspectives' => collect(),
+                'unassignedCount' => 0,
             ]);
         }
 
@@ -221,11 +224,45 @@ class Sidebar extends Component
                 ->values();
         }
 
-        // Die Sidebar ist der reine, klickbare Baum: jeder Knoten/Typ ist eine
-        // Perspektive. URLs sind kein Sidebar-Element mehr — sie sind der Inhalt
-        // einer Perspektive (siehe SeoPerspective).
+        // Quellen & Ablage — als Perspektiven (nicht als URL-Listen):
+        //  - je Modul-Quelle (source_module != seo) ein Zähler → Quell-Perspektive
+        //  - Agentur-URLs ohne Knoten → „Nicht eingeordnet" (Ablage)
+        $ownerByUrl = [];
+        $ownIds = $urls->where('is_own', true)->pluck('id')->all();
+        if (! empty($ownIds)) {
+            foreach (SeoUrlRegistration::whereIn('url_id', $ownIds)
+                        ->where('source_module', '!=', 'seo')
+                        ->get(['url_id', 'source_module']) as $reg) {
+                $ownerByUrl[$reg->url_id] ??= $reg->source_module;
+            }
+        }
+
+        $moduleSources = [];
+        $unassignedCount = 0;
+        foreach ($urls as $url) {
+            if (! $url->is_own) {
+                continue;
+            }
+            $owner = $ownerByUrl[$url->id] ?? null;
+            if ($owner) {
+                $moduleSources[$owner] = ($moduleSources[$owner] ?? 0) + 1;
+            } elseif (! in_array($url->id, $linkedUrlIds)) {
+                $unassignedCount++;
+            }
+        }
+
+        $sourcePerspectives = collect($moduleSources)->map(fn ($count, $module) => [
+            'module' => $module,
+            'label' => config('seo.provenance.'.$module.'.label') ?? ucfirst($module),
+            'count' => $count,
+        ])->values();
+
+        // Die Sidebar ist der reine, klickbare Baum + Quellen/Ablage-Perspektiven.
+        // URLs sind kein Sidebar-Element — sie sind der Inhalt einer Perspektive.
         return view('seo::livewire.sidebar', [
             'entityTypeGroups' => $entityTypeGroups,
+            'sourcePerspectives' => $sourcePerspectives,
+            'unassignedCount' => $unassignedCount,
         ]);
     }
 }

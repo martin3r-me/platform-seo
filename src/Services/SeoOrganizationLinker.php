@@ -201,6 +201,107 @@ class SeoOrganizationLinker
     }
 
     /**
+     * Entitäten, die von einem Anker über einen Relationstyp (code) ausgehen —
+     * z.B. „provides_service_to" → die Kunden. Selektor der Perspektive. Guarded.
+     *
+     * @return int[]
+     */
+    public function relatedEntityIds(int $entityId, string $relationCode): array
+    {
+        $relClass = \Platform\Organization\Models\OrganizationEntityRelationship::class;
+        $typeClass = \Platform\Organization\Models\OrganizationEntityRelationType::class;
+        if (! class_exists($relClass) || ! class_exists($typeClass)) {
+            return [];
+        }
+
+        try {
+            $typeId = $typeClass::where('code', $relationCode)->value('id');
+            if (! $typeId) {
+                return [];
+            }
+
+            return $relClass::where('from_entity_id', $entityId)
+                ->where('relation_type_id', $typeId)
+                ->pluck('to_entity_id')
+                ->map(fn ($i) => (int) $i)
+                ->unique()->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Ausgehende Relationen eines Knotens (datengetriebenes Unter-Menü):
+     * welche Relationstypen hat dieser Knoten wirklich, mit wie vielen Zielen?
+     *
+     * @return array<int,array{code:string,name:string,count:int}>
+     */
+    public function availableRelations(int $entityId): array
+    {
+        $relClass = \Platform\Organization\Models\OrganizationEntityRelationship::class;
+        if (! class_exists($relClass)) {
+            return [];
+        }
+
+        try {
+            $rows = $relClass::where('from_entity_id', $entityId)
+                ->with('relationType:id,code,name')
+                ->get(['id', 'relation_type_id', 'to_entity_id']);
+
+            $byType = [];
+            foreach ($rows as $row) {
+                $type = $row->relationType;
+                if (! $type) {
+                    continue;
+                }
+                $byType[$type->code] ??= ['code' => $type->code, 'name' => $type->name, 'count' => 0];
+                $byType[$type->code]['count']++;
+            }
+
+            return array_values($byType);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function relationName(string $code): ?string
+    {
+        $typeClass = \Platform\Organization\Models\OrganizationEntityRelationType::class;
+        if (! class_exists($typeClass)) {
+            return null;
+        }
+        try {
+            return $typeClass::where('code', $code)->value('name');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Welche der gegebenen Record-IDs hängen an irgendeinem Knoten? (für „Ablage").
+     *
+     * @param  int[]  $ids
+     * @return int[]
+     */
+    public function linkedLinkableIds(string $morphAlias, array $ids): array
+    {
+        $bridge = $this->bridge();
+        if (! $bridge || empty($ids)) {
+            return [];
+        }
+        try {
+            $linked = [];
+            foreach ($bridge::linksForLinkables([$morphAlias], $ids) as $link) {
+                $linked[(int) $link->linkable_id] = true;
+            }
+
+            return array_keys($linked);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
      * Batch: Knoten (id + name) je Record — für Anzeige/Diagnose.
      *
      * @param  int[]  $ids

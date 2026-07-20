@@ -6,9 +6,9 @@
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
-            ['label' => $nodeName ?: ('Knoten #'.$entityId)],
+            ['label' => $heading ?: 'Perspektive'],
         ]">
-            @if(\Illuminate\Support\Facades\Route::has('organization.entities.show'))
+            @if($entityId && \Illuminate\Support\Facades\Route::has('organization.entities.show'))
                 <x-ui-button variant="secondary" size="sm" :href="route('organization.entities.show', $entityId)">
                     @svg('heroicon-o-arrow-top-right-on-square', 'w-4 h-4')
                     <span>Im Org-Baum öffnen</span>
@@ -24,8 +24,8 @@
     <x-ui-page-container>
 
         <div class="mb-6">
-            <h1 class="text-lg font-semibold text-gray-900">{{ $nodeName ?: ('Knoten #'.$entityId) }}</h1>
-            <p class="text-[13px] text-gray-500 mt-0.5">Perspektive über den ganzen Teilbaum — {{ $kpis['nodes'] }} Knoten, aggregiert. Alle hier verankerten URLs und ihre zentral gemessenen Werte.</p>
+            <h1 class="text-lg font-semibold text-gray-900">{{ $heading ?: 'Perspektive' }}</h1>
+            <p class="text-[13px] text-gray-500 mt-0.5">{{ $subtitle }}@if($kpis['nodes']) · {{ $kpis['nodes'] }} Knoten@endif</p>
         </div>
 
         {{-- Aggregierte KPIs (eigene URLs) --}}
@@ -57,17 +57,34 @@
             </div>
         </div>
 
-        {{-- Kind-Perspektiven: tiefer in den Baum --}}
-        @if(!empty($childPerspectives))
+        {{-- Relationen als Unter-Perspektiven (datengetrieben, z.B. „alle Kunden") --}}
+        @if(!empty($relations))
+            <div class="mb-6">
+                <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Relationen</h2>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($relations as $rel)
+                        <a href="{{ route('seo.perspective.relation', ['entity' => $entityId, 'relation' => $rel['code']]) }}" wire:navigate
+                           class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] bg-white border border-gray-200 text-gray-700 hover:border-indigo-300 hover:text-indigo-700 transition-colors">
+                            @svg('heroicon-o-arrows-right-left', 'w-3.5 h-3.5 text-gray-400')
+                            <span class="font-medium">{{ $rel['name'] }}</span>
+                            <span class="text-[10px] text-gray-400 tabular-nums">{{ $rel['count'] }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        {{-- Unter-Perspektiven (Kind-Knoten / Relationsziele) zum Weiterdrillen --}}
+        @if(!empty($subPerspectives))
             <div class="mb-8">
                 <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Unter-Perspektiven</h2>
                 <div class="flex flex-wrap gap-2">
-                    @foreach($childPerspectives as $child)
-                        <a href="{{ route('seo.perspective', $child['id']) }}" wire:navigate
+                    @foreach($subPerspectives as $sub)
+                        <a href="{{ route('seo.perspective', $sub['id']) }}" wire:navigate
                            class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] bg-white border border-gray-200 text-gray-700 hover:border-indigo-300 hover:text-indigo-700 transition-colors">
                             @svg('heroicon-o-rectangle-group', 'w-3.5 h-3.5 text-gray-400')
-                            <span class="font-medium">{{ $child['name'] ?: ('Knoten #'.$child['id']) }}</span>
-                            <span class="text-[10px] text-gray-400 tabular-nums">{{ $child['url_count'] }} URLs</span>
+                            <span class="font-medium">{{ $sub['name'] ?: ('Knoten #'.$sub['id']) }}</span>
+                            <span class="text-[10px] text-gray-400 tabular-nums">{{ $sub['url_count'] }} URLs</span>
                         </a>
                     @endforeach
                 </div>
@@ -116,7 +133,7 @@
                 </div>
             @else
                 <div class="p-8 text-center text-[13px] text-gray-400">
-                    Noch keine URLs in dieser Perspektive. Hänge im URL-Detail über „+ Kontext zuweisen" URLs an diesen Knoten (oder einen Unterknoten).
+                    Keine URLs in dieser Perspektive.
                 </div>
             @endif
         </div>
