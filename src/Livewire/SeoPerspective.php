@@ -2,8 +2,11 @@
 
 namespace Platform\Seo\Livewire;
 
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoKeywordCluster;
+use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
@@ -28,6 +31,9 @@ class SeoPerspective extends Component
     public ?string $module = null;
     public ?string $heading = null;
     public ?string $subtitle = null;
+
+    // Kontext-Tabs: die Linsen, gebunden an diese Perspektive.
+    public string $tab = 'overview';
 
     // Arbeitsplatz: Auswahl + Ziel-Knoten für Bulk-Zuweisung/Klassifizierung.
     public array $selected = [];
@@ -217,6 +223,45 @@ class SeoPerspective extends Component
             'visitors' => (int) $own->sum('visitors_30d'),
         ];
 
+        // Kontext-gebundene Tab-Daten: die „Linsen" gehören zu genau dieser Perspektive.
+        $ownUrlIds = $own->pluck('id')->all();
+        $competitors = collect();
+        $recommendations = collect();
+        $clusters = collect();
+
+        if ($this->tab === 'competitors' && ! empty($ownUrlIds)) {
+            $competitors = SeoUrl::where('team_id', $teamId)
+                ->where('is_own', false)
+                ->where('status', 'active')
+                ->whereHas('keywords', fn ($q) => $q->whereHas('urls', fn ($q2) => $q2->whereIn('seo_url_keywords.url_id', $ownUrlIds)))
+                ->selectRaw('domain, COUNT(*) as url_count, AVG(visibility_score) as avg_visibility, SUM(keyword_count) as total_keywords')
+                ->groupBy('domain')
+                ->orderByDesc('avg_visibility')
+                ->limit(30)
+                ->get();
+        }
+
+        if ($this->tab === 'recommendations' && ! empty($ownUrlIds)) {
+            $recommendations = SeoSignal::whereIn('url_id', $ownUrlIds)
+                ->where('signal_type', 'like', 'rec\_%')
+                ->where('status', '!=', 'resolved')
+                ->with('url:id,url,domain,path')
+                ->orderByDesc('detected_at')
+                ->limit(50)
+                ->get();
+        }
+
+        if ($this->tab === 'clusters' && ! empty($ownUrlIds)) {
+            $clusterIds = DB::table('seo_url_keywords as uk')
+                ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+                ->whereIn('uk.url_id', $ownUrlIds)
+                ->whereNotNull('k.cluster_id')
+                ->distinct()->pluck('k.cluster_id')->all();
+            if (! empty($clusterIds)) {
+                $clusters = SeoKeywordCluster::whereIn('id', $clusterIds)->orderByDesc('visibility')->get();
+            }
+        }
+
         return view('seo::livewire.seo-perspective', [
             'urls' => $urls,
             'kpis' => $kpis,
@@ -224,6 +269,9 @@ class SeoPerspective extends Component
             'subPerspectives' => $subPerspectives,
             'customerCount' => $customerCount,
             'availableNodes' => $linker->availableNodes($teamId),
+            'competitors' => $competitors,
+            'recommendations' => $recommendations,
+            'clusters' => $clusters,
         ])->layout('platform::layouts.app');
     }
 

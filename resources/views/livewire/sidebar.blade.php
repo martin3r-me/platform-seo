@@ -15,25 +15,9 @@
             @svg('heroicon-o-chart-bar-square', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Dashboard</span>
         </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('seo.recommendations')" :active="request()->routeIs('seo.recommendations')">
-            @svg('heroicon-o-light-bulb', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Empfehlungen</span>
-        </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('seo.clusters')" :active="request()->routeIs('seo.clusters*')">
-            @svg('heroicon-o-squares-2x2', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Cluster</span>
-        </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('seo.lists')" :active="request()->routeIs('seo.lists')">
-            @svg('heroicon-o-queue-list', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Listen</span>
-        </x-ui-sidebar-item>
         <x-ui-sidebar-item :href="route('seo.urls')" :active="request()->routeIs('seo.urls')">
             @svg('heroicon-o-globe-alt', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">URLs</span>
-        </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('seo.competitors')" :active="request()->routeIs('seo.competitors')">
-            @svg('heroicon-o-user-group', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Wettbewerber</span>
+            <span class="ml-2 text-sm">Alle URLs</span>
         </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
