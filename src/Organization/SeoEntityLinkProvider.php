@@ -149,7 +149,9 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             ->whereIn('id', $allIds)
             ->whereNull('deleted_at')
             ->select('id', 'visibility_score', 'keyword_count', 'total_search_volume',
-                'backlink_count', 'http_status', 'last_crawled_at', 'redirect_detected_at')
+                'backlink_count', 'referring_domains', 'backlink_rank', 'backlink_spam_score',
+                'llm_mentions', 'llm_ai_search_volume', 'visitors_30d',
+                'http_status', 'last_crawled_at', 'redirect_detected_at')
             ->get()
             ->keyBy('id');
 
@@ -181,6 +183,12 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             $keywords = 0;
             $searchVolume = 0;
             $backlinks = 0;
+            $referringDomains = 0;
+            $backlinkRank = 0;      // Autorität: Max über die URLs (Domain-Level)
+            $spamScore = 0;         // Worst-Case Spam über die URLs
+            $llmMentions = 0;
+            $aiSearchVolume = 0;
+            $visitors30d = 0;
             $signalsNew7d = 0;
             $signalsCriticalOpen = 0;
             $crawlErrors = 0;
@@ -197,6 +205,12 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 $keywords += (int) $url->keyword_count;
                 $searchVolume += (int) $url->total_search_volume;
                 $backlinks += (int) $url->backlink_count;
+                $referringDomains += (int) $url->referring_domains;
+                $backlinkRank = max($backlinkRank, (int) $url->backlink_rank);
+                $spamScore = max($spamScore, (int) $url->backlink_spam_score);
+                $llmMentions += (int) $url->llm_mentions;
+                $aiSearchVolume += (int) $url->llm_ai_search_volume;
+                $visitors30d += (int) $url->visitors_30d;
 
                 $signalsNew7d += (int) ($signalsNewByUrl[$id] ?? 0);
                 $signalsCriticalOpen += (int) ($criticalOpenByUrl[$id] ?? 0);
@@ -221,6 +235,12 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'seo_keywords' => $keywords,
                 'seo_search_volume' => $searchVolume,
                 'seo_backlinks' => $backlinks,
+                'seo_referring_domains' => $referringDomains,
+                'seo_backlink_rank' => $backlinkRank,
+                'seo_backlink_spam_score' => $spamScore,
+                'seo_llm_mentions' => $llmMentions,
+                'seo_ai_search_volume' => $aiSearchVolume,
+                'seo_visitors_30d' => $visitors30d,
                 'seo_signals_new_7d' => $signalsNew7d,
                 'seo_signals_critical_open' => $signalsCriticalOpen,
                 'seo_crawl_errors' => $crawlErrors,
@@ -454,6 +474,18 @@ class SeoEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
             'seo_keywords'      => ['label' => 'Ranking-Keywords', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
             'seo_search_volume' => ['label' => 'Suchvolumen', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
             'seo_backlinks'     => ['label' => 'Backlinks', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+
+            // Backlink-Autorität — akkumuliertes Organisationskapital.
+            'seo_referring_domains'   => ['label' => 'Referring Domains', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'org_capital', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_backlink_rank'       => ['label' => 'Backlink-Rank (Autorität)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'score', 'dimension' => 'org_capital', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'roll_up_function' => 'max', 'basis' => 'stichtag'],
+            'seo_backlink_spam_score' => ['label' => 'Backlink-Spam-Score', 'group' => 'seo', 'direction' => 'down', 'unit' => 'score', 'dimension' => 'quality', 'type' => 'modulator', 'aggregation_mode' => 'rolled_up', 'roll_up_function' => 'max', 'basis' => 'stichtag'],
+
+            // AI-Auffindbarkeit — Sichtbarkeit in LLM-Antworten.
+            'seo_llm_mentions'    => ['label' => 'LLM Mentions', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+            'seo_ai_search_volume' => ['label' => 'AI Search Volume', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'stock', 'aggregation_mode' => 'rolled_up', 'basis' => 'stichtag'],
+
+            // Traffic — tatsächlicher Besucherfluss.
+            'seo_visitors_30d'    => ['label' => 'Visitors (30 Tage)', 'group' => 'seo', 'direction' => 'up', 'unit' => 'count', 'dimension' => 'throughput', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_30d'],
 
             // Neu — Sichtbarkeits-Puls: Delta-Signale und Qualitaets-Indikatoren.
             'seo_signals_new_7d'         => ['label' => 'Neue SEO-Signale (7 Tage)', 'group' => 'seo', 'direction' => 'neutral', 'unit' => 'count', 'dimension' => 'potential', 'type' => 'flow', 'aggregation_mode' => 'rolled_up', 'basis' => 'window_7d'],
