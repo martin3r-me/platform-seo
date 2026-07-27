@@ -16,8 +16,9 @@ use Platform\Seo\Models\SeoUrlBacklink;
  * Konsumiert den bestehenden DataForSeoApiService (Integrations-Modul) — kein
  * eigener API-Client. Pro URL wird das Referring-Domain-Profil (ein Backlink je
  * verweisender Domain) via DataForSEO Backlinks-API geholt und in seo_url_backlinks
- * persistiert. Die denormalisierte backlink_count auf der URL wird aus der echten
- * Gesamtzahl (total_count) der API gesetzt.
+ * persistiert. Zusätzlich liefert ein Summary-Call die Domain-Autoritäts-Signale
+ * (referring_domains, rank, Spam-Score, broken_backlinks), die denormalisiert auf
+ * der URL gespeichert werden.
  */
 class BacklinkCollector implements SeoCollectorInterface
 {
@@ -113,14 +114,29 @@ class BacklinkCollector implements SeoCollectorInterface
                 );
             }
 
-            // Denormalisierte Gesamtzahl aus der echten API-Zählung.
+            // Domain-Autoritäts-Summary (ein günstiger Aggregat-Call) — liefert
+            // referring_domains, rank, Spam-Score und broken_backlinks.
+            $summary = [];
+            try {
+                $summary = $api->getBacklinksSummary(null, $url->url);
+            } catch (\Throwable $e) {
+                $errors[] = "summary {$url->url}: ".$e->getMessage();
+            }
+
+            // Denormalisierte Aggregate auf der URL. backlink_count bevorzugt aus
+            // dem Summary (konsistenter), sonst aus der Backlinks-Zählung.
             $url->update([
-                'backlink_count' => (int) ($result['total_count'] ?? count($result['items'] ?? [])),
+                'backlink_count' => (int) ($summary['backlinks'] ?? $result['total_count'] ?? count($result['items'] ?? [])),
+                'referring_domains' => isset($summary['referring_domains']) ? (int) $summary['referring_domains'] : null,
+                'backlink_rank' => isset($summary['rank']) ? (int) $summary['rank'] : null,
+                'backlink_spam_score' => isset($summary['backlinks_spam_score']) ? (int) $summary['backlinks_spam_score'] : null,
+                'broken_backlinks' => isset($summary['broken_backlinks']) ? (int) $summary['broken_backlinks'] : null,
+                'backlinks_fetched_at' => now(),
             ]);
             $url->setCollectorTimestamp($this->key());
 
             $processed++;
-            $totalCost += $costPerUrl;
+            $totalCost += $costPerUrl + (int) config('seo.cost_estimates.backlinks_summary', 2);
         }
 
         if (! empty($errors)) {

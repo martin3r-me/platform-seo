@@ -207,6 +207,7 @@ return [
         'competitors' => 10,
         'on_page' => 15,
         'backlinks' => 15,
+        'backlinks_summary' => 2,
     ],
 
     /*
