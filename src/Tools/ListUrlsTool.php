@@ -218,6 +218,8 @@ class ListUrlsTool implements ToolContract
                         'backlink_count' => $u->backlink_count + $children->sum('backlink_count'),
                         'referring_domains' => $u->referring_domains,
                         'backlink_rank' => $u->backlink_rank,
+                        'visitors_30d' => $u->visitors_30d + $children->sum('visitors_30d'),
+                        'pageviews_30d' => $u->pageviews_30d + $children->sum('pageviews_30d'),
                         'child_count' => $children->count(),
                         'last_crawled_at' => $u->last_crawled_at?->toIso8601String(),
                     ];
@@ -309,6 +311,9 @@ class ListUrlsTool implements ToolContract
                 'backlinks_fetched_at' => $url->backlinks_fetched_at?->toIso8601String(),
                 'plausible_enabled' => $url->plausible_enabled,
                 'plausible_site_id' => $url->plausible_site_id,
+                'visitors_30d' => $url->visitors_30d,
+                'pageviews_30d' => $url->pageviews_30d,
+                'traffic_fetched_at' => $url->traffic_fetched_at?->toIso8601String(),
                 'redirect_url' => $url->redirect_url,
                 'last_crawled_at' => $url->last_crawled_at?->toIso8601String(),
                 'meta' => $url->meta,

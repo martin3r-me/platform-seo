@@ -109,9 +109,11 @@ class PlausibleCollector implements SeoCollectorInterface
             }
             $siteId = $root->plausible_site_id ?: $domain;
 
-            // Pfad → SeoUrl-Lookup für schnelles Matching.
+            // Pfad → SeoUrl-Lookup über den GESAMTEN eigenen Bestand der Domain
+            // (nicht nur die aktuelle Batch), damit bestehende Pfade sicher erkannt
+            // und nicht fälschlich als "neu entdeckt" angelegt/getaggt werden.
             $urlByPath = [];
-            foreach ($domainUrls as $url) {
+            foreach (SeoUrl::where('team_id', $team->id)->where('is_own', true)->where('domain', $domain)->get() as $url) {
                 $urlByPath[$this->normalizePath($url->path)] = $url;
             }
 
