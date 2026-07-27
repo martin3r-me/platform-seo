@@ -36,7 +36,7 @@ class EnrichUrlTool implements ToolContract
                 'collectors' => [
                     'type' => 'array',
                     'items' => ['type' => 'string'],
-                    'description' => 'Nur bestimmte Collectors ausführen (on_page, serp_ranking, keyword_metrics, gsc, backlinks)',
+                    'description' => 'Nur bestimmte Collectors ausführen (on_page, serp_ranking, keyword_metrics, gsc, backlinks, plausible, llm_mentions)',
                 ],
                 'force' => [
                     'type' => 'boolean',

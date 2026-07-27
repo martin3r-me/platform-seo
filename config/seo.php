@@ -208,6 +208,7 @@ return [
         'on_page' => 15,
         'backlinks' => 15,
         'backlinks_summary' => 2,
+        'llm_mentions' => 40,
     ],
 
     /*
@@ -222,6 +223,7 @@ return [
         \Platform\Seo\Collectors\BacklinkCollector::class,
         \Platform\Seo\Collectors\OnPageCollector::class,
         \Platform\Seo\Collectors\PlausibleCollector::class,
+        \Platform\Seo\Collectors\LlmMentionsCollector::class,
     ],
 
     /*
@@ -248,6 +250,7 @@ return [
         'backlinks' => 336,          // bi-weekly
         'on_page' => 336,            // bi-weekly
         'plausible' => 24,           // daily
+        'llm_mentions' => 720,       // ~monatlich (teuer, wenig volatil)
     ],
 
     /*
