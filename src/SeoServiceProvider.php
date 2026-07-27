@@ -180,6 +180,15 @@ class SeoServiceProvider extends ServiceProvider
             ->withoutOverlapping()
             ->runInBackground();
 
+        // Täglich 03:30 — nur Plausible-Traffic. Kostenfrei (self-hosted) und
+        // täglich sinnvoll, daher entkoppelt von der 2-wöchentlichen (teuren)
+        // DataForSEO-Pipeline. Der Collector gleicht den eigenen URL-Bestand
+        // gegen Plausible ab und reichert die Domains an, die dort Daten haben.
+        Schedule::command('seo:pipeline --collector=plausible')
+            ->dailyAt('03:30')
+            ->withoutOverlapping()
+            ->runInBackground();
+
         // Täglich 04:00 — Cluster-Erfolgsmessung (reine DB-Aggregation, keine API-Kosten)
         Schedule::command('seo:snapshot-clusters')
             ->dailyAt('04:00')
