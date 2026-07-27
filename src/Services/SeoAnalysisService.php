@@ -39,12 +39,20 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
     // Internal methods (team-based, used by UI)
     // =========================================================================
 
-    public function getKeywordSummary(int $teamId): array
+    public function getKeywordSummary(int $teamId, ?string $domain = null): array
     {
-        $keywords = SeoKeyword::where('team_id', $teamId)->get();
+        $query = SeoKeyword::where('team_id', $teamId);
+        if ($domain !== null && $domain !== '') {
+            $query->whereHas('urls', function ($q) use ($domain) {
+                $q->where('seo_urls.domain', $domain)
+                    ->orWhere('seo_urls.domain', 'like', '%.' . $domain);
+            });
+        }
+        $keywords = $query->get();
         $clustersCount = SeoKeywordCluster::where('team_id', $teamId)->count();
 
         return [
+            'domain' => $domain ?: null,
             'total_keywords' => $keywords->count(),
             'clusters_count' => $clustersCount,
             'avg_search_volume' => (int) $keywords->avg('search_volume'),

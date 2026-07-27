@@ -16,7 +16,7 @@ class ListKeywordsTool implements ToolContract
 
     public function getDescription(): string
     {
-        return 'GET /seo/keywords - Listet Keywords des Teams. Optional: search, cluster_id, search_intent (informational/navigational/commercial/transactional), min_volume, max_volume, has_position (true/false), sort (search_volume/keyword_difficulty/position), sort_dir, limit, offset. keyword_id für Detail.';
+        return 'GET /seo/keywords - Listet Keywords des Teams. Optional: search, domain (nur Keywords, für die eine URL dieser Domain rankt), url_id (Keywords einer bestimmten URL), cluster_id, search_intent (informational/navigational/commercial/transactional), min_volume, max_volume, has_position (true/false), sort (search_volume/keyword_difficulty/keyword/competition/cpc_cents/last_fetched_at), sort_dir (asc/desc), limit, offset. keyword_id für Detail.';
     }
 
     public function getSchema(): array
@@ -29,6 +29,14 @@ class ListKeywordsTool implements ToolContract
                     'description' => 'Detail eines Keywords mit Positionen, URLs, Trend-Daten',
                 ],
                 'search' => ['type' => 'string'],
+                'domain' => [
+                    'type' => 'string',
+                    'description' => 'Nur Keywords, für die eine URL dieser Domain rankt (z.B. "tm-foodsolutions.de"). Schema/www werden ignoriert; Subdomains sind eingeschlossen.',
+                ],
+                'url_id' => [
+                    'type' => 'integer',
+                    'description' => 'Nur Keywords, die mit dieser URL verknüpft sind.',
+                ],
                 'cluster_id' => ['type' => 'integer'],
                 'search_intent' => [
                     'type' => 'string',
@@ -42,7 +50,7 @@ class ListKeywordsTool implements ToolContract
                 ],
                 'sort' => [
                     'type' => 'string',
-                    'enum' => ['search_volume', 'keyword_difficulty', 'keyword', 'competition'],
+                    'enum' => ['search_volume', 'keyword_difficulty', 'keyword', 'competition', 'cpc_cents', 'last_fetched_at'],
                 ],
                 'sort_dir' => [
                     'type' => 'string',
@@ -72,6 +80,17 @@ class ListKeywordsTool implements ToolContract
             if (!empty($arguments['search'])) {
                 $query->where('keyword', 'like', '%' . $arguments['search'] . '%');
             }
+            $domain = $this->normalizeDomain($arguments['domain'] ?? null);
+            if ($domain !== null) {
+                $query->whereHas('urls', function ($q) use ($domain) {
+                    $q->where('seo_urls.domain', $domain)
+                        ->orWhere('seo_urls.domain', 'like', '%.' . $domain);
+                });
+            }
+            if (!empty($arguments['url_id'])) {
+                $urlId = (int) $arguments['url_id'];
+                $query->whereHas('urls', fn ($q) => $q->where('seo_urls.id', $urlId));
+            }
             if (!empty($arguments['cluster_id'])) {
                 $query->where('cluster_id', (int) $arguments['cluster_id']);
             }
@@ -92,8 +111,7 @@ class ListKeywordsTool implements ToolContract
                 }
             }
 
-            $sort = $arguments['sort'] ?? 'search_volume';
-            $dir = $arguments['sort_dir'] ?? 'desc';
+            [$sort, $dir] = $this->normalizeSort($arguments['sort'] ?? null, $arguments['sort_dir'] ?? null);
             $query->orderBy($sort, $dir);
 
             $limit = min((int) ($arguments['limit'] ?? 50), 200);
@@ -102,10 +120,27 @@ class ListKeywordsTool implements ToolContract
 
             $keywords = $query->with(['cluster', 'urls'])->skip($offset)->take($limit)->get();
 
+            $urlIdFilter = !empty($arguments['url_id']) ? (int) $arguments['url_id'] : null;
+
             return ToolResult::success([
-                'keywords' => $keywords->map(function (SeoKeyword $kw) {
-                    // Beste Position über alle URLs
-                    $bestUrl = $kw->urls->sortBy('pivot.position')->first();
+                'keywords' => $keywords->map(function (SeoKeyword $kw) use ($domain, $urlIdFilter) {
+                    // Beste Position bevorzugt aus den gefilterten URLs (Domain/url_id),
+                    // damit die gemeldete Position zur Anfrage passt und nicht zu einer Fremd-Domain.
+                    $urls = $kw->urls;
+                    if ($domain !== null) {
+                        $scoped = $urls->filter(fn ($u) => $u->domain === $domain || str_ends_with((string) $u->domain, '.' . $domain));
+                        if ($scoped->isNotEmpty()) {
+                            $urls = $scoped;
+                        }
+                    }
+                    if ($urlIdFilter !== null) {
+                        $scoped = $urls->filter(fn ($u) => (int) $u->id === $urlIdFilter);
+                        if ($scoped->isNotEmpty()) {
+                            $urls = $scoped;
+                        }
+                    }
+                    // Beste (niedrigste) Position; URLs ohne Position ans Ende.
+                    $bestUrl = $urls->sortBy(fn ($u) => $u->pivot?->position ?? PHP_INT_MAX)->first();
 
                     $result = [
                         'id' => $kw->id,
@@ -133,6 +168,65 @@ class ListKeywordsTool implements ToolContract
         } catch (\Throwable $e) {
             return ToolResult::error('Fehler: ' . $e->getMessage(), 'EXECUTION_ERROR');
         }
+    }
+
+    /**
+     * Normalisiert eine Domain-Eingabe: entfernt Schema, Pfad und führendes "www.".
+     * Gibt null zurück, wenn nichts Sinnvolles übrig bleibt.
+     */
+    private function normalizeDomain(mixed $input): ?string
+    {
+        if (!is_string($input) || trim($input) === '') {
+            return null;
+        }
+        $host = strtolower(trim($input));
+        $host = preg_replace('#^[a-z]+://#', '', $host);   // Schema weg
+        $host = explode('/', $host, 2)[0];                  // Pfad weg
+        $host = preg_replace('#^www\.#', '', $host);        // führendes www weg
+        $host = trim($host);
+
+        return $host !== '' ? $host : null;
+    }
+
+    /**
+     * Robuste Sort-Normalisierung. Akzeptiert:
+     *  - String "search_volume"
+     *  - String "search_volume:desc"
+     *  - Array [{"field":"search_volume","dir":"desc"}] oder ["search_volume"]
+     * und fällt bei ungültiger Spalte sicher auf search_volume/desc zurück
+     * (verhindert SQL-Fehler und Spalten-Injection via orderBy).
+     *
+     * @return array{0:string,1:string}
+     */
+    private function normalizeSort(mixed $sort, mixed $sortDir): array
+    {
+        $allowed = ['search_volume', 'keyword_difficulty', 'keyword', 'competition', 'cpc_cents', 'last_fetched_at'];
+        $dir = strtolower((string) ($sortDir ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        // Array-Form von MCP-Clients defensiv entpacken
+        if (is_array($sort)) {
+            $first = $sort[0] ?? null;
+            if (is_array($first)) {
+                $dir = strtolower((string) ($first['dir'] ?? $dir)) === 'asc' ? 'asc' : 'desc';
+                $sort = $first['field'] ?? null;
+            } else {
+                $sort = $first;
+            }
+        }
+
+        $sort = is_string($sort) ? trim($sort) : '';
+        // "field:dir"-Kurzform
+        if (str_contains($sort, ':')) {
+            [$field, $maybeDir] = explode(':', $sort, 2);
+            $sort = trim($field);
+            if ($maybeDir !== '') {
+                $dir = strtolower(trim($maybeDir)) === 'asc' ? 'asc' : 'desc';
+            }
+        }
+
+        $sort = in_array($sort, $allowed, true) ? $sort : 'search_volume';
+
+        return [$sort, $dir];
     }
 
     private function getDetail(int $keywordId, int $teamId): ToolResult

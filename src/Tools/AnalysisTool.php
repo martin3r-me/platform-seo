@@ -33,6 +33,10 @@ class AnalysisTool implements ToolContract
                     'type' => 'integer',
                     'description' => 'Zeitraum für ranking_trends (Standard: 30)',
                 ],
+                'domain' => [
+                    'type' => 'string',
+                    'description' => 'Optional: schränkt die "summary"-Analyse auf Keywords ein, für die eine URL dieser Domain rankt (z.B. "tm-foodsolutions.de"). Wird bei anderen Typen ignoriert.',
+                ],
             ],
             'required' => ['type'],
         ];
@@ -65,7 +69,7 @@ class AnalysisTool implements ToolContract
                 'content_gaps' => $service->getContentGaps($team->id),
                 'cluster_health' => $service->getClusterHealth($team->id),
                 'defend' => $service->getDefend($team->id),
-                'summary' => $service->getKeywordSummary($team->id),
+                'summary' => $service->getKeywordSummary($team->id, $this->normalizeDomain($arguments['domain'] ?? null)),
                 default => null,
             };
 
@@ -81,5 +85,22 @@ class AnalysisTool implements ToolContract
         } catch (\Throwable $e) {
             return ToolResult::error('Fehler: ' . $e->getMessage(), 'EXECUTION_ERROR');
         }
+    }
+
+    /**
+     * Normalisiert eine Domain-Eingabe: entfernt Schema, Pfad und führendes "www.".
+     */
+    private function normalizeDomain(mixed $input): ?string
+    {
+        if (!is_string($input) || trim($input) === '') {
+            return null;
+        }
+        $host = strtolower(trim($input));
+        $host = preg_replace('#^[a-z]+://#', '', $host);
+        $host = explode('/', $host, 2)[0];
+        $host = preg_replace('#^www\.#', '', $host);
+        $host = trim($host);
+
+        return $host !== '' ? $host : null;
     }
 }
