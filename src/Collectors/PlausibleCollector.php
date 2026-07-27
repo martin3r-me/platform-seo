@@ -9,6 +9,8 @@ use Platform\Integrations\Services\PlausibleApiService;
 use Platform\Seo\Contracts\SeoCollectorInterface;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRegistration;
+use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Models\SeoUrlTraffic;
 
 /**
@@ -79,16 +81,15 @@ class PlausibleCollector implements SeoCollectorInterface
 
         // Manuelles Opt-in: nur Domains sammeln, die am Parent aktiviert wurden.
         // Kein Blind-Probing (das lieferte für die meisten Domains 401). Map:
-        // normalisierte Domain => Plausible-site_id (plausible_site_id ?? Domain).
-        $enabledSiteIds = SeoUrl::where('team_id', $team->id)
+        // normalisierte Domain => aktivierte Root-URL (dient als Parent für neu
+        // entdeckte Pfade). site_id = plausible_site_id ?? Domain.
+        $enabledRoots = SeoUrl::where('team_id', $team->id)
             ->where('is_own', true)
             ->where('plausible_enabled', true)
-            ->get(['domain', 'plausible_site_id'])
-            ->mapWithKeys(fn (SeoUrl $u) => [
-                $this->normalizeDomain($u->domain) => ($u->plausible_site_id ?: $this->normalizeDomain($u->domain)),
-            ]);
+            ->get()
+            ->keyBy(fn (SeoUrl $u) => $this->normalizeDomain($u->domain));
 
-        if ($enabledSiteIds->isEmpty()) {
+        if ($enabledRoots->isEmpty()) {
             return ['processed' => 0, 'cost_cents' => 0, 'errors' => []];
         }
 
@@ -102,10 +103,11 @@ class PlausibleCollector implements SeoCollectorInterface
 
         foreach ($urlsByDomain as $domain => $domainUrls) {
             // Nur aktivierte Domains — der Rest wird still übersprungen.
-            if (! $enabledSiteIds->has($domain)) {
+            $root = $enabledRoots->get($domain);
+            if (! $root) {
                 continue;
             }
-            $siteId = $enabledSiteIds->get($domain);
+            $siteId = $root->plausible_site_id ?: $domain;
 
             // Pfad → SeoUrl-Lookup für schnelles Matching.
             $urlByPath = [];
@@ -129,12 +131,18 @@ class PlausibleCollector implements SeoCollectorInterface
 
             foreach ($breakdown['results'] ?? [] as $row) {
                 $path = $this->normalizePath($row['page'] ?? null);
-                if ($path === null || ! isset($urlByPath[$path])) {
-                    continue; // Seite ohne getrackte SeoUrl
+                if ($path === null) {
+                    continue;
                 }
 
+                // Von Plausible entdeckte Seite, die wir (z.B. mangels Indexierung)
+                // noch nicht kennen → als Kind-URL mit Parent-Bezug anlegen.
                 /** @var SeoUrl $url */
-                $url = $urlByPath[$path];
+                $url = $urlByPath[$path] ?? null;
+                if (! $url) {
+                    $url = $this->ensureChildUrl($root, $domain, $path);
+                    $urlByPath[$path] = $url;
+                }
 
                 SeoUrlTraffic::updateOrCreate(
                     ['url_id' => $url->id, 'date' => $date, 'source' => 'plausible'],
@@ -188,6 +196,59 @@ class PlausibleCollector implements SeoCollectorInterface
             'pageviews_30d' => (int) ($agg->p ?? 0),
             'traffic_fetched_at' => now(),
         ]);
+    }
+
+    /**
+     * Legt eine von Plausible entdeckte Seite als eigene Kind-URL an und hängt
+     * sie an die aktivierte Root-URL (parent_child). Herkunft wird als
+     * source_module="plausible" registriert. Idempotent via firstOrCreate.
+     */
+    protected function ensureChildUrl(SeoUrl $root, string $domain, string $path): SeoUrl
+    {
+        $normalizedUrl = SeoUrl::normalizeUrl($domain . $path);
+
+        $child = SeoUrl::firstOrCreate(
+            [
+                'team_id' => $root->team_id,
+                'url_hash' => SeoUrl::hashUrl($normalizedUrl),
+            ],
+            [
+                'url' => $normalizedUrl,
+                'domain' => $domain,
+                'is_own' => true,
+                'status' => 'active',
+                'priority' => 50,
+            ],
+        );
+
+        // Herkunft kennzeichnen: von Plausible entdeckt.
+        SeoUrlRegistration::firstOrCreate(
+            [
+                'url_id' => $child->id,
+                'source_module' => 'plausible',
+                'source_type' => 'traffic',
+            ],
+            [
+                'reason' => 'Von Plausible entdeckt (Traffic-Pfad ohne bestehende URL)',
+            ],
+        );
+
+        // Parent-Child-Beziehung zur aktivierten Root-URL.
+        if ($child->id !== $root->id) {
+            SeoUrlRelationship::firstOrCreate(
+                [
+                    'source_url_id' => $root->id,
+                    'target_url_id' => $child->id,
+                    'type' => 'parent_child',
+                ],
+                [
+                    'team_id' => $root->team_id,
+                    'detected_at' => now(),
+                ],
+            );
+        }
+
+        return $child;
     }
 
     protected function normalizeDomain(?string $domain): string
