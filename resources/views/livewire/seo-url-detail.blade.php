@@ -86,7 +86,7 @@
                 </div>
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
                     <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Traffic (30T)</div>
-                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($seoUrl->visitors_30d) }}</div>
+                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggVisitors) }}</div>
                     @if($seoUrl->traffic_fetched_at)
                         <div class="text-[10px] text-gray-400 mt-1">Plausible · {{ $seoUrl->traffic_fetched_at->format('d.m.Y') }}</div>
                     @endif
@@ -96,7 +96,7 @@
             {{-- Tabs --}}
             <div>
                 <div class="flex items-center gap-1 border-b border-gray-200 mb-6">
-                    @foreach(['keywords' => 'Keywords', 'rankings' => 'Rankings', 'backlinks' => 'Backlinks', 'onpage' => 'On-Page', 'gsc' => 'GSC', 'relationships' => 'Beziehungen'] as $tab => $label)
+                    @foreach(['keywords' => 'Keywords', 'rankings' => 'Rankings', 'backlinks' => 'Backlinks', 'onpage' => 'On-Page', 'gsc' => 'GSC', 'plausible' => 'Plausible', 'relationships' => 'Beziehungen'] as $tab => $label)
                         <button wire:click="setTab('{{ $tab }}')"
                                 class="px-4 py-3 text-[13px] font-medium transition-colors {{ $activeTab === $tab ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700' }}">
                             {{ $label }}
@@ -430,6 +430,71 @@
                     @else
                         <div class="p-8 text-center text-[13px] text-gray-400">Keine Beziehungen.</div>
                     @endif
+                @endif
+
+                {{-- Plausible Tab — manuelles Opt-in + Traffic pro Pfad (rollt auf Parent) --}}
+                @if($activeTab === 'plausible')
+                    <div class="space-y-6">
+                        {{-- Opt-in-Schalter: wir wissen, welche Domains in Plausible liegen --}}
+                        <div class="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4">
+                            <div>
+                                <div class="text-[13px] font-medium text-gray-900">Plausible für <span class="font-semibold">{{ $seoUrl->domain }}</span></div>
+                                <div class="text-[12px] text-gray-500 mt-0.5">
+                                    @if($seoUrl->plausible_enabled)
+                                        Aktiv — der tägliche Collector holt Traffic für diese Domain.
+                                    @else
+                                        Inaktiv — anhaken, wenn diese Domain in Plausible getrackt wird.
+                                    @endif
+                                </div>
+                            </div>
+                            <button wire:click="togglePlausible"
+                                    class="px-3.5 py-2 text-[13px] font-medium rounded-md transition-colors {{ $seoUrl->plausible_enabled ? 'bg-[#166EE1] text-white hover:bg-[#1259bd]' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                {{ $seoUrl->plausible_enabled ? 'Aktiviert ✓' : 'Aktivieren' }}
+                            </button>
+                        </div>
+
+                        {{-- Roll-up: Domain-Total (Parent + Kinder) --}}
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Visitors (30T)</div>
+                                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggVisitors) }}</div>
+                            </div>
+                            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Pageviews (30T)</div>
+                                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggPageviews) }}</div>
+                            </div>
+                        </div>
+
+                        {{-- Pfad-Ebene: Traffic pro URL (Parent + Kind-Pfade) --}}
+                        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <table class="w-full text-[13px]">
+                                <thead class="bg-gray-50 text-gray-500">
+                                    <tr>
+                                        <th class="px-4 py-2.5 text-left font-medium">Pfad</th>
+                                        <th class="px-4 py-2.5 text-right font-medium">Visitors (30T)</th>
+                                        <th class="px-4 py-2.5 text-right font-medium">Pageviews (30T)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <tr class="bg-gray-50/40">
+                                        <td class="px-4 py-2.5 font-medium text-gray-900">{{ $seoUrl->path ?: '/' }}</td>
+                                        <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($seoUrl->visitors_30d) }}</td>
+                                        <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($seoUrl->pageviews_30d) }}</td>
+                                    </tr>
+                                    @foreach($childUrls->sortByDesc('visitors_30d') as $child)
+                                        <tr>
+                                            <td class="px-4 py-2.5 text-gray-700">{{ $child->path ?: '/' }}</td>
+                                            <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($child->visitors_30d) }}</td>
+                                            <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($child->pageviews_30d) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                            @if($seoUrl->traffic_fetched_at)
+                                <div class="px-4 py-2 text-[11px] text-gray-400 border-t border-gray-100">Zuletzt aktualisiert: {{ $seoUrl->traffic_fetched_at->format('d.m.Y H:i') }} · Quelle Plausible</div>
+                            @endif
+                        </div>
+                    </div>
                 @endif
             </div>
         </div>

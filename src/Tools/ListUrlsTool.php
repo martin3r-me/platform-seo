@@ -307,6 +307,8 @@ class ListUrlsTool implements ToolContract
                 'backlink_spam_score' => $url->backlink_spam_score,
                 'broken_backlinks' => $url->broken_backlinks,
                 'backlinks_fetched_at' => $url->backlinks_fetched_at?->toIso8601String(),
+                'plausible_enabled' => $url->plausible_enabled,
+                'plausible_site_id' => $url->plausible_site_id,
                 'redirect_url' => $url->redirect_url,
                 'last_crawled_at' => $url->last_crawled_at?->toIso8601String(),
                 'meta' => $url->meta,

@@ -40,6 +40,8 @@ class SeoUrl extends Model
         'visitors_30d',
         'pageviews_30d',
         'traffic_fetched_at',
+        'plausible_enabled',
+        'plausible_site_id',
         'redirect_url',
         'redirect_detected_at',
         'meta',
@@ -64,6 +66,7 @@ class SeoUrl extends Model
         'visitors_30d' => 'integer',
         'pageviews_30d' => 'integer',
         'traffic_fetched_at' => 'datetime',
+        'plausible_enabled' => 'boolean',
         'redirect_detected_at' => 'datetime',
         'meta' => 'array',
     ];

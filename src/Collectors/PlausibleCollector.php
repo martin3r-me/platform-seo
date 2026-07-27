@@ -77,6 +77,21 @@ class PlausibleCollector implements SeoCollectorInterface
             return ['processed' => 0, 'cost_cents' => 0, 'errors' => []];
         }
 
+        // Manuelles Opt-in: nur Domains sammeln, die am Parent aktiviert wurden.
+        // Kein Blind-Probing (das lieferte für die meisten Domains 401). Map:
+        // normalisierte Domain => Plausible-site_id (plausible_site_id ?? Domain).
+        $enabledSiteIds = SeoUrl::where('team_id', $team->id)
+            ->where('is_own', true)
+            ->where('plausible_enabled', true)
+            ->get(['domain', 'plausible_site_id'])
+            ->mapWithKeys(fn (SeoUrl $u) => [
+                $this->normalizeDomain($u->domain) => ($u->plausible_site_id ?: $this->normalizeDomain($u->domain)),
+            ]);
+
+        if ($enabledSiteIds->isEmpty()) {
+            return ['processed' => 0, 'cost_cents' => 0, 'errors' => []];
+        }
+
         // Vortag (letzter vollständiger Tag) — baut die Tages-Historie vorwärts auf.
         $date = now()->subDay()->toDateString();
         $processed = 0;
@@ -86,6 +101,12 @@ class PlausibleCollector implements SeoCollectorInterface
         $urlsByDomain = $ownUrls->groupBy(fn (SeoUrl $url) => $this->normalizeDomain($url->domain));
 
         foreach ($urlsByDomain as $domain => $domainUrls) {
+            // Nur aktivierte Domains — der Rest wird still übersprungen.
+            if (! $enabledSiteIds->has($domain)) {
+                continue;
+            }
+            $siteId = $enabledSiteIds->get($domain);
+
             // Pfad → SeoUrl-Lookup für schnelles Matching.
             $urlByPath = [];
             foreach ($domainUrls as $url) {
@@ -94,7 +115,7 @@ class PlausibleCollector implements SeoCollectorInterface
 
             try {
                 $breakdown = $api->getBreakdown(null, [
-                    'site_id' => $domain,
+                    'site_id' => $siteId,
                     'property' => 'event:page',
                     'period' => 'day',
                     'date' => $date,

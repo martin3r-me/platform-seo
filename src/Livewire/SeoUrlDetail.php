@@ -45,6 +45,18 @@ class SeoUrlDetail extends Component
         $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
     }
 
+    /**
+     * Plausible für diese Domain aktivieren/deaktivieren (manuelles Opt-in).
+     * Der Collector sammelt danach nur noch aktivierte Domains — kein Probing.
+     */
+    public function togglePlausible(): void
+    {
+        $this->seoUrl->update([
+            'plausible_enabled' => ! $this->seoUrl->plausible_enabled,
+        ]);
+        $this->seoUrl->refresh();
+    }
+
     public function setCompetitorDepth(int $keywordId, ?int $depth): void
     {
         $keyword = SeoKeyword::findOrFail($keywordId);
@@ -160,6 +172,10 @@ class SeoUrlDetail extends Component
         $aggVisibility = (float) $this->seoUrl->visibility_score + (float) $childUrls->sum('visibility_score');
         $aggBacklinks = $this->seoUrl->backlink_count + $childUrls->sum('backlink_count');
 
+        // Traffic rollt auf: Parent-Zeile + Summe der Kind-Pfade (30 Tage).
+        $aggVisitors = $this->seoUrl->visitors_30d + $childUrls->sum('visitors_30d');
+        $aggPageviews = $this->seoUrl->pageviews_30d + $childUrls->sum('pageviews_30d');
+
         // Always: on-page score for stats bar (just the score, not full data)
         $onPageScore = $this->seoUrl->onPage?->overall_score;
 
@@ -234,6 +250,12 @@ class SeoUrlDetail extends Component
                             ->get()
                     );
                 break;
+
+            case 'plausible':
+                // Nutzt die bereits geladenen $childUrls + $seoUrl mit den
+                // denormalisierten visitors_30d/pageviews_30d pro Pfad — keine
+                // Extra-Query nötig.
+                break;
         }
 
         // Organisations-Knoten: aktuell verlinkte + verfügbare (lose gekoppelt, guarded).
@@ -257,6 +279,8 @@ class SeoUrlDetail extends Component
             'aggSearchVolume' => $aggSearchVolume,
             'aggVisibility' => $aggVisibility,
             'aggBacklinks' => $aggBacklinks,
+            'aggVisitors' => $aggVisitors,
+            'aggPageviews' => $aggPageviews,
             'hasMore' => $hasMore,
         ])->layout('platform::layouts.app');
     }
