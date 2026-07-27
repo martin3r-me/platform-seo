@@ -16,14 +16,24 @@ class CannibalizationTool implements ToolContract
 
     public function getDescription(): string
     {
-        return 'GET /seo/cannibalization - Erkennt Keyword-Kannibalisierung: Keywords, für die mehrere eigene URLs ranken und sich gegenseitig Sichtbarkeit wegnehmen.';
+        return 'GET /seo/cannibalization - Erkennt Keyword-Kannibalisierung: Keywords, für die mehrere eigene URLs ranken und sich gegenseitig Sichtbarkeit wegnehmen. Optional: domain (auf eine Domain einschränken), limit (Standard 50, max 200), offset. Ergebnis nach Suchvolumen absteigend.';
     }
 
     public function getSchema(): array
     {
         return [
             'type' => 'object',
-            'properties' => [],
+            'properties' => [
+                'domain' => [
+                    'type' => 'string',
+                    'description' => 'Nur Kannibalisierung innerhalb dieser Domain (z.B. "tm-foodsolutions.de", inkl. Subdomains).',
+                ],
+                'limit' => [
+                    'type' => 'integer',
+                    'description' => 'Max. Anzahl Keywords (Standard 50, max 200). Verhindert überlange Antworten.',
+                ],
+                'offset' => ['type' => 'integer'],
+            ],
         ];
     }
 
@@ -36,14 +46,40 @@ class CannibalizationTool implements ToolContract
             }
 
             $service = app(SeoUrlService::class);
-            $data = $service->getCannibalization($team->id);
+            $domain = $this->normalizeDomain($arguments['domain'] ?? null);
+            $data = $service->getCannibalization($team->id, $domain);
+
+            $total = is_array($data) ? count($data) : 0;
+            $limit = min((int) ($arguments['limit'] ?? 50), 200);
+            $offset = max((int) ($arguments['offset'] ?? 0), 0);
+            $slice = array_slice($data, $offset, $limit);
 
             return ToolResult::success([
-                'cannibalization' => $data,
-                'total' => is_array($data) ? count($data) : 0,
+                'cannibalization' => $slice,
+                'total' => $total,
+                'limit' => $limit,
+                'offset' => $offset,
+                'domain' => $domain,
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('Fehler: ' . $e->getMessage(), 'EXECUTION_ERROR');
         }
+    }
+
+    /**
+     * Normalisiert eine Domain-Eingabe: entfernt Schema, Pfad und führendes "www.".
+     */
+    private function normalizeDomain(mixed $input): ?string
+    {
+        if (!is_string($input) || trim($input) === '') {
+            return null;
+        }
+        $host = strtolower(trim($input));
+        $host = preg_replace('#^[a-z]+://#', '', $host);
+        $host = explode('/', $host, 2)[0];
+        $host = preg_replace('#^www\.#', '', $host);
+        $host = trim($host);
+
+        return $host !== '' ? $host : null;
     }
 }

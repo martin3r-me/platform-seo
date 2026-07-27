@@ -46,6 +46,10 @@ class ListUrlsTool implements ToolContract
                     'type' => 'string',
                     'description' => 'Filter nach Domain',
                 ],
+                'source' => [
+                    'type' => 'string',
+                    'description' => 'Filter nach Herkunftsmodul (source_module der Registrierung), z.B. "syltjunkie" oder "seo". Zeigt nur URLs, die von diesem Modul stammen.',
+                ],
                 'sort' => [
                     'type' => 'string',
                     'enum' => ['visibility_score', 'keyword_count', 'total_search_volume', 'backlink_count', 'last_crawled_at', 'url', 'id', 'domain', 'created_at'],
@@ -119,6 +123,10 @@ class ListUrlsTool implements ToolContract
             if (!empty($arguments['domain'])) {
                 $query->where('domain', $arguments['domain']);
             }
+            if (!empty($arguments['source'])) {
+                $source = $arguments['source'];
+                $query->whereHas('registrations', fn ($q) => $q->where('source_module', $source));
+            }
 
             // Generic filters array support
             if (!empty($arguments['filters']) && is_array($arguments['filters'])) {
@@ -163,7 +171,7 @@ class ListUrlsTool implements ToolContract
             $offset = (int) ($arguments['offset'] ?? 0);
 
             $total = $query->count();
-            $urls = $query->skip($offset)->take($limit)->get();
+            $urls = $query->with('registrations')->skip($offset)->take($limit)->get();
 
             // Kinder-URLs pro Root laden für Aggregation
             $urlIds = $urls->pluck('id');
@@ -176,7 +184,7 @@ class ListUrlsTool implements ToolContract
                 ->whereIn('source_url_id', $urlIds)
                 ->pluck('target_url_id');
             $childUrls = $allChildIds->isNotEmpty()
-                ? SeoUrl::whereIn('id', $allChildIds)->get()->keyBy('id')
+                ? SeoUrl::whereIn('id', $allChildIds)->with('registrations')->get()->keyBy('id')
                 : collect();
 
             return ToolResult::success([
@@ -186,6 +194,14 @@ class ListUrlsTool implements ToolContract
                         $children = $childRelations[$u->id]->map(fn ($childId) => $childUrls->get($childId))->filter();
                     }
 
+                    // Herkunftsmodule über Root + Kinder (z.B. "syltjunkie", "seo")
+                    $sources = $u->registrations->pluck('source_module')
+                        ->merge($children->flatMap(fn ($c) => $c->registrations->pluck('source_module')))
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all();
+
                     return [
                         'id' => $u->id,
                         'uuid' => $u->uuid,
@@ -193,6 +209,7 @@ class ListUrlsTool implements ToolContract
                         'domain' => $u->domain,
                         'path' => $u->path,
                         'is_own' => $u->is_own,
+                        'sources' => $sources,
                         'status' => $u->status,
                         'http_status' => $u->http_status,
                         'keyword_count' => $u->keyword_count + $children->sum('keyword_count'),
@@ -214,7 +231,7 @@ class ListUrlsTool implements ToolContract
 
     private function getDetail(int $urlId, int $teamId): ToolResult
     {
-        $url = SeoUrl::with(['onPage', 'keywords', 'sourceRelationships.targetUrl', 'targetRelationships.sourceUrl'])
+        $url = SeoUrl::with(['onPage', 'keywords', 'registrations', 'sourceRelationships.targetUrl', 'targetRelationships.sourceUrl'])
             ->where('team_id', $teamId)
             ->find($urlId);
 
@@ -287,6 +304,12 @@ class ListUrlsTool implements ToolContract
                 'last_crawled_at' => $url->last_crawled_at?->toIso8601String(),
                 'meta' => $url->meta,
             ],
+            'sources' => $url->registrations->map(fn ($r) => [
+                'source_module' => $r->source_module,
+                'source_type' => $r->source_type,
+                'source_id' => $r->source_id,
+                'reason' => $r->reason,
+            ])->all(),
             'on_page' => $onPage,
             'keywords' => $keywords,
             'keywords_count' => count($keywords),

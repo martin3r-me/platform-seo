@@ -289,20 +289,32 @@ class SeoUrlService implements SeoUrlServiceInterface
         ];
     }
 
-    public function getCannibalization(int $teamId): array
+    /**
+     * Keyword-Kannibalisierung: Keywords, für die mehrere eigene URLs ranken.
+     * Optional auf eine Domain eingeschränkt (inkl. Subdomains). Ergebnis ist
+     * nach Suchvolumen absteigend sortiert (impactvollste Fälle zuerst).
+     */
+    public function getCannibalization(int $teamId, ?string $domain = null): array
     {
-        // Find keywords where multiple own URLs rank
+        $domain = ($domain !== null && $domain !== '') ? $domain : null;
+
+        // Gemeinsamer Filter für whereHas UND Eager-Load, damit die angezeigten
+        // URLs exakt den gezählten entsprechen (sonst falsche url_count/Anzeige).
+        $urlFilter = function ($q) use ($teamId, $domain) {
+            $q->where('seo_urls.team_id', $teamId)
+                ->where('seo_urls.is_own', true)
+                ->whereNotNull('seo_url_keywords.position');
+            if ($domain !== null) {
+                $q->where(function ($sub) use ($domain) {
+                    $sub->where('seo_urls.domain', $domain)
+                        ->orWhere('seo_urls.domain', 'like', '%.' . $domain);
+                });
+            }
+        };
+
         $keywords = SeoKeyword::where('team_id', $teamId)
-            ->whereHas('urls', function ($q) use ($teamId) {
-                $q->where('seo_urls.team_id', $teamId)
-                    ->where('seo_urls.is_own', true)
-                    ->whereNotNull('seo_url_keywords.position');
-            })
-            ->with(['urls' => function ($q) use ($teamId) {
-                $q->where('seo_urls.team_id', $teamId)
-                    ->where('seo_urls.is_own', true)
-                    ->whereNotNull('seo_url_keywords.position');
-            }])
+            ->whereHas('urls', $urlFilter)
+            ->with(['urls' => $urlFilter])
             ->get();
 
         $cannibalization = [];
@@ -311,6 +323,7 @@ class SeoUrlService implements SeoUrlServiceInterface
                 $cannibalization[] = [
                     'keyword' => $keyword->keyword,
                     'search_volume' => $keyword->search_volume,
+                    'url_count' => $keyword->urls->count(),
                     'urls' => $keyword->urls->map(fn ($url) => [
                         'url' => $url->url,
                         'position' => $url->pivot->position,
@@ -318,6 +331,9 @@ class SeoUrlService implements SeoUrlServiceInterface
                 ];
             }
         }
+
+        // Impactvollste zuerst (höchstes Volumen)
+        usort($cannibalization, fn ($a, $b) => ($b['search_volume'] ?? 0) <=> ($a['search_volume'] ?? 0));
 
         return $cannibalization;
     }
