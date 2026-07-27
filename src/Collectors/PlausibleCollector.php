@@ -229,7 +229,7 @@ class PlausibleCollector implements SeoCollectorInterface
                 'source_type' => 'traffic',
             ],
             [
-                'reason' => 'Von Plausible entdeckt (Traffic-Pfad ohne bestehende URL)',
+                'reason' => 'auto_discovery',
             ],
         );
 
