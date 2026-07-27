@@ -173,16 +173,17 @@ class ListUrlsTool implements ToolContract
             $total = $query->count();
             $urls = $query->with('registrations')->skip($offset)->take($limit)->get();
 
-            // Kinder-URLs pro Root laden für Aggregation
+            // Kinder-URLs pro Root laden für Aggregation.
+            // WICHTIG: alle Kinder je Parent gruppieren — pluck('target','source')
+            // würde bei mehreren Kindern pro Parent auf eines kollabieren.
             $urlIds = $urls->pluck('id');
             $childRelations = SeoUrlRelationship::where('type', 'parent_child')
                 ->whereIn('source_url_id', $urlIds)
-                ->pluck('target_url_id', 'source_url_id')
-                ->groupBy(fn ($childId, $parentId) => $parentId);
+                ->get(['source_url_id', 'target_url_id'])
+                ->groupBy('source_url_id')
+                ->map(fn ($rows) => $rows->pluck('target_url_id'));
 
-            $allChildIds = SeoUrlRelationship::where('type', 'parent_child')
-                ->whereIn('source_url_id', $urlIds)
-                ->pluck('target_url_id');
+            $allChildIds = $childRelations->flatten();
             $childUrls = $allChildIds->isNotEmpty()
                 ? SeoUrl::whereIn('id', $allChildIds)->with('registrations')->get()->keyBy('id')
                 : collect();
