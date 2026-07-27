@@ -96,7 +96,7 @@
             {{-- Tabs --}}
             <div>
                 <div class="flex items-center gap-1 border-b border-gray-200 mb-6">
-                    @foreach(['keywords' => 'Keywords', 'rankings' => 'Rankings', 'backlinks' => 'Backlinks', 'onpage' => 'On-Page', 'gsc' => 'GSC', 'plausible' => 'Plausible', 'relationships' => 'Beziehungen'] as $tab => $label)
+                    @foreach(['keywords' => 'Keywords', 'rankings' => 'Rankings', 'backlinks' => 'Backlinks', 'onpage' => 'On-Page', 'gsc' => 'GSC', 'plausible' => 'Plausible', 'ai' => 'AI-Sichtbarkeit', 'relationships' => 'Beziehungen'] as $tab => $label)
                         <button wire:click="setTab('{{ $tab }}')"
                                 class="px-4 py-3 text-[13px] font-medium transition-colors {{ $activeTab === $tab ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700' }}">
                             {{ $label }}
@@ -260,6 +260,25 @@
 
                 {{-- Backlinks Tab --}}
                 @if($activeTab === 'backlinks')
+                    {{-- Autoritäts-Summary (Domain-Level aus dem Backlinks-Summary-Call) --}}
+                    <div class="grid grid-cols-4 gap-3 mb-6">
+                        <div class="bg-white rounded-lg border border-gray-200 p-4">
+                            <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Referring Domains</div>
+                            <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $seoUrl->referring_domains ?? '—' }}</div>
+                        </div>
+                        <div class="bg-white rounded-lg border border-gray-200 p-4">
+                            <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Backlink-Rank</div>
+                            <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $seoUrl->backlink_rank ?? '—' }}<span class="text-[12px] text-gray-400 font-normal"> / 1000</span></div>
+                        </div>
+                        <div class="bg-white rounded-lg border border-gray-200 p-4">
+                            <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Spam-Score</div>
+                            <div class="text-2xl font-bold tabular-nums {{ ($seoUrl->backlink_spam_score ?? 0) >= 30 ? 'text-amber-600' : 'text-gray-900' }}">{{ $seoUrl->backlink_spam_score ?? '—' }}<span class="text-[12px] text-gray-400 font-normal"> / 100</span></div>
+                        </div>
+                        <div class="bg-white rounded-lg border border-gray-200 p-4">
+                            <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Broken</div>
+                            <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $seoUrl->broken_backlinks ?? '—' }}</div>
+                        </div>
+                    </div>
                     @if($backlinks->isNotEmpty())
                         <section class="bg-white rounded-lg border border-gray-200">
                             <table class="w-full text-[13px]">
@@ -494,6 +513,53 @@
                                 <div class="px-4 py-2 text-[11px] text-gray-400 border-t border-gray-100">Zuletzt aktualisiert: {{ $seoUrl->traffic_fetched_at->format('d.m.Y H:i') }} · Quelle Plausible</div>
                             @endif
                         </div>
+                    </div>
+                @endif
+
+                {{-- AI-Sichtbarkeit Tab — LLM Mentions (ChatGPT + Google AI Overview) --}}
+                @if($activeTab === 'ai')
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">LLM Mentions</div>
+                                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $seoUrl->llm_mentions ?? '—' }}</div>
+                                <div class="text-[11px] text-gray-400 mt-1">Erwähnungen in AI-Antworten</div>
+                            </div>
+                            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">AI Search Volume</div>
+                                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $seoUrl->llm_ai_search_volume !== null ? number_format($seoUrl->llm_ai_search_volume) : '—' }}</div>
+                                <div class="text-[11px] text-gray-400 mt-1">Suchvolumen im AI-Kontext</div>
+                            </div>
+                        </div>
+
+                        @if(!empty($seoUrl->llm_mentions_data['platform']) && is_array($seoUrl->llm_mentions_data['platform']))
+                            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                <table class="w-full text-[13px]">
+                                    <thead class="bg-gray-50 text-gray-500">
+                                        <tr>
+                                            <th class="px-4 py-2.5 text-left font-medium">Plattform</th>
+                                            <th class="px-4 py-2.5 text-right font-medium">Mentions</th>
+                                            <th class="px-4 py-2.5 text-right font-medium">AI Search Volume</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach($seoUrl->llm_mentions_data['platform'] as $row)
+                                            <tr>
+                                                <td class="px-4 py-2.5 text-gray-700">{{ $row['type'] ?? $row['platform'] ?? '—' }}</td>
+                                                <td class="px-4 py-2.5 text-right tabular-nums">{{ isset($row['mentions']) ? number_format($row['mentions']) : '—' }}</td>
+                                                <td class="px-4 py-2.5 text-right tabular-nums">{{ isset($row['ai_search_volume']) ? number_format($row['ai_search_volume']) : '—' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+
+                        @if($seoUrl->llm_mentions_fetched_at)
+                            <div class="text-[11px] text-gray-400">Zuletzt aktualisiert: {{ $seoUrl->llm_mentions_fetched_at->format('d.m.Y H:i') }} · Quelle DataForSEO LLM Mentions</div>
+                        @else
+                            <div class="text-[13px] text-gray-400">Noch keine AI-Sichtbarkeitsdaten — Collector „llm_mentions" ausführen.</div>
+                        @endif
                     </div>
                 @endif
             </div>
