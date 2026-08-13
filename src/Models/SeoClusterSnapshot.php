@@ -22,6 +22,7 @@ class SeoClusterSnapshot extends Model
         'clicks',
         'visitors',
         'health_score',
+        'penetration',
     ];
 
     protected $casts = [
@@ -36,6 +37,7 @@ class SeoClusterSnapshot extends Model
         'clicks' => 'integer',
         'visitors' => 'integer',
         'health_score' => 'integer',
+        'penetration' => 'integer',
     ];
 
     public function cluster(): BelongsTo

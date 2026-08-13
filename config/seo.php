@@ -266,6 +266,37 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cluster — Lifecycle, Erfolgs-Quotient & Hygiene (s. docs/CLUSTER-PLAYBOOK.md)
+    |--------------------------------------------------------------------------
+    */
+    'clusters' => [
+        // Durchdringung (0–100) = 100 × (w_coverage·Coverage + w_top10·Top10 + w_top3·Top3)
+        'penetration_weights' => [
+            'coverage' => 0.40,
+            'top10' => 0.40,
+            'top3' => 0.20,
+        ],
+        // active → monitored (gut durchdrungen)
+        'promote_to_monitored' => [
+            'penetration' => 70,
+            'top10_share' => 50,   // % der Ziel-Keywords in Top 10
+            'hold_snapshots' => 2, // über so viele Snapshots gehalten
+        ],
+        // monitored → active (Rückfall)
+        'demote_to_active' => [
+            'penetration' => 60,
+        ],
+        // active → stalled (Stillstand)
+        'stalled_after_weeks' => 8,
+        'stalled_min_gain' => 5,   // Punkte Durchdringung, die im Fenster mind. dazukommen müssen
+        // Hygiene: nicht-rankende, clusterlose eigene URL gilt ab hier als Ballast
+        'url_ballast_days' => 60,
+        // Fokus: max. gleichzeitig aktive Cluster je Kunde
+        'wip_active_per_customer' => 3,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Keyword Curation — Blacklist Patterns
     |--------------------------------------------------------------------------
     */

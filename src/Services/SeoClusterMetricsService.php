@@ -87,11 +87,15 @@ class SeoClusterMetricsService
             ->where('g.date', '>=', now()->subDays(30)->toDateString())
             ->sum('g.clicks');
 
-        // Health: zusammengesetzt aus Abdeckung und Top-10-Anteil (0–100).
-        // Trend-Komponente folgt, sobald mehrere Snapshots vorliegen.
-        $top10Share = $total > 0 ? ($top10 / $total * 100) : 0;
-        $health = $total > 0
-            ? (int) round(min(100, 0.6 * $coveragePct + 0.4 * $top10Share))
+        // Durchdringung (Erfolgs-Quotient, 0–100) — s. docs/CLUSTER-PLAYBOOK.md §4.
+        // Gewichteter Blend aus Coverage, Top-10- und Top-3-Anteil.
+        $w = config('seo.clusters.penetration_weights', ['coverage' => 0.4, 'top10' => 0.4, 'top3' => 0.2]);
+        $penetration = $total > 0
+            ? (int) round(min(100, 100 * (
+                ($w['coverage'] ?? 0.4) * ($covered / $total)
+                + ($w['top10'] ?? 0.4) * ($top10 / $total)
+                + ($w['top3'] ?? 0.2) * ($top3 / $total)
+            )))
             : null;
 
         return [
@@ -104,8 +108,71 @@ class SeoClusterMetricsService
             'visibility' => round($visibility, 4),
             'clicks' => $clicks,
             'visitors' => $visitors,
-            'health_score' => $health,
+            'penetration' => $penetration,
+            'health_score' => $penetration, // Rückwärtskompat.: health = Durchdringung
         ];
+    }
+
+    /**
+     * Wendet die Lifecycle-Regeln (Playbook §3) auf einen frisch gemessenen
+     * Cluster an. Automatisiert nur active↔monitored und active→stalled;
+     * candidate/stalled/archived bleiben menschlicher Kuration vorbehalten.
+     *
+     * @return string|null  Neuer Status, falls ein Übergang stattfand.
+     */
+    public function applyLifecycle(SeoKeywordCluster $cluster): ?string
+    {
+        $cfg = config('seo.clusters', []);
+        $status = $cluster->status;
+        $pen = $cluster->penetration;
+
+        if ($pen === null || ! in_array($status, [SeoKeywordCluster::STATUS_ACTIVE, SeoKeywordCluster::STATUS_MONITORED], true)) {
+            return null;
+        }
+
+        // monitored → active (Rückfall)
+        if ($status === SeoKeywordCluster::STATUS_MONITORED) {
+            if ($pen < ($cfg['demote_to_active']['penetration'] ?? 60)) {
+                $cluster->transitionTo(SeoKeywordCluster::STATUS_ACTIVE);
+
+                return SeoKeywordCluster::STATUS_ACTIVE;
+            }
+
+            return null;
+        }
+
+        // active → monitored (gut durchdrungen, über N Snapshots gehalten)
+        $promote = $cfg['promote_to_monitored'] ?? ['penetration' => 70, 'top10_share' => 50, 'hold_snapshots' => 2];
+        $hold = max(1, (int) ($promote['hold_snapshots'] ?? 2));
+        $recent = $cluster->snapshots()->take($hold)->get();
+        if ($recent->count() >= $hold && $recent->every(fn ($s) => $s->penetration !== null
+            && $s->penetration >= ($promote['penetration'] ?? 70)
+            && $this->top10Share($s) >= ($promote['top10_share'] ?? 50))) {
+            $cluster->transitionTo(SeoKeywordCluster::STATUS_MONITORED);
+
+            return SeoKeywordCluster::STATUS_MONITORED;
+        }
+
+        // active → stalled (Stillstand über das Fenster)
+        $weeks = (int) ($cfg['stalled_after_weeks'] ?? 8);
+        $past = $cluster->snapshots()
+            ->whereDate('snapshot_date', '<=', now()->subWeeks($weeks)->toDateString())
+            ->first();
+        if ($past && $past->penetration !== null
+            && ($pen - $past->penetration) < ($cfg['stalled_min_gain'] ?? 5)) {
+            $cluster->transitionTo(SeoKeywordCluster::STATUS_STALLED);
+
+            return SeoKeywordCluster::STATUS_STALLED;
+        }
+
+        return null;
+    }
+
+    protected function top10Share($snapshot): float
+    {
+        $kc = (int) $snapshot->keyword_count;
+
+        return $kc > 0 ? ((int) $snapshot->top10_count / $kc * 100) : 0.0;
     }
 
     /**

@@ -48,9 +48,13 @@ class SnapshotClusters extends Command
                     'visibility' => $kpi['visibility'],
                     'clicks_30d' => $kpi['clicks'],
                     'visitors_30d' => $kpi['visitors'],
+                    'penetration' => $kpi['penetration'],
                     'health_score' => $kpi['health_score'],
                     'measured_at' => now(),
                 ]);
+
+                // Lifecycle-Übergänge nach frischer Messung (Playbook §3).
+                $metrics->applyLifecycle($cluster);
 
                 $count++;
             }
