@@ -200,50 +200,91 @@
                     @endif
                 @endif
 
-                {{-- Rankings Tab --}}
+                {{-- Rankings Tab — Positions-Tracker (eine Zeile je Keyword) --}}
                 @if($activeTab === 'rankings')
-                    @if($rankingHistory->isNotEmpty())
-                        <section class="bg-white rounded-lg border border-gray-200">
+                    @if($rankingSummary && $rankingSummary['total'] > 0)
+                        {{-- Summary-Leiste --}}
+                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Ø Position</div>
+                                <div class="text-xl font-bold text-gray-900 tabular-nums">{{ $rankingSummary['avg'] ?? '—' }}</div>
+                            </div>
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Keywords</div>
+                                <div class="text-xl font-bold text-gray-900 tabular-nums">{{ number_format($rankingSummary['total']) }}</div>
+                            </div>
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Top 3</div>
+                                <div class="text-xl font-bold text-green-600 tabular-nums">{{ $rankingSummary['top3'] }}</div>
+                            </div>
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Top 10</div>
+                                <div class="text-xl font-bold text-emerald-600 tabular-nums">{{ $rankingSummary['top10'] }}</div>
+                            </div>
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Top 20</div>
+                                <div class="text-xl font-bold text-amber-500 tabular-nums">{{ $rankingSummary['top20'] }}</div>
+                            </div>
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Trend</div>
+                                <div class="flex items-center gap-2 text-sm font-bold tabular-nums">
+                                    <span class="text-green-600">▲{{ $rankingSummary['improved'] }}</span>
+                                    <span class="text-red-600">▼{{ $rankingSummary['declined'] }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Tracker-Tabelle --}}
+                        <section class="bg-white rounded-lg border border-gray-200 overflow-hidden">
                             <table class="w-full text-[13px]">
                                 <thead>
-                                    <tr class="border-b border-gray-200 text-left">
-                                        <th class="px-4 py-3">Keyword</th>
-                                        <th class="px-4 py-3">URL</th>
-                                        <th class="px-4 py-3 text-right">Position</th>
-                                        <th class="px-4 py-3 text-right">Veränderung</th>
-                                        <th class="px-4 py-3">SERP Features</th>
-                                        <th class="px-4 py-3 text-right">Datum</th>
+                                    <tr class="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
+                                        <th class="px-4 py-2.5 text-left">Keyword</th>
+                                        <th class="px-4 py-2.5 text-left">URL</th>
+                                        <th class="px-4 py-2.5 text-right">Position</th>
+                                        <th class="px-4 py-2.5 text-center w-[120px]">Trend</th>
+                                        <th class="px-4 py-2.5 text-left">SERP</th>
+                                        <th class="px-4 py-2.5 text-right">Stand</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    @foreach($rankingHistory as $entry)
-                                        <tr class="hover:bg-blue-50/50 transition-colors">
-                                            <td class="px-4 py-2.5 font-medium text-gray-900">{{ $entry->keyword?->keyword ?? '—' }}</td>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach($rankingRows as $row)
+                                        <tr wire:key="rank-{{ $row['keyword']?->id }}" class="hover:bg-blue-50/50 transition-colors">
+                                            <td class="px-4 py-2.5 font-medium text-gray-900">{{ $row['keyword']?->keyword ?? '—' }}</td>
                                             <td class="px-4 py-2.5 text-[11px] text-gray-400">
-                                                @if($entry->url && $entry->url->id !== $seoUrl->id)
-                                                    <a href="{{ route('seo.urls.show', $entry->url) }}" wire:navigate class="text-[#166EE1] hover:underline">{{ ($entry->url->path && $entry->url->path !== '/') ? $entry->url->path : $entry->url->domain }}</a>
+                                                @if($row['url'] && $row['url']->id !== $seoUrl->id)
+                                                    <a href="{{ route('seo.urls.show', $row['url']) }}" wire:navigate class="text-[#166EE1] hover:underline">{{ ($row['url']->path && $row['url']->path !== '/') ? $row['url']->path : $row['url']->domain }}</a>
                                                 @else
                                                     {{ ($seoUrl->path && $seoUrl->path !== '/') ? $seoUrl->path : $seoUrl->domain }}
                                                 @endif
                                             </td>
-                                            <td class="px-4 py-2.5 text-right">@include('seo::partials.position-badge', ['position' => $entry->position, 'change' => $entry->position_delta])</td>
                                             <td class="px-4 py-2.5 text-right">
-                                                @if($entry->position_delta !== null)
-                                                    <span class="{{ $entry->position_delta > 0 ? 'text-green-600' : ($entry->position_delta < 0 ? 'text-red-600' : 'text-gray-400') }}">
-                                                        {{ $entry->position_delta > 0 ? '+' : '' }}{{ $entry->position_delta }}
-                                                    </span>
+                                                @include('seo::partials.position-badge', ['position' => $row['position'], 'change' => $row['delta']])
+                                            </td>
+                                            <td class="px-2 py-1.5">
+                                                @if($row['points'] > 1)
+                                                    <div wire:key="rtrend-{{ $row['keyword']?->id }}" class="mx-auto" style="width:100px; height:28px;">
+                                                        @include('seo::partials.sparkline', [
+                                                            'data' => array_map(fn ($p) => max(1, 101 - $p), $row['trend']),
+                                                            'color' => '#10b981',
+                                                            'height' => 28,
+                                                            'type' => 'line',
+                                                        ])
+                                                    </div>
+                                                @else
+                                                    <div class="text-gray-300 text-[11px] text-center">—</div>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-2.5 text-[11px] text-gray-400">
+                                                @if(!empty($row['serp_features']))
+                                                    @foreach((array) $row['serp_features'] as $feature)
+                                                        <span class="inline-block px-1.5 py-0.5 bg-gray-100 rounded text-[10px] mr-1">{{ $feature }}</span>
+                                                    @endforeach
                                                 @else
                                                     <span class="text-gray-300">—</span>
                                                 @endif
                                             </td>
-                                            <td class="px-4 py-2.5 text-[11px] text-gray-400">
-                                                @if($entry->serp_features)
-                                                    @foreach((array)$entry->serp_features as $feature)
-                                                        <span class="inline-block px-1.5 py-0.5 bg-gray-100 rounded text-[10px] mr-1">{{ $feature }}</span>
-                                                    @endforeach
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-2.5 text-right text-[11px] text-gray-400">{{ $entry->tracked_at?->format('d.m.Y') ?? '—' }}</td>
+                                            <td class="px-4 py-2.5 text-right text-[11px] text-gray-400">{{ $row['tracked_at']?->format('d.m.Y') ?? '—' }}</td>
                                         </tr>
                                     @endforeach
                                 </tbody>

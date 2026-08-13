@@ -188,7 +188,8 @@ class SeoUrlDetail extends Component
 
         // Tab-specific data
         $keywords = collect();
-        $rankingHistory = collect();
+        $rankingRows = collect();
+        $rankingSummary = null;
         $backlinks = collect();
         $onPage = null;
         $gscData = collect();
@@ -207,13 +208,56 @@ class SeoUrlDetail extends Component
                 break;
 
             case 'rankings':
-                $rankingHistory = SeoRankingHistory::whereIn('url_id', $allUrlIds)
+                // Positions-Tracker: eine Zeile pro Keyword mit aktueller Position,
+                // Delta zum vorherigen Tracking-Tag und Positions-Trend (beste
+                // Position je Tag) — aus der SeoRankingHistory-Zeitreihe.
+                $trackerRows = SeoRankingHistory::whereIn('url_id', $allUrlIds)
                     ->with(['keyword', 'url'])
-                    ->orderByDesc('tracked_at')
-                    ->take($this->rankingLimit + 1)
-                    ->get();
-                $hasMore = $rankingHistory->count() > $this->rankingLimit;
-                $rankingHistory = $rankingHistory->take($this->rankingLimit);
+                    ->orderBy('tracked_at')
+                    ->get()
+                    ->groupBy('keyword_id')
+                    ->map(function ($entries) {
+                        // Beste (niedrigste) Position je Tag, chronologisch sortiert.
+                        $byDay = $entries
+                            ->filter(fn ($e) => $e->position !== null)
+                            ->groupBy(fn ($e) => $e->tracked_at->format('Y-m-d'))
+                            ->map(fn ($day) => $day->sortBy('position')->first())
+                            ->sortKeys();
+
+                        if ($byDay->isEmpty()) {
+                            return null;
+                        }
+
+                        $latest = $byDay->last();
+                        $previous = $byDay->count() > 1 ? $byDay->slice(-2, 1)->first() : null;
+
+                        return [
+                            'keyword' => $latest->keyword,
+                            'url' => $latest->url,
+                            'position' => $latest->position,
+                            'delta' => $previous ? $previous->position - $latest->position : null,
+                            'serp_features' => $latest->serp_features,
+                            'tracked_at' => $latest->tracked_at,
+                            'trend' => $byDay->map(fn ($e) => $e->position)->values()->all(),
+                            'points' => $byDay->count(),
+                        ];
+                    })
+                    ->filter()
+                    ->values();
+
+                $rankingSummary = [
+                    'total' => $trackerRows->count(),
+                    'avg' => $trackerRows->isNotEmpty() ? round($trackerRows->avg('position'), 1) : null,
+                    'top3' => $trackerRows->where('position', '<=', 3)->count(),
+                    'top10' => $trackerRows->where('position', '<=', 10)->count(),
+                    'top20' => $trackerRows->where('position', '<=', 20)->count(),
+                    'improved' => $trackerRows->filter(fn ($r) => ($r['delta'] ?? 0) > 0)->count(),
+                    'declined' => $trackerRows->filter(fn ($r) => ($r['delta'] ?? 0) < 0)->count(),
+                ];
+
+                $trackerRows = $trackerRows->sortBy(fn ($r) => $r['position'] ?? 999)->values();
+                $hasMore = $trackerRows->count() > $this->rankingLimit;
+                $rankingRows = $trackerRows->take($this->rankingLimit);
                 break;
 
             case 'backlinks':
@@ -268,7 +312,8 @@ class SeoUrlDetail extends Component
             'availableNodes' => $availableNodes,
             'parentUrl' => $parentUrl,
             'keywords' => $keywords,
-            'rankingHistory' => $rankingHistory,
+            'rankingRows' => $rankingRows,
+            'rankingSummary' => $rankingSummary,
             'backlinks' => $backlinks,
             'onPage' => $onPage,
             'onPageScore' => $onPageScore,
