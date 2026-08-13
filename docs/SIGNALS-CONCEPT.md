@@ -82,6 +82,35 @@ Lifecycle:  offen → quittiert → in Arbeit → gelöst
   ausgelöst hat, sich erholt — nicht (nur) durch manuelles Abhaken. Das macht die
   Bewegung/Verlauf-Sicht zum Herzstück, nicht zum Nebentab.
 
+## 4a. Worüber ein Signal läuft — zwei Achsen
+
+Eine Definition trennt sauber:
+
+- **Muster** = wonach gesucht wird.
+- **Population** = die Menge, über die ausgewertet wird: **ganzes Portfolio · Entity(+Subtree)
+  · Liste · [Cluster, später]** (`scope_type` + `scope_value`).
+
+**Beschluss: eine Population pro Definition.** Zwei Arenen = zwei Definitionen
+(z. B. „Caterer-Kannibalisierung" *und* „Foodpol-Kannibalisierung"), nebeneinander,
+explizit und nachvollziehbar. Kombiniert wird über mehrere Definitionen, nicht in einer.
+
+**Die nicht-offensichtliche Einsicht:** Bei **relationalen** Mustern (Kannibalisierung,
+Cluster) ist die Population **keine Filter, sondern die Methode** — sie zieht die Arena
+„wer konkurriert mit wem". Dieselbe Kannibalisierung über die Caterer-**Liste**
+(markenübergreifend) vs. über den Foodpol-**Subtree** (innerhalb der Holding) ergibt
+**zwei verschiedene, beide richtige Signale**.
+
+**Granularität & Anheftung (wo das Signal landet, wie es hochrollt):**
+
+| Muster | läuft pro | Signal hängt an | rollt hoch via |
+|---|---|---|---|
+| striking_distance, position_drop, thin_content, decay | URL (× Keyword) | **URL** | URL→Entity (Provider) |
+| cannibalization | Keyword *in der Arena* | **Keyword** (+ Kontext: Arena, konkurrierende URLs) | Arena-Knoten |
+| cluster_underperformance | Cluster | **Cluster** (+ Pillar-URL) | Cluster→Entity |
+
+**v1-Muster-Set:** `striking_distance`, `position_drop`, `thin_content` (pro-URL, über
+Entity+Subtree *und* Liste) + `cannibalization` (zuerst über Listen). Cluster-Muster vertagt.
+
 ## 5. Die Form (Datenmodell) — von Org geliehen, SEO-eigen
 
 Eigene SEO-Tabellen, aber die bewährte Form:

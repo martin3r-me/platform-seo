@@ -85,6 +85,12 @@ class RunPipeline extends Command
                 $this->warn("  Fehler insgesamt: ".count($result['errors']));
             }
 
+            // Definition-getriebene Signale nach dem Daten-Refresh auswerten.
+            if (! $dryRun) {
+                $sig = app(\Platform\Seo\Services\SeoSignalEvaluator::class)->evaluateTeam((int) $settings->team_id);
+                $this->line("  Signale (Definitionen): {$sig['created']} neu aus {$sig['definitions']} Definitionen");
+            }
+
             $totalCost += $result['total_cost_cents'];
             $totalUrlsProcessed += $result['urls_processed'];
             $this->newLine();
