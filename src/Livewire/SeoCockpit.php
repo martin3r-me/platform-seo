@@ -39,11 +39,43 @@ class SeoCockpit extends Component
 
         $customerIds = $linker->customerEntityIdsForTeam($teamId);
 
+        // Roll-up: Portfolio-Karten sind nur die Top-Level-Kunden (Engagement-Ebene).
+        // Kunden, die unter einem anderen Kunden hängen — z. B. die Marken einer Holding
+        // (Foodpol → TM/Foodist/DOEC) — rollen in die Eltern-Karte, die den Subtree ohnehin
+        // aggregiert. Die Marken bleiben per Drill-down (Klick → Perspektive) erreichbar.
+        $descOf = [];
+        foreach ($customerIds as $cid) {
+            $descOf[(int) $cid] = $linker->descendantEntityIds((int) $cid);
+        }
+        $topLevelIds = [];
+        $brandCounts = [];
+        foreach ($customerIds as $cid) {
+            $cid = (int) $cid;
+            $isUnderAnother = false;
+            $brands = 0;
+            foreach ($customerIds as $other) {
+                $other = (int) $other;
+                if ($other === $cid) {
+                    continue;
+                }
+                if (in_array($cid, $descOf[$other] ?? [], true)) {
+                    $isUnderAnother = true;
+                }
+                if (in_array($other, $descOf[$cid] ?? [], true)) {
+                    $brands++;
+                }
+            }
+            if (! $isUnderAnother) {
+                $topLevelIds[] = $cid;
+                $brandCounts[$cid] = $brands;
+            }
+        }
+
         $names = [];
         $class = \Platform\Organization\Models\OrganizationEntity::class;
-        if (class_exists($class) && ! empty($customerIds)) {
+        if (class_exists($class) && ! empty($topLevelIds)) {
             try {
-                foreach ($class::whereIn('id', $customerIds)->get(['id', 'name']) as $e) {
+                foreach ($class::whereIn('id', $topLevelIds)->get(['id', 'name']) as $e) {
                     $names[(int) $e->id] = $e->name;
                 }
             } catch (\Throwable $e) {
@@ -55,8 +87,8 @@ class SeoCockpit extends Component
         $totalOpenRecs = 0;
         $cut = now()->subDays(30)->toDateString();
 
-        foreach ($customerIds as $cid) {
-            $subtree = $linker->descendantEntityIds((int) $cid);
+        foreach ($topLevelIds as $cid) {
+            $subtree = $descOf[(int) $cid] ?? $linker->descendantEntityIds((int) $cid);
             $urlIds = $linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $subtree);
 
             $urls = collect();
@@ -101,6 +133,7 @@ class SeoCockpit extends Component
                 'search_volume' => (int) $urls->sum('total_search_volume'),
                 'open_recs' => $openRecs,
                 'vis_delta' => $visDelta,
+                'brands' => $brandCounts[(int) $cid] ?? 0,
             ];
         }
 

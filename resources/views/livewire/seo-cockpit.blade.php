@@ -46,7 +46,15 @@
                     <a href="{{ route('seo.perspective', $card['id']) }}" wire:navigate class="block">
                         <x-nx-card hover class="h-full">
                             <div class="mb-3 flex items-start justify-between gap-2">
-                                <span class="font-medium text-[color:var(--nx-text)] truncate">{{ $card['name'] }}</span>
+                                <div class="min-w-0">
+                                    <span class="block font-medium text-[color:var(--nx-text)] truncate">{{ $card['name'] }}</span>
+                                    @if(($card['brands'] ?? 0) > 0)
+                                        <span class="mt-0.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)]">
+                                            @svg('heroicon-o-squares-2x2', 'w-3 h-3')
+                                            {{ $card['brands'] }} {{ $card['brands'] === 1 ? 'Marke' : 'Marken' }}
+                                        </span>
+                                    @endif
+                                </div>
                                 <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" style="background: {{ $card['urls'] > 0 ? 'var(--nx-success)' : 'var(--nx-faint)' }}"></span>
                             </div>
 
