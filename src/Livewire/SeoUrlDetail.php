@@ -22,6 +22,13 @@ class SeoUrlDetail extends Component
 
     public ?int $selectedKeywordId = null;
 
+    // Keywords-Tab: Sortierung + Filter
+    public string $keywordSort = 'position';
+    public string $keywordSortDir = 'asc';
+    public string $keywordIntent = '';
+    public string $keywordBucket = '';
+    public int $keywordMinVolume = 0;
+
     // Infinite scroll limits
     public int $keywordLimit = 50;
     public int $rankingLimit = 50;
@@ -43,6 +50,34 @@ class SeoUrlDetail extends Component
     public function selectKeyword(int $keywordId)
     {
         $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
+    }
+
+    public function sortKeywords(string $field): void
+    {
+        if ($this->keywordSort === $field) {
+            $this->keywordSortDir = $this->keywordSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->keywordSort = $field;
+            // Sinnvolle Default-Richtung: Position/Alphabet aufsteigend, Metriken absteigend.
+            $this->keywordSortDir = in_array($field, ['position', 'keyword'], true) ? 'asc' : 'desc';
+        }
+        $this->keywordLimit = 50;
+    }
+
+    public function resetKeywordFilters(): void
+    {
+        $this->keywordIntent = '';
+        $this->keywordBucket = '';
+        $this->keywordMinVolume = 0;
+        $this->keywordLimit = 50;
+    }
+
+    public function updated($name): void
+    {
+        // Filteränderung setzt die Infinite-Scroll-Grenze zurück.
+        if (in_array($name, ['keywordIntent', 'keywordBucket', 'keywordMinVolume'], true)) {
+            $this->keywordLimit = 50;
+        }
     }
 
     /**
@@ -188,6 +223,9 @@ class SeoUrlDetail extends Component
 
         // Tab-specific data
         $keywords = collect();
+        $availableIntents = [];
+        $keywordTotal = 0;
+        $hasKeywords = false;
         $rankingRows = collect();
         $rankingSummary = null;
         $backlinks = collect();
@@ -198,13 +236,52 @@ class SeoUrlDetail extends Component
 
         switch ($this->activeTab) {
             case 'keywords':
-                $keywords = SeoKeyword::whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
+                $allKeywords = SeoKeyword::whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds))
                     ->with(['urls' => fn ($q) => $q->whereIn('seo_url_keywords.url_id', $allUrlIds), 'competitors'])
-                    ->get()
-                    ->sortBy(fn ($kw) => $kw->urls->min('pivot.position') ?? 999)
-                    ->values();
-                $hasMore = $keywords->count() > $this->keywordLimit;
-                $keywords = $keywords->take($this->keywordLimit);
+                    ->get();
+
+                $hasKeywords = $allKeywords->isNotEmpty();
+                // Intent-Optionen aus dem echten Bestand (damit der Filter immer passt).
+                $availableIntents = $allKeywords->pluck('search_intent')->filter()->unique()->sort()->values()->all();
+
+                // Filter anwenden
+                $filtered = $allKeywords->filter(function ($kw) {
+                    if ($this->keywordIntent !== '' && $kw->search_intent !== $this->keywordIntent) {
+                        return false;
+                    }
+                    if ($this->keywordMinVolume > 0 && (int) $kw->search_volume < $this->keywordMinVolume) {
+                        return false;
+                    }
+                    if ($this->keywordBucket !== '') {
+                        $pos = $kw->urls->min('pivot.position');
+                        $ok = match ($this->keywordBucket) {
+                            'top3' => $pos !== null && $pos <= 3,
+                            'top10' => $pos !== null && $pos <= 10,
+                            'striking' => $pos !== null && $pos >= 4 && $pos <= 20,
+                            'beyond' => $pos === null || $pos > 20,
+                            default => true,
+                        };
+                        if (! $ok) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+
+                // Sortierung
+                $descending = $this->keywordSortDir === 'desc';
+                $filtered = $filtered->sortBy(fn ($kw) => match ($this->keywordSort) {
+                    'search_volume' => (int) $kw->search_volume,
+                    'cpc' => (float) ($kw->cpc_euro ?? 0),
+                    'kd' => (int) ($kw->keyword_difficulty ?? 0),
+                    'keyword' => mb_strtolower($kw->keyword),
+                    default => $kw->urls->min('pivot.position') ?? 999,
+                }, SORT_REGULAR, $descending)->values();
+
+                $keywordTotal = $filtered->count();
+                $hasMore = $filtered->count() > $this->keywordLimit;
+                $keywords = $filtered->take($this->keywordLimit);
                 break;
 
             case 'rankings':
@@ -312,6 +389,9 @@ class SeoUrlDetail extends Component
             'availableNodes' => $availableNodes,
             'parentUrl' => $parentUrl,
             'keywords' => $keywords,
+            'availableIntents' => $availableIntents,
+            'keywordTotal' => $keywordTotal,
+            'hasKeywords' => $hasKeywords,
             'rankingRows' => $rankingRows,
             'rankingSummary' => $rankingSummary,
             'backlinks' => $backlinks,

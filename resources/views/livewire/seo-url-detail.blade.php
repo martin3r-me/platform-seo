@@ -107,6 +107,38 @@
 
                 {{-- Keywords Tab — KWFinder-style split panel --}}
                 @if($activeTab === 'keywords')
+                    @if($hasKeywords)
+                        {{-- Filter-/Sortierleiste --}}
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <select wire:model.live="keywordIntent" class="text-[12px] border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-600">
+                                <option value="">Alle Intents</option>
+                                @foreach($availableIntents as $intent)
+                                    <option value="{{ $intent }}">{{ ucfirst($intent) }}</option>
+                                @endforeach
+                            </select>
+                            <select wire:model.live="keywordBucket" class="text-[12px] border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-600">
+                                <option value="">Alle Positionen</option>
+                                <option value="top3">Top 3</option>
+                                <option value="top10">Top 10</option>
+                                <option value="striking">Chancen (4–20)</option>
+                                <option value="beyond">&gt; 20 / ungerankt</option>
+                            </select>
+                            <select wire:model.live="keywordMinVolume" class="text-[12px] border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-600">
+                                <option value="0">Alle Volumina</option>
+                                <option value="100">SV ≥ 100</option>
+                                <option value="500">SV ≥ 500</option>
+                                <option value="1000">SV ≥ 1.000</option>
+                                <option value="5000">SV ≥ 5.000</option>
+                            </select>
+                            <span class="text-[12px] text-gray-400 tabular-nums">{{ number_format($keywordTotal) }} Keywords</span>
+                            @if($keywordIntent !== '' || $keywordBucket !== '' || $keywordMinVolume > 0)
+                                <button wire:click="resetKeywordFilters" class="text-[12px] text-gray-400 hover:text-gray-700 inline-flex items-center gap-1">
+                                    @svg('heroicon-o-x-mark', 'w-3.5 h-3.5') Filter zurücksetzen
+                                </button>
+                            @endif
+                        </div>
+                    @endif
+
                     @if($keywords->isNotEmpty())
                         <div class="flex gap-0 items-start" style="min-height: 600px;">
                             {{-- Left: Keyword List --}}
@@ -114,12 +146,32 @@
                                 <table class="w-full text-[13px]">
                                     <thead class="sticky top-0 z-10">
                                         <tr class="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
-                                            <th class="px-4 py-2.5 text-left">Keyword</th>
+                                            <th class="px-4 py-2.5 text-left">
+                                                <button wire:click="sortKeywords('keyword')" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-700 {{ $keywordSort === 'keyword' ? 'text-gray-900' : '' }}">
+                                                    Keyword @if($keywordSort === 'keyword')<span>{{ $keywordSortDir === 'asc' ? '↑' : '↓' }}</span>@endif
+                                                </button>
+                                            </th>
                                             <th class="px-4 py-2.5 text-center w-[70px]">Trend</th>
-                                            <th class="px-4 py-2.5 text-right">Search</th>
-                                            <th class="px-4 py-2.5 text-right">CPC</th>
-                                            <th class="px-4 py-2.5 text-right">Pos</th>
-                                            <th class="px-4 py-2.5 text-right w-[52px]">KD</th>
+                                            <th class="px-4 py-2.5 text-right">
+                                                <button wire:click="sortKeywords('search_volume')" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-700 {{ $keywordSort === 'search_volume' ? 'text-gray-900' : '' }}">
+                                                    Search @if($keywordSort === 'search_volume')<span>{{ $keywordSortDir === 'asc' ? '↑' : '↓' }}</span>@endif
+                                                </button>
+                                            </th>
+                                            <th class="px-4 py-2.5 text-right">
+                                                <button wire:click="sortKeywords('cpc')" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-700 {{ $keywordSort === 'cpc' ? 'text-gray-900' : '' }}">
+                                                    CPC @if($keywordSort === 'cpc')<span>{{ $keywordSortDir === 'asc' ? '↑' : '↓' }}</span>@endif
+                                                </button>
+                                            </th>
+                                            <th class="px-4 py-2.5 text-right">
+                                                <button wire:click="sortKeywords('position')" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-700 {{ $keywordSort === 'position' ? 'text-gray-900' : '' }}">
+                                                    Pos @if($keywordSort === 'position')<span>{{ $keywordSortDir === 'asc' ? '↑' : '↓' }}</span>@endif
+                                                </button>
+                                            </th>
+                                            <th class="px-4 py-2.5 text-right w-[52px]">
+                                                <button wire:click="sortKeywords('kd')" class="inline-flex items-center gap-1 uppercase tracking-wider hover:text-gray-700 {{ $keywordSort === 'kd' ? 'text-gray-900' : '' }}">
+                                                    KD @if($keywordSort === 'kd')<span>{{ $keywordSortDir === 'asc' ? '↑' : '↓' }}</span>@endif
+                                                </button>
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
@@ -130,8 +182,24 @@
                                                 class="cursor-pointer transition-colors {{ $selectedKeywordId === $keyword->id ? 'bg-blue-50' : 'hover:bg-gray-50' }}">
                                                 <td class="px-4 py-2.5">
                                                     <div class="font-medium text-gray-900">{{ $keyword->keyword }}</div>
-                                                    @if($bestUrl && $bestUrl->id !== $seoUrl->id)
-                                                        <div class="text-[10px] text-gray-400 mt-0.5">{{ ($bestUrl->path && $bestUrl->path !== '/') ? $bestUrl->path : $bestUrl->domain }}</div>
+                                                    @if($keyword->search_intent || ($bestUrl && $bestUrl->id !== $seoUrl->id))
+                                                        <div class="flex items-center gap-1.5 mt-0.5">
+                                                            @if($keyword->search_intent)
+                                                                @php
+                                                                    $intentChip = match($keyword->search_intent) {
+                                                                        'transactional' => 'bg-green-100 text-green-700',
+                                                                        'commercial' => 'bg-blue-100 text-blue-700',
+                                                                        'navigational' => 'bg-purple-100 text-purple-700',
+                                                                        'informational' => 'bg-gray-100 text-gray-600',
+                                                                        default => 'bg-gray-100 text-gray-500',
+                                                                    };
+                                                                @endphp
+                                                                <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium uppercase tracking-wide {{ $intentChip }}">{{ $keyword->search_intent }}</span>
+                                                            @endif
+                                                            @if($bestUrl && $bestUrl->id !== $seoUrl->id)
+                                                                <span class="text-[10px] text-gray-400">{{ ($bestUrl->path && $bestUrl->path !== '/') ? $bestUrl->path : $bestUrl->domain }}</span>
+                                                            @endif
+                                                        </div>
                                                     @endif
                                                 </td>
                                                 <td class="px-1 py-2.5">
@@ -196,7 +264,9 @@
                             @endif
                         </div>
                     @else
-                        <div class="p-8 text-center text-[13px] text-gray-400">Keine Keywords für diese URL.</div>
+                        <div class="p-8 text-center text-[13px] text-gray-400">
+                            {{ $hasKeywords ? 'Keine Keywords für diese Filter.' : 'Keine Keywords für diese URL.' }}
+                        </div>
                     @endif
                 @endif
 
