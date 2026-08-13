@@ -325,6 +325,7 @@ class SeoUrlService implements SeoUrlServiceInterface
                     'search_volume' => $keyword->search_volume,
                     'url_count' => $keyword->urls->count(),
                     'urls' => $keyword->urls->map(fn ($url) => [
+                        'url_id' => $url->id,
                         'url' => $url->url,
                         'position' => $url->pivot->position,
                     ])->sortBy('position')->values()->toArray(),

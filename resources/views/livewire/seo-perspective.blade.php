@@ -46,7 +46,7 @@
         </div>
 
         {{-- Kontext-Tabs: die Linsen dieser Perspektive --}}
-        @php $tabs = ['overview' => 'Übersicht', 'movers' => 'Bewegung', 'urls' => 'URLs', 'competitors' => 'Wettbewerber', 'recommendations' => 'Empfehlungen', 'clusters' => 'Cluster']; @endphp
+        @php $tabs = ['overview' => 'Übersicht', 'movers' => 'Bewegung', 'urls' => 'URLs', 'cannibalization' => 'Überschneidungen', 'competitors' => 'Wettbewerber', 'recommendations' => 'Empfehlungen', 'clusters' => 'Cluster']; @endphp
         <x-nx-tabs class="mb-6">
             @foreach($tabs as $key => $label)
                 <x-nx-tab :active="$tab === $key" wire:click="$set('tab', '{{ $key }}')">{{ $label }}</x-nx-tab>
@@ -326,6 +326,33 @@
                 </x-nx-card>
             @else
                 <x-nx-empty icon="heroicon-o-squares-2x2">Noch keine Cluster für diese Perspektive. Cluster entstehen über die Discovery (Keywords-Tab einer eigenen URL).</x-nx-empty>
+            @endif
+        @endif
+
+        {{-- ============ ÜBERSCHNEIDUNGEN (Kannibalisierung) ============ --}}
+        @if($tab === 'cannibalization')
+            @if(!empty($cannibalization))
+                <p class="mb-3 text-xs text-[color:var(--nx-muted)]">Keywords, für die <b>mehrere deiner eigenen Seiten</b> ranken — sie konkurrieren miteinander und teilen die Autorität. Konsolidieren oder klar differenzieren.</p>
+                <div class="space-y-3">
+                    @foreach($cannibalization as $c)
+                        <x-nx-card>
+                            <div class="mb-2 flex items-center justify-between gap-3">
+                                <span class="text-sm font-medium text-[color:var(--nx-text)]">{{ $c['keyword'] }}</span>
+                                <span class="shrink-0 text-xs tabular-nums text-[color:var(--nx-muted)]">{{ number_format($c['search_volume']) }} Vol. · {{ count($c['urls']) }} Seiten</span>
+                            </div>
+                            <ul class="divide-y divide-[color:var(--nx-line)]">
+                                @foreach($c['urls'] as $u)
+                                    <li class="flex items-center justify-between gap-3 py-1.5 text-xs">
+                                        <a href="{{ route('seo.urls.show', $u['url_id']) }}" wire:navigate class="truncate text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)] hover:underline">{{ $u['url'] }}</a>
+                                        @include('seo::partials.position-badge', ['position' => $u['position'], 'change' => null])
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </x-nx-card>
+                    @endforeach
+                </div>
+            @else
+                <x-nx-empty icon="heroicon-o-arrows-pointing-in">Keine Überschneidungen — aktuell rankt kein Keyword mit mehreren deiner eigenen Seiten. (Braucht gemessene Rankings.)</x-nx-empty>
             @endif
         @endif
 

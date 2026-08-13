@@ -337,6 +337,31 @@ class SeoPerspective extends Component
             }
         }
 
+        // Kannibalisierung: Keywords, für die ≥2 eigene Seiten dieser Perspektive
+        // (Root + Kinder) ranken — sie konkurrieren miteinander.
+        $cannibalization = [];
+        if ($this->tab === 'cannibalization' && ! empty($ownUrlIds)) {
+            $childIds = SeoUrlRelationship::where('team_id', $teamId)
+                ->where('type', 'parent_child')
+                ->whereIn('source_url_id', $ownUrlIds)
+                ->pluck('target_url_id')->all();
+            $scope = array_flip(array_merge($ownUrlIds, $childIds));
+
+            foreach (app(\Platform\Seo\Services\SeoUrlService::class)->getCannibalization($teamId) as $item) {
+                $inScope = array_values(array_filter(
+                    $item['urls'],
+                    fn ($u) => isset($u['url_id'], $scope[$u['url_id']]),
+                ));
+                if (count($inScope) >= 2) {
+                    $cannibalization[] = [
+                        'keyword' => $item['keyword'],
+                        'search_volume' => $item['search_volume'],
+                        'urls' => $inScope,
+                    ];
+                }
+            }
+        }
+
         // Bewegung-Linse: Positions-Deltas der Keywords (aus dem url-keyword-Pivot,
         // position vs. previous_position). Gewinner ▲ / Verlierer ▼.
         $moverGainers = collect();
@@ -376,6 +401,7 @@ class SeoPerspective extends Component
             'urlsRich' => $urlsRich,
             'moverGainers' => $moverGainers,
             'moverLosers' => $moverLosers,
+            'cannibalization' => $cannibalization,
         ])->layout('platform::layouts.app');
     }
 
