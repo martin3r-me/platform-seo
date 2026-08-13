@@ -22,6 +22,7 @@ class Sidebar extends Component
                 'entityTypeGroups' => collect(),
                 'sourcePerspectives' => collect(),
                 'unassignedCount' => 0,
+                'lists' => collect(),
             ]);
         }
 
@@ -264,6 +265,7 @@ class Sidebar extends Component
             'entityTypeGroups' => $entityTypeGroups,
             'sourcePerspectives' => $sourcePerspectives,
             'unassignedCount' => $unassignedCount,
+            'lists' => $lists,
         ]);
     }
 }

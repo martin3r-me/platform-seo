@@ -4,9 +4,11 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
+use Platform\Seo\Models\SeoUrlSnapshot;
 use Platform\Seo\Services\SeoOrganizationLinker;
 
 /**
@@ -50,6 +52,9 @@ class SeoCockpit extends Component
         }
 
         $cards = [];
+        $totalOpenRecs = 0;
+        $cut = now()->subDays(30)->toDateString();
+
         foreach ($customerIds as $cid) {
             $subtree = $linker->descendantEntityIds((int) $cid);
             $urlIds = $linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $subtree);
@@ -64,6 +69,29 @@ class SeoCockpit extends Component
                     ->get();
             }
 
+            $custUrlIds = $urls->pluck('id')->all();
+            $openRecs = 0;
+            $visDelta = null;
+            if (! empty($custUrlIds)) {
+                $openRecs = SeoSignal::whereIn('url_id', $custUrlIds)
+                    ->where('signal_type', 'like', 'rec\_%')
+                    ->whereIn('status', ['new', 'acknowledged'])
+                    ->count();
+
+                $pastByUrl = [];
+                foreach (SeoUrlSnapshot::whereIn('url_id', $custUrlIds)
+                            ->whereDate('snapshot_date', '<=', $cut)
+                            ->orderBy('snapshot_date')
+                            ->get(['url_id', 'visibility_score']) as $s) {
+                    $pastByUrl[$s->url_id] = (float) $s->visibility_score;
+                }
+                $past = array_sum($pastByUrl);
+                if ($past > 0) {
+                    $visDelta = (int) round((float) $urls->sum('visibility_score') - $past);
+                }
+            }
+            $totalOpenRecs += $openRecs;
+
             $cards[] = [
                 'id' => (int) $cid,
                 'name' => $names[(int) $cid] ?? ('Kunde #'.$cid),
@@ -71,6 +99,8 @@ class SeoCockpit extends Component
                 'visibility' => round((float) $urls->sum('visibility_score'), 0),
                 'keywords' => (int) $urls->sum('keyword_count'),
                 'search_volume' => (int) $urls->sum('total_search_volume'),
+                'open_recs' => $openRecs,
+                'vis_delta' => $visDelta,
             ];
         }
 
@@ -84,6 +114,7 @@ class SeoCockpit extends Component
                 'customers' => count($cards),
                 'tracked' => count(array_filter($cards, fn ($c) => $c['urls'] > 0)),
                 'visibility' => array_sum(array_column($cards, 'visibility')),
+                'recs' => $totalOpenRecs,
             ],
         ])->layout('platform::layouts.app');
     }

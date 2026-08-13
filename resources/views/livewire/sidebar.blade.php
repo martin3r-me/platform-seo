@@ -42,6 +42,23 @@
         @endif
     </div>
 
+    {{-- Listen: die Markt-/Themen-Achse (quer zum Org-Baum) — Index + einzelne Listen --}}
+    <x-ui-sidebar-list label="Listen">
+        <x-ui-sidebar-item :href="route('seo.lists')" :active="request()->routeIs('seo.lists')">
+            @svg('heroicon-o-queue-list', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Alle Listen</span>
+        </x-ui-sidebar-item>
+        @foreach($lists as $list)
+            <x-ui-sidebar-item wire:key="list-{{ $list->id }}"
+                               :href="route('seo.lists.show', $list->id)"
+                               :active="request()->routeIs('seo.lists.show') && (request()->route('seoUrlList')?->id ?? null) == $list->id">
+                @svg('heroicon-o-rectangle-stack', 'w-4 h-4 text-[var(--ui-secondary)]')
+                <span class="ml-2 text-sm truncate">{{ $list->name }}</span>
+                <x-slot name="trailing"><span class="text-[10px] tabular-nums text-[var(--ui-muted)] opacity-60">{{ $list->urls_count }}</span></x-slot>
+            </x-ui-sidebar-item>
+        @endforeach
+    </x-ui-sidebar-list>
+
     {{-- Quellen & Ablage: abgeleitete Perspektiven (Quelle/Status), keine URL-Listen --}}
     @if($sourcePerspectives->isNotEmpty() || $unassignedCount > 0)
         <x-ui-sidebar-list label="Quellen & Ablage">
