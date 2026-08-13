@@ -348,7 +348,7 @@ class SeoPerspective extends Component
                 ->whereNotNull('uk.position')
                 ->whereNotNull('uk.previous_position')
                 ->whereColumn('uk.position', '<>', 'uk.previous_position')
-                ->selectRaw('k.keyword, uk.position, uk.previous_position, (uk.previous_position - uk.position) as delta')
+                ->selectRaw('k.keyword, uk.position, uk.previous_position, (CAST(uk.previous_position AS SIGNED) - CAST(uk.position AS SIGNED)) as delta')
                 ->get()
                 ->groupBy('keyword')
                 ->map(fn ($g) => $g->sortByDesc(fn ($r) => abs($r->delta))->first())
