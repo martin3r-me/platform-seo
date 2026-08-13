@@ -66,6 +66,16 @@
                                         <span class="text-xs tabular-nums {{ $card['vis_delta'] > 0 ? 'text-[color:var(--nx-success)]' : 'text-[color:var(--nx-danger)]' }}">{{ $card['vis_delta'] > 0 ? '▲ +' : '▼ ' }}{{ number_format($card['vis_delta']) }}</span>
                                     @endif
                                 </div>
+
+                                {{-- Die eine Aussage: was ist los, was ist der nächste Hebel --}}
+                                @if(!empty($card['insight']))
+                                    @php($__tone = ['danger' => 'var(--nx-danger)', 'warning' => 'var(--nx-warning)', 'success' => 'var(--nx-success)', 'info' => 'var(--nx-info)', 'muted' => 'var(--nx-faint)'][$card['insight']['tone']] ?? 'var(--nx-faint)')
+                                    <div class="mt-3 flex items-start gap-1.5">
+                                        <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style="background: {{ $__tone }}"></span>
+                                        <span class="text-xs leading-snug text-[color:var(--nx-muted)] line-clamp-2">{{ $card['insight']['text'] }}</span>
+                                    </div>
+                                @endif
+
                                 <div class="mt-3 flex items-center justify-between gap-2">
                                     <span class="text-xs tabular-nums text-[color:var(--nx-muted)]">{{ number_format($card['urls']) }} URLs · {{ number_format($card['keywords']) }} KW</span>
                                     @if($card['open_recs'] > 0)
@@ -81,6 +91,38 @@
             </div>
         @else
             <x-nx-empty icon="heroicon-o-building-office-2">Noch keine Kunden. Sobald im Org-Baum Kunden über die Engagement-Ebene modelliert sind, erscheinen sie hier.</x-nx-empty>
+        @endif
+
+        {{-- Listen: die Markt-/Themen-Achse (quer zum Org-Baum). Hier werden Überschneidungen sichtbar. --}}
+        @if(!empty($lists))
+            <div class="mt-10 mb-4">
+                <h2 class="text-sm font-semibold text-[color:var(--nx-text)]">Listen · Markt & Themen</h2>
+                <p class="text-[13px] text-[color:var(--nx-muted)] mt-0.5">Quer zum Org-Baum — wo mehrere eigene Seiten dasselbe Keyword bespielen (Kannibalisierung).</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                @foreach($lists as $list)
+                    <a href="{{ $list['overlaps'] > 0 ? route('seo.lists.cannibalization', $list['id']) : route('seo.lists.show', $list['id']) }}" wire:navigate class="block">
+                        <x-nx-card hover class="h-full">
+                            <div class="mb-3 flex items-start justify-between gap-2">
+                                <span class="font-medium text-[color:var(--nx-text)] truncate">{{ $list['name'] }}</span>
+                                <span class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)] shrink-0 mt-0.5">{{ $list['urls'] }} URLs</span>
+                            </div>
+                            @if($list['overlaps'] > 0)
+                                <div class="flex items-baseline gap-2">
+                                    <span class="text-2xl font-semibold leading-none tabular-nums text-[color:var(--nx-warning)]">{{ number_format($list['overlaps']) }}</span>
+                                    <span class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)]">Überschneidungen</span>
+                                </div>
+                                <div class="mt-3 flex items-start gap-1.5">
+                                    <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style="background: var(--nx-warning)"></span>
+                                    <span class="text-xs leading-snug text-[color:var(--nx-muted)]">Mehrere eigene Seiten konkurrieren — Kannibalisierung prüfen</span>
+                                </div>
+                            @else
+                                <div class="py-1 text-xs text-[color:var(--nx-faint)]">Keine Überschneidungen — sauber aufgestellt</div>
+                            @endif
+                        </x-nx-card>
+                    </a>
+                @endforeach
+            </div>
         @endif
 
     </x-ui-page-container>

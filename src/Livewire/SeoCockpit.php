@@ -2,10 +2,12 @@
 
 namespace Platform\Seo\Livewire;
 
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlList;
 use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Models\SeoUrlSnapshot;
@@ -21,6 +23,9 @@ use Platform\Seo\Services\SeoOrganizationLinker;
 class SeoCockpit extends Component
 {
     use ResolvesTeamSettings;
+
+    /** Dringlichkeits-Reihung der Signal-Severities für die „größter Hebel"-Aussage. */
+    private const SEVERITY_RANK = ['critical' => 3, 'warning' => 2, 'watch' => 1, 'info' => 0];
 
     public function mount(): void
     {
@@ -104,11 +109,17 @@ class SeoCockpit extends Component
             $custUrlIds = $urls->pluck('id')->all();
             $openRecs = 0;
             $visDelta = null;
+            $topRec = null;
             if (! empty($custUrlIds)) {
-                $openRecs = SeoSignal::whereIn('url_id', $custUrlIds)
+                $recs = SeoSignal::whereIn('url_id', $custUrlIds)
                     ->where('signal_type', 'like', 'rec\_%')
                     ->whereIn('status', ['new', 'acknowledged'])
-                    ->count();
+                    ->get(['id', 'title', 'severity', 'metric_delta']);
+                $openRecs = $recs->count();
+                $topRec = $recs->sortByDesc(function ($r) {
+                    $rank = self::SEVERITY_RANK[$r->severity] ?? 0;
+                    return $rank * 1_000_000 + abs((float) $r->metric_delta);
+                })->first();
 
                 $pastByUrl = [];
                 foreach (SeoUrlSnapshot::whereIn('url_id', $custUrlIds)
@@ -134,6 +145,7 @@ class SeoCockpit extends Component
                 'open_recs' => $openRecs,
                 'vis_delta' => $visDelta,
                 'brands' => $brandCounts[(int) $cid] ?? 0,
+                'insight' => $this->customerInsight($urls->count(), $openRecs, $topRec, $visDelta),
             ];
         }
 
@@ -142,6 +154,7 @@ class SeoCockpit extends Component
 
         return view('seo::livewire.seo-cockpit', [
             'cards' => $cards,
+            'lists' => $this->listsForDashboard($teamId),
             'ablageCount' => $this->ablageCount($teamId, $linker, $childUrlIds),
             'totals' => [
                 'customers' => count($cards),
@@ -150,6 +163,84 @@ class SeoCockpit extends Component
                 'recs' => $totalOpenRecs,
             ],
         ])->layout('platform::layouts.app');
+    }
+
+    /**
+     * Die eine Aussage pro Kunden-Kachel: was ist los, was ist der nächste Hebel.
+     * Priorität: offener Hebel (Empfehlung) → Abwärtsrisiko → Aufwärtstrend → stabil.
+     *
+     * @return array{text: string, tone: string}|null
+     */
+    protected function customerInsight(int $urlCount, int $openRecs, ?SeoSignal $topRec, ?int $visDelta): ?array
+    {
+        if ($urlCount === 0) {
+            return null; // untracked — die Kachel zeigt dafür den „URLs aufhängen"-Hinweis
+        }
+
+        if ($topRec && $openRecs > 0) {
+            $tone = match ($topRec->severity) {
+                'critical' => 'danger',
+                'warning' => 'warning',
+                default => 'info',
+            };
+            $prefix = $openRecs > 1 ? 'Größter Hebel: ' : 'Hebel: ';
+
+            return ['text' => $prefix.$topRec->title, 'tone' => $tone];
+        }
+
+        if ($visDelta !== null && $visDelta <= -5) {
+            return ['text' => 'Sichtbarkeit rutscht ('.$visDelta.') — dranbleiben', 'tone' => 'danger'];
+        }
+
+        if ($visDelta !== null && $visDelta >= 5) {
+            return ['text' => 'Im Aufwind (+'.$visDelta.')', 'tone' => 'success'];
+        }
+
+        return ['text' => 'Stabil — kein akuter Handlungsbedarf', 'tone' => 'muted'];
+    }
+
+    /**
+     * Die Listen (Markt-/Themen-Achse, quer zum Org-Baum) mit Überschneidungs-Zähler.
+     * Overlap = Keywords, die auf ≥2 eigenen URLs derselben Liste ranken (Kannibalisierung
+     * innerhalb der Liste). Eine aggregierte Query über alle Listen.
+     *
+     * @return array<int, array{id:int, name:string, urls:int, overlaps:int}>
+     */
+    protected function listsForDashboard(int $teamId): array
+    {
+        $lists = SeoUrlList::whereHas('urls', fn ($q) => $q->where('seo_urls.team_id', $teamId))
+            ->withCount('urls')
+            ->orderBy('name')
+            ->get();
+
+        if ($lists->isEmpty()) {
+            return [];
+        }
+
+        $overlaps = [];
+        try {
+            $rows = DB::table('seo_url_list_entries as e')
+                ->join('seo_url_keywords as uk', 'uk.url_id', '=', 'e.url_id')
+                ->join('seo_urls as u', 'u.id', '=', 'e.url_id')
+                ->where('u.team_id', $teamId)
+                ->where('u.is_own', true)
+                ->whereNotNull('uk.position')
+                ->groupBy('e.list_id', 'uk.keyword_id')
+                ->havingRaw('COUNT(DISTINCT uk.url_id) >= 2')
+                ->get(['e.list_id']);
+            foreach ($rows as $r) {
+                $overlaps[(int) $r->list_id] = ($overlaps[(int) $r->list_id] ?? 0) + 1;
+            }
+        } catch (\Throwable $e) {
+            // Tabelle/Spalten fehlen — Overlap bleibt 0
+        }
+
+        return $lists->map(fn ($list) => [
+            'id' => (int) $list->id,
+            'name' => $list->name,
+            'urls' => (int) $list->urls_count,
+            'overlaps' => $overlaps[(int) $list->id] ?? 0,
+        ])->all();
     }
 
     /** Anzahl Agentur-URLs ohne Kontext (root-only, nicht modul-eigen). */
