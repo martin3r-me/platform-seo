@@ -245,6 +245,12 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\ListSignalsTool());
             $registry->register(new \Platform\Seo\Tools\UpdateSignalTool());
 
+            // Signal-Definitionen (DB-Objekte, docs/SIGNALS-CONCEPT.md)
+            $registry->register(new \Platform\Seo\Tools\ListSignalDefinitionsTool());
+            $registry->register(new \Platform\Seo\Tools\CreateSignalDefinitionTool());
+            $registry->register(new \Platform\Seo\Tools\UpdateSignalDefinitionTool());
+            $registry->register(new \Platform\Seo\Tools\DeleteSignalDefinitionTool());
+
             // Competitors
             $registry->register(new \Platform\Seo\Tools\FetchSerpCompetitorsTool());
 

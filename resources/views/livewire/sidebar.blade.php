@@ -19,6 +19,10 @@
             @svg('heroicon-o-globe-alt', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Alle URLs</span>
         </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('seo.signals.definitions')" :active="request()->routeIs('seo.signals.definitions')">
+            @svg('heroicon-o-signal', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Signale</span>
+        </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
     {{-- Der Baum = der Perspektiv-Wähler. Jeder Knoten/Typ ist eine Perspektive. --}}

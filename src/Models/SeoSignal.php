@@ -13,6 +13,7 @@ class SeoSignal extends Model
     protected $fillable = [
         'uuid',
         'team_id',
+        'signal_definition_id',
         'keyword_id',
         'url_id',
         'signal_type',
@@ -48,6 +49,11 @@ class SeoSignal extends Model
     public function keyword(): BelongsTo
     {
         return $this->belongsTo(SeoKeyword::class, 'keyword_id');
+    }
+
+    public function definition(): BelongsTo
+    {
+        return $this->belongsTo(SeoSignalDefinition::class, 'signal_definition_id');
     }
 
     public function url(): BelongsTo
