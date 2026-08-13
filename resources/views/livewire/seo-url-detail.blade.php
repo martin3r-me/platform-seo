@@ -268,7 +268,7 @@
                                                             'data' => array_map(fn ($p) => max(1, 101 - $p), $row['trend']),
                                                             'color' => '#10b981',
                                                             'height' => 28,
-                                                            'type' => 'line',
+                                                            'type' => 'area',
                                                         ])
                                                     </div>
                                                 @else
