@@ -104,95 +104,105 @@ class SeoClusteringService
 
         $settings->update(['clustering_status' => 'running']);
 
-        $api = $this->resolveApiService($settings);
+        try {
+            $api = $this->resolveApiService($settings);
 
-        // 1. Fetch SERP data for each keyword
-        $serpMap = [];
-        $fetchedCount = 0;
+            // 1. Fetch SERP data for each keyword
+            $serpMap = [];
+            $fetchedCount = 0;
 
-        foreach ($keywords as $keyword) {
-            try {
-                $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
+            foreach ($keywords as $keyword) {
+                try {
+                    $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
 
-                if (empty($serpResults)) {
-                    continue;
-                }
+                    if (empty($serpResults)) {
+                        continue;
+                    }
 
-                $urls = [];
-                foreach (array_slice($serpResults, 0, 10) as $serpResult) {
-                    if ($serpResult->url) {
-                        $normalized = $this->normalizeUrl($serpResult->url);
-                        if ($normalized) {
-                            $urls[] = $normalized;
+                    $urls = [];
+                    foreach (array_slice($serpResults, 0, 10) as $serpResult) {
+                        if ($serpResult->url) {
+                            $normalized = $this->normalizeUrl($serpResult->url);
+                            if ($normalized) {
+                                $urls[] = $normalized;
+                            }
                         }
                     }
-                }
 
-                if (!empty($urls)) {
-                    $serpMap[$keyword->id] = $urls;
-                    $fetchedCount++;
+                    if (! empty($urls)) {
+                        $serpMap[$keyword->id] = $urls;
+                        $fetchedCount++;
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('SeoClusteringService: SERP fetch failed', [
+                        'keyword_id' => $keyword->id,
+                        'keyword' => $keyword->keyword,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
-            } catch (\Throwable $e) {
-                Log::warning('SeoClusteringService: SERP fetch failed', [
-                    'keyword_id' => $keyword->id,
-                    'keyword' => $keyword->keyword,
-                    'error' => $e->getMessage(),
-                ]);
             }
-        }
 
-        if (count($serpMap) < 2) {
-            $settings->update([
-                'clustering_status' => 'completed',
-                'clustering_result' => [
+            if (count($serpMap) < 2) {
+                $result = [
                     'clusters_created' => 0,
+                    'keywords_clustered' => 0,
                     'keywords_fetched' => $fetchedCount,
                     'singletons_remaining' => $keywords->count(),
+                    'cost_cents' => 0,
+                    'clusters' => [],
+                    'finished_at' => now()->toIso8601String(),
+                ];
+                $settings->update(['clustering_status' => 'completed', 'clustering_result' => $result]);
+
+                return $result;
+            }
+
+            // 2. Build adjacency list
+            $adjacency = $this->buildAdjacencyList($serpMap, $minOverlap);
+
+            // 3. Find connected components (BFS)
+            $allIds = array_keys($serpMap);
+            $components = $this->findConnectedComponents($adjacency, $allIds);
+
+            // 4. Create clusters
+            $keywordsById = $keywords->keyBy('id');
+            $created = $this->createClusters($teamId, $user, $components, $keywordsById, $entityId);
+
+            // 5. Record cost
+            $actualCost = $this->estimateCost('serp', $fetchedCount);
+            $this->budgetGuard->recordCost($settings, 'auto_cluster', $fetchedCount, $actualCost, $user);
+
+            $singletonsRemaining = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id')->count();
+
+            $clusteringResult = [
+                'clusters_created' => $created['clusters_created'],
+                'keywords_clustered' => $created['keywords_clustered'],
+                'keywords_fetched' => $fetchedCount,
+                'singletons_remaining' => $singletonsRemaining,
+                'cost_cents' => $actualCost,
+                'clusters' => $created['clusters'],
+                'finished_at' => now()->toIso8601String(),
+            ];
+
+            $settings->update([
+                'clustering_status' => 'completed',
+                'clustering_result' => $clusteringResult,
+            ]);
+
+            return $clusteringResult;
+        } catch (\Throwable $e) {
+            // Fehler sichtbar machen (UI liest clustering_result) statt still hängen.
+            $settings->update([
+                'clustering_status' => 'failed',
+                'clustering_result' => [
+                    'error' => $e->getMessage(),
+                    'keywords_fetched' => $fetchedCount ?? 0,
+                    'finished_at' => now()->toIso8601String(),
                 ],
             ]);
 
-            return [
-                'clusters_created' => 0,
-                'keywords_clustered' => 0,
-                'keywords_fetched' => $fetchedCount,
-                'singletons_remaining' => $keywords->count(),
-                'cost_cents' => 0,
-                'clusters' => [],
-            ];
+            throw $e;
         }
-
-        // 2. Build adjacency list
-        $adjacency = $this->buildAdjacencyList($serpMap, $minOverlap);
-
-        // 3. Find connected components (BFS)
-        $allIds = array_keys($serpMap);
-        $components = $this->findConnectedComponents($adjacency, $allIds);
-
-        // 4. Create clusters
-        $keywordsById = $keywords->keyBy('id');
-        $result = $this->createClusters($teamId, $user, $components, $keywordsById, $entityId);
-
-        // 5. Record cost
-        $actualCost = $this->estimateCost('serp', $fetchedCount);
-        $this->budgetGuard->recordCost($settings, 'auto_cluster', $fetchedCount, $actualCost, $user);
-
-        $singletonsRemaining = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id')->count();
-
-        $clusteringResult = [
-            'clusters_created' => $result['clusters_created'],
-            'keywords_clustered' => $result['keywords_clustered'],
-            'keywords_fetched' => $fetchedCount,
-            'singletons_remaining' => $singletonsRemaining,
-            'cost_cents' => $actualCost,
-            'clusters' => $result['clusters'],
-        ];
-
-        $settings->update([
-            'clustering_status' => 'completed',
-            'clustering_result' => $clusteringResult,
-        ]);
-
-        return $clusteringResult;
     }
 
     protected function normalizeUrl(string $url): ?string

@@ -400,13 +400,15 @@ class SeoUrlDetail extends Component
         $contextNodes = $linker->nodesForMany(\Platform\Seo\Services\SeoOrganizationLinker::ALIAS_URL, [$this->seoUrl->id])[$this->seoUrl->id] ?? [];
         $availableNodes = $linker->availableNodes((int) $this->seoUrl->team_id);
 
-        $clusteringStatus = \Platform\Seo\Models\SeoTeamSettings::where('team_id', $this->seoUrl->team_id)
-            ->value('clustering_status');
+        $clusteringSettings = \Platform\Seo\Models\SeoTeamSettings::where('team_id', $this->seoUrl->team_id)
+            ->first(['clustering_status', 'clustering_result', 'updated_at']);
 
         return view('seo::livewire.seo-url-detail', [
             'contextNodes' => $contextNodes,
             'availableNodes' => $availableNodes,
-            'clusteringStatus' => $clusteringStatus,
+            'clusteringStatus' => $clusteringSettings?->clustering_status,
+            'clusteringResult' => $clusteringSettings?->clustering_result,
+            'clusteringUpdatedAt' => $clusteringSettings?->updated_at,
             'parentUrl' => $parentUrl,
             'keywords' => $keywords,
             'availableIntents' => $availableIntents,

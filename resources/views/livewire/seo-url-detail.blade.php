@@ -110,8 +110,19 @@
                     @if($seoUrl->is_own)
                         {{-- Cluster-Discovery (Hintergrund-Job) --}}
                         <div class="flex items-center justify-between gap-3 mb-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5">
-                            <div class="text-[12px] text-gray-500">
-                                <span class="font-medium text-gray-700">Cluster-Discovery</span> — Keywords per SERP-Overlap zu Themen bündeln; Kandidaten hängen am Kunden-Knoten.
+                            <div class="text-[12px] min-w-0">
+                                @if(is_array($clusteringResult) && !empty($clusteringResult['error']))
+                                    <span class="text-red-600 font-medium">⚠ Letzter Lauf fehlgeschlagen</span>
+                                    <span class="text-red-500">— {{ \Illuminate\Support\Str::limit($clusteringResult['error'], 140) }}</span>
+                                    @if($clusteringUpdatedAt)<span class="text-gray-400"> · {{ $clusteringUpdatedAt->diffForHumans() }}</span>@endif
+                                @elseif(is_array($clusteringResult) && isset($clusteringResult['clusters_created']))
+                                    <span class="font-medium text-gray-700">Zuletzt:</span>
+                                    <span class="text-gray-500 tabular-nums">{{ $clusteringResult['clusters_created'] }} Cluster · {{ $clusteringResult['keywords_fetched'] ?? 0 }} Fetches · {{ $clusteringResult['cost_cents'] ?? 0 }} ct</span>
+                                    @if($clusteringUpdatedAt)<span class="text-gray-400"> · {{ $clusteringUpdatedAt->diffForHumans() }}</span>@endif
+                                @else
+                                    <span class="font-medium text-gray-700">Cluster-Discovery</span>
+                                    <span class="text-gray-500">— Keywords per SERP-Overlap zu Themen bündeln; Kandidaten hängen am Kunden-Knoten.</span>
+                                @endif
                             </div>
                             @if($clusteringStatus === 'running')
                                 <span wire:poll.5s class="inline-flex items-center gap-2 text-[12px] font-medium text-[#166EE1]">
