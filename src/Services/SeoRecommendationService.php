@@ -25,6 +25,10 @@ class SeoRecommendationService
     public const RETIRE_URL = 'rec_retire_url';
     public const CREATE_URL = 'rec_create_url';
     public const QUICK_WIN = 'rec_quick_win';
+    // Cluster-Hygiene — s. docs/CLUSTER-PLAYBOOK.md §6/§7
+    public const CLUSTER_STALLED = 'rec_cluster_stalled';
+    public const URL_BALLAST = 'rec_url_ballast';
+    public const CLUSTER_FOCUS = 'rec_cluster_focus';
 
     public function __construct(
         protected SeoOrganizationLinker $linker,
@@ -42,6 +46,9 @@ class SeoRecommendationService
             'retire_url' => $this->retire($teamId),
             'create_url' => $this->clusterGaps($teamId),
             'quick_win' => $this->quickWins($teamId),
+            'cluster_stalled' => $this->stalledClusters($teamId),
+            'url_ballast' => $this->ballastUrls($teamId),
+            'cluster_focus' => $this->wipOverflow($teamId),
         ];
         $counts['total'] = array_sum($counts);
 
@@ -230,6 +237,162 @@ class SeoRecommendationService
         }
 
         return $count;
+    }
+
+    /**
+     * Hygiene §6.1 — stillstehende Cluster: brauchen eine Entscheidung
+     * (re-scope oder archivieren). Der Lifecycle setzt den Status; hier wird er
+     * in eine Handlungsempfehlung übersetzt.
+     */
+    protected function stalledClusters(int $teamId): int
+    {
+        $clusters = SeoKeywordCluster::where('team_id', $teamId)
+            ->where('status', SeoKeywordCluster::STATUS_STALLED)
+            ->get(['id', 'name', 'penetration', 'status_changed_at']);
+
+        $count = 0;
+        foreach ($clusters as $cluster) {
+            $since = $cluster->status_changed_at?->format('d.m.Y') ?? 'unbekannt';
+            $pen = (int) ($cluster->penetration ?? 0);
+            $count += $this->persist($teamId, self::CLUSTER_STALLED, [
+                'severity' => 'warning',
+                'title' => "Cluster stillstehend: \"{$cluster->name}\"",
+                'description' => "Seit {$since} kein Fortschritt (Durchdringung {$pen}). Re-scope (Ziel-Keywords/Pillar/Content neu) oder archivieren.",
+                'context' => [
+                    'action' => 'decide_cluster',
+                    'cluster_id' => (int) $cluster->id,
+                    'penetration' => $pen,
+                ],
+            ]);
+        }
+
+        return $count;
+    }
+
+    /**
+     * Hygiene §6.2 — Ballast-URLs: eigene URL ohne Top-20-Ranking, die keinem
+     * aktiven Cluster dient und älter als die Ballast-Frist ist → entfernen oder
+     * umarbeiten.
+     */
+    protected function ballastUrls(int $teamId): int
+    {
+        $ballastDays = (int) config('seo.clusters.url_ballast_days', 60);
+        $cutoff = now()->subDays($ballastDays)->toDateString();
+
+        $urls = SeoUrl::where('team_id', $teamId)
+            ->where('is_own', true)
+            ->where('status', 'active')
+            ->whereNotNull('last_crawled_at')
+            ->whereDate('created_at', '<=', $cutoff)
+            ->get(['id', 'url']);
+
+        if ($urls->isEmpty()) {
+            return 0;
+        }
+
+        $ids = $urls->pluck('id');
+
+        // Rankt die URL irgendwo in den Top 20?
+        $ranking = DB::table('seo_url_keywords')
+            ->whereIn('url_id', $ids)
+            ->where('position', '<=', 20)
+            ->distinct()->pluck('url_id')->flip();
+
+        // Dient die URL einem aktiven/beobachteten Cluster (als Pillar oder über ein Keyword)?
+        $activeClusterIds = SeoKeywordCluster::where('team_id', $teamId)
+            ->whereIn('status', [SeoKeywordCluster::STATUS_ACTIVE, SeoKeywordCluster::STATUS_MONITORED])
+            ->pluck('id');
+
+        $pillarUrlIds = SeoKeywordCluster::whereIn('id', $activeClusterIds)
+            ->whereNotNull('pillar_url_id')->pluck('pillar_url_id')->flip();
+
+        $servingViaKeyword = $activeClusterIds->isEmpty() ? collect() : DB::table('seo_url_keywords as uk')
+            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+            ->whereIn('uk.url_id', $ids)
+            ->whereIn('k.cluster_id', $activeClusterIds)
+            ->distinct()->pluck('uk.url_id')->flip();
+
+        $count = 0;
+        foreach ($urls as $url) {
+            if ($ranking->has($url->id) || $pillarUrlIds->has($url->id) || $servingViaKeyword->has($url->id)) {
+                continue;
+            }
+            $count += $this->persist($teamId, self::URL_BALLAST, [
+                'severity' => 'watch',
+                'title' => "URL-Ballast: {$url->url}",
+                'description' => "Kein Top-20-Ranking, keinem aktiven Cluster dienend, älter als {$ballastDays} Tage. Entfernen oder umarbeiten.",
+                'context' => ['action' => 'prune_or_rework'],
+            ], (int) $url->id);
+        }
+
+        return $count;
+    }
+
+    /**
+     * Hygiene §7 — Fokus: Kunden mit mehr aktiven Clustern als das WIP-Limit.
+     * Durchdringung schlägt Breite.
+     */
+    protected function wipOverflow(int $teamId): int
+    {
+        $limit = (int) config('seo.clusters.wip_active_per_customer', 3);
+
+        $active = SeoKeywordCluster::where('team_id', $teamId)
+            ->where('status', SeoKeywordCluster::STATUS_ACTIVE)
+            ->get(['id']);
+
+        if ($active->count() <= $limit) {
+            return 0; // team-weit unter Limit → kein Knoten kann drüber sein
+        }
+
+        $nodeByCluster = $this->linker->nodeIdsForMany(SeoOrganizationLinker::ALIAS_CLUSTER, $active->pluck('id')->all());
+
+        $byNode = [];
+        foreach ($active as $c) {
+            foreach ($nodeByCluster[$c->id] ?? [] as $nid) {
+                $byNode[$nid][] = (int) $c->id;
+            }
+        }
+
+        $count = 0;
+        foreach ($byNode as $nid => $clusterIds) {
+            if (count($clusterIds) <= $limit) {
+                continue;
+            }
+            $count += $this->persist($teamId, self::CLUSTER_FOCUS, [
+                'severity' => 'info',
+                'title' => 'Fokus: zu viele aktive Cluster',
+                'description' => count($clusterIds)." aktive Cluster an einem Kunden (Limit {$limit}). Erst durchdringen und auf monitored bringen, bevor neue starten.",
+                'context' => [
+                    'action' => 'focus_clusters',
+                    'entity_id' => (int) $nid,
+                    'active_count' => count($clusterIds),
+                    'limit' => $limit,
+                    'cluster_id' => $clusterIds[0], // für Knoten-Link + Dedup
+                ],
+            ]);
+        }
+
+        return $count;
+    }
+
+    /**
+     * Guard fürs Aktivieren (Playbook §7): freie aktive-Cluster-Plätze an einem
+     * Kunden-Knoten. 0 = Limit erreicht, erst einen Cluster auf monitored bringen.
+     */
+    public function remainingWipForNode(int $entityId): int
+    {
+        $limit = (int) config('seo.clusters.wip_active_per_customer', 3);
+        $clusterIds = $this->linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_CLUSTER, $entityId);
+
+        if (empty($clusterIds)) {
+            return $limit;
+        }
+
+        $activeCount = SeoKeywordCluster::whereIn('id', $clusterIds)
+            ->where('status', SeoKeywordCluster::STATUS_ACTIVE)
+            ->count();
+
+        return max(0, $limit - $activeCount);
     }
 
     /**
