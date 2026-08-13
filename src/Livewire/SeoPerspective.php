@@ -277,6 +277,33 @@ class SeoPerspective extends Component
             }
         }
 
+        // URLs-Tab in der Kunden-Sicht: „Deine Seiten" — nur eigene, reichhaltig
+        // (Frische via Accessor, Sichtbarkeits-Δ, offene Empfehlungen je Seite).
+        $urlsRich = collect();
+        if ($this->tab === 'urls' && ! in_array($this->mode, ['unassigned', 'source'], true) && ! empty($ownUrlIds)) {
+            $recCounts = SeoSignal::whereIn('url_id', $ownUrlIds)
+                ->where('signal_type', 'like', 'rec\_%')
+                ->whereIn('status', ['new', 'acknowledged'])
+                ->selectRaw('url_id, COUNT(*) as c')
+                ->groupBy('url_id')->pluck('c', 'url_id');
+
+            $cut = now()->subDays(30)->toDateString();
+            $pastByUrl = [];
+            foreach (\Platform\Seo\Models\SeoUrlSnapshot::whereIn('url_id', $ownUrlIds)
+                        ->whereDate('snapshot_date', '<=', $cut)
+                        ->orderBy('snapshot_date')
+                        ->get(['url_id', 'visibility_score']) as $s) {
+                $pastByUrl[$s->url_id] = (float) $s->visibility_score;
+            }
+
+            $urlsRich = $own->map(function (SeoUrl $u) use ($recCounts, $pastByUrl) {
+                $u->open_recs = (int) ($recCounts[$u->id] ?? 0);
+                $u->vis_delta = isset($pastByUrl[$u->id]) ? (int) round((float) $u->visibility_score - $pastByUrl[$u->id]) : null;
+
+                return $u;
+            })->values();
+        }
+
         if ($this->tab === 'competitors' && ! empty($ownUrlIds)) {
             $competitors = SeoUrl::where('team_id', $teamId)
                 ->where('is_own', false)
@@ -325,6 +352,7 @@ class SeoPerspective extends Component
             'visibilityDelta' => $visibilityDelta,
             'topOwnUrls' => $own->take(6)->values(),
             'topCompetitors' => $urls->where('is_own', false)->take(6)->values(),
+            'urlsRich' => $urlsRich,
         ])->layout('platform::layouts.app');
     }
 
