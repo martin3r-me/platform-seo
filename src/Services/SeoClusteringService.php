@@ -30,7 +30,7 @@ class SeoClusteringService
      * @param  int[]|null  $urlIds    Wenn gesetzt: nur Keywords dieser URLs clustern (kunden-scoped).
      * @param  int|null    $entityId  Wenn gesetzt: neue Cluster an diesen Org-Knoten hängen.
      */
-    public function autoCluster(SeoTeamSettings $settings, User $user, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null): array
+    public function autoCluster(SeoTeamSettings $settings, ?User $user = null, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null): array
     {
         $teamId = $settings->team_id;
 
