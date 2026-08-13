@@ -6,7 +6,10 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Seo\Models\SeoTeamSettings;
+use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoClusteringService;
+use Platform\Seo\Services\SeoOrganizationLinker;
 
 class AutoClusterTool implements ToolContract
 {
@@ -17,7 +20,7 @@ class AutoClusterTool implements ToolContract
 
     public function getDescription(): string
     {
-        return 'POST /seo/clusters/auto - Automatisches SERP-basiertes Keyword-Clustering. Gruppiert Keywords anhand überlappender SERP-Ergebnisse. Optional: min_overlap (Standard: 3, min. gemeinsame URLs für Cluster-Zuordnung). Verbraucht API-Budget!';
+        return 'POST /seo/clusters/auto - Automatisches SERP-basiertes Keyword-Clustering. Gruppiert Keywords anhand überlappender SERP-Ergebnisse. Optional: url_id (nur Keywords dieser eigenen URL + Kinder clustern = kunden-scoped; neue Cluster hängen am Kunden-Knoten), min_overlap (Standard: 3). Ohne url_id werden ALLE noch nicht geclusterten Team-Keywords verarbeitet. Verbraucht API-Budget!';
     }
 
     public function getSchema(): array
@@ -25,6 +28,10 @@ class AutoClusterTool implements ToolContract
         return [
             'type' => 'object',
             'properties' => [
+                'url_id' => [
+                    'type' => 'integer',
+                    'description' => 'Nur Keywords dieser eigenen URL (inkl. Kind-URLs) clustern. Empfohlen — hält Cluster pro Kunde und begrenzt die Kosten.',
+                ],
                 'min_overlap' => [
                     'type' => 'integer',
                     'description' => 'Minimale SERP-Überlappung für Cluster-Zuordnung (Standard: 3)',
@@ -49,7 +56,28 @@ class AutoClusterTool implements ToolContract
             $service = app(SeoClusteringService::class);
             $minOverlap = (int) ($arguments['min_overlap'] ?? 3);
 
-            $result = $service->autoCluster($settings, $context->user, $minOverlap);
+            // Optionales Kunden-Scope: nur Keywords einer eigenen URL + ihrer Kinder.
+            $urlIds = null;
+            $entityId = null;
+            if (! empty($arguments['url_id'])) {
+                $rootId = (int) $arguments['url_id'];
+                $childIds = SeoUrlRelationship::where('source_url_id', $rootId)
+                    ->where('type', 'parent_child')
+                    ->pluck('target_url_id')->all();
+                $urlIds = SeoUrl::whereIn('id', array_merge([$rootId], $childIds))
+                    ->where('team_id', $team->id)
+                    ->where('is_own', true)
+                    ->pluck('id')->all();
+
+                if (empty($urlIds)) {
+                    return ToolResult::error('URL nicht gefunden oder kein eigenes Asset.', 'NOT_FOUND');
+                }
+
+                $nodes = app(SeoOrganizationLinker::class)->nodeIdsFor(SeoOrganizationLinker::ALIAS_URL, $rootId);
+                $entityId = $nodes[0] ?? null;
+            }
+
+            $result = $service->autoCluster($settings, $context->user, $minOverlap, $urlIds, $entityId);
 
             return ToolResult::success([
                 'result' => $result,

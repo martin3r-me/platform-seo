@@ -20,15 +20,25 @@ class SeoClusteringService
         protected DataForSeoApiService $dataForSeoApi,
         protected SeoKeywordService $keywordService,
         protected SeoBudgetGuardService $budgetGuard,
+        protected SeoOrganizationLinker $linker,
     ) {}
 
     /**
      * Auto-cluster keywords based on SERP overlap.
      */
-    public function autoCluster(SeoTeamSettings $settings, User $user, int $minOverlap = 3): array
+    /**
+     * @param  int[]|null  $urlIds    Wenn gesetzt: nur Keywords dieser URLs clustern (kunden-scoped).
+     * @param  int|null    $entityId  Wenn gesetzt: neue Cluster an diesen Org-Knoten hängen.
+     */
+    public function autoCluster(SeoTeamSettings $settings, User $user, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null): array
     {
         $teamId = $settings->team_id;
-        $keywords = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id')->get();
+
+        $query = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id');
+        if ($urlIds !== null) {
+            $query->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $urlIds));
+        }
+        $keywords = $query->get();
 
         if ($keywords->count() < 2) {
             return [
@@ -121,7 +131,7 @@ class SeoClusteringService
 
         // 4. Create clusters
         $keywordsById = $keywords->keyBy('id');
-        $result = $this->createClusters($teamId, $user, $components, $keywordsById);
+        $result = $this->createClusters($teamId, $user, $components, $keywordsById, $entityId);
 
         // 5. Record cost
         $actualCost = $this->estimateCost('serp', $fetchedCount);
@@ -224,7 +234,7 @@ class SeoClusteringService
         return $components;
     }
 
-    protected function createClusters(int $teamId, User $user, array $components, $keywordsById): array
+    protected function createClusters(int $teamId, User $user, array $components, $keywordsById, ?int $entityId = null): array
     {
         $clustersCreated = 0;
         $keywordsClustered = 0;
@@ -259,6 +269,11 @@ class SeoClusteringService
                 'name' => $bestKeyword->keyword,
                 'color' => $color,
             ], $user);
+
+            // Discovery-Ergebnis: Cluster an den Kunden-Knoten hängen (bleibt candidate).
+            if ($entityId !== null) {
+                $this->linker->setNode(SeoOrganizationLinker::ALIAS_CLUSTER, $cluster->id, $entityId);
+            }
 
             foreach ($component as $keywordId) {
                 $kw = $keywordsById[$keywordId] ?? null;
