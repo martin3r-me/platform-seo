@@ -133,6 +133,16 @@ class SeoPerspective extends Component
         $this->selected = [];
     }
 
+    /** Empfehlung als erledigt markieren — Inline-Aktion im „Was jetzt". */
+    public function resolveSignal(int $id): void
+    {
+        SeoSignal::where('id', $id)
+            ->where('team_id', (int) $this->seoSettings->team_id)
+            ->update(['status' => 'resolved']);
+
+        $this->notice = 'Als erledigt markiert.';
+    }
+
     public function render()
     {
         $teamId = (int) $this->seoSettings->team_id;
@@ -229,6 +239,44 @@ class SeoPerspective extends Component
         $recommendations = collect();
         $clusters = collect();
 
+        // „Was jetzt" (Held der Übersicht) + Veränderung — kontextunabhängig geladen.
+        $topRecommendations = collect();
+        $openRecCount = 0;
+        $visibilityDelta = null;
+
+        if (! empty($ownUrlIds)) {
+            $openRecCount = SeoSignal::whereIn('url_id', $ownUrlIds)
+                ->where('signal_type', 'like', 'rec\_%')
+                ->whereIn('status', ['new', 'acknowledged'])
+                ->count();
+
+            $sevRank = ['critical' => 0, 'high' => 0, 'error' => 0, 'warning' => 1, 'watch' => 2, 'info' => 3];
+            $topRecommendations = SeoSignal::whereIn('url_id', $ownUrlIds)
+                ->where('signal_type', 'like', 'rec\_%')
+                ->whereIn('status', ['new', 'acknowledged'])
+                ->with('url:id,url,domain,path')
+                ->orderByDesc('detected_at')
+                ->limit(40)
+                ->get()
+                ->sortBy(fn ($s) => (($sevRank[strtolower($s->severity ?? '')] ?? 5) * 1000000000) - (int) ($s->context['volume'] ?? 0))
+                ->take(6)
+                ->values();
+
+            // Sichtbarkeits-Δ vs. ~30 Tage: jüngster Snapshot je URL <= Stichtag, summiert.
+            $cut = now()->subDays(30)->toDateString();
+            $latestPerUrl = [];
+            foreach (\Platform\Seo\Models\SeoUrlSnapshot::whereIn('url_id', $ownUrlIds)
+                        ->whereDate('snapshot_date', '<=', $cut)
+                        ->orderBy('snapshot_date')
+                        ->get(['url_id', 'visibility_score']) as $snap) {
+                $latestPerUrl[$snap->url_id] = (float) $snap->visibility_score;
+            }
+            $past = array_sum($latestPerUrl);
+            if ($past > 0) {
+                $visibilityDelta = (int) round($kpis['visibility'] - $past);
+            }
+        }
+
         if ($this->tab === 'competitors' && ! empty($ownUrlIds)) {
             $competitors = SeoUrl::where('team_id', $teamId)
                 ->where('is_own', false)
@@ -272,6 +320,11 @@ class SeoPerspective extends Component
             'competitors' => $competitors,
             'recommendations' => $recommendations,
             'clusters' => $clusters,
+            'topRecommendations' => $topRecommendations,
+            'openRecCount' => $openRecCount,
+            'visibilityDelta' => $visibilityDelta,
+            'topOwnUrls' => $own->take(6)->values(),
+            'topCompetitors' => $urls->where('is_own', false)->take(6)->values(),
         ])->layout('platform::layouts.app');
     }
 

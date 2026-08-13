@@ -30,47 +30,61 @@
         </div>
 
         {{-- Perspektive-Zusammenfassung: KPIs (immer sichtbar) --}}
+        @php
+            $visHint = null;
+            if ($visibilityDelta !== null && $visibilityDelta !== 0) {
+                $visHint = ($visibilityDelta > 0 ? '▲ +' : '▼ ').number_format($visibilityDelta).' · 30 T';
+            }
+        @endphp
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">URLs</div>
-                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($kpis['own']) }}</div>
-                <div class="text-[10px] text-gray-400 mt-1">{{ $kpis['competitors'] }} Wettbewerber</div>
-            </div>
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Sichtbarkeit</div>
-                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($kpis['visibility']) }}</div>
-            </div>
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Keywords</div>
-                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($kpis['keywords']) }}</div>
-            </div>
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Suchvolumen</div>
-                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($kpis['search_volume']) }}</div>
-            </div>
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Backlinks</div>
-                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($kpis['backlinks']) }}</div>
-            </div>
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Traffic (30T)</div>
-                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($kpis['visitors']) }}</div>
-            </div>
+            <x-nx-stat label="URLs" :value="number_format($kpis['own'])" :hint="$kpis['competitors'].' Wettbewerber'" />
+            <x-nx-stat label="Sichtbarkeit" :value="number_format($kpis['visibility'])" :hint="$visHint" />
+            <x-nx-stat label="Keywords" :value="number_format($kpis['keywords'])" />
+            <x-nx-stat label="Suchvolumen" :value="number_format($kpis['search_volume'])" />
+            <x-nx-stat label="Backlinks" :value="number_format($kpis['backlinks'])" />
+            <x-nx-stat label="Traffic (30T)" :value="number_format($kpis['visitors'])" />
         </div>
 
         {{-- Kontext-Tabs: die Linsen dieser Perspektive --}}
         @php $tabs = ['overview' => 'Übersicht', 'urls' => 'URLs', 'competitors' => 'Wettbewerber', 'recommendations' => 'Empfehlungen', 'clusters' => 'Cluster']; @endphp
-        <div class="flex items-center gap-1 border-b border-gray-200 mb-6 overflow-x-auto">
+        <x-nx-tabs class="mb-6">
             @foreach($tabs as $key => $label)
-                <button wire:click="$set('tab', '{{ $key }}')"
-                        class="px-4 py-2 text-[13px] font-medium border-b-2 -mb-px whitespace-nowrap transition-colors {{ $tab === $key ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    {{ $label }}
-                </button>
+                <x-nx-tab :active="$tab === $key" wire:click="$set('tab', '{{ $key }}')">{{ $label }}</x-nx-tab>
             @endforeach
-        </div>
+        </x-nx-tabs>
 
         {{-- ============ ÜBERSICHT ============ --}}
         @if($tab === 'overview')
+            {{-- WAS JETZT — der Held: priorisierte Aktionen dieses Kunden --}}
+            <x-nx-section icon="heroicon-o-bolt" title="Was jetzt" :hint="$openRecCount ? $openRecCount.' offen' : null" class="mb-6">
+                @if($topRecommendations->isNotEmpty())
+                    <x-nx-card flush>
+                        <ul class="divide-y divide-[color:var(--nx-line)]">
+                            @foreach($topRecommendations as $rec)
+                                @php
+                                    $sev = strtolower($rec->severity ?? '');
+                                    $sevVariant = in_array($sev, ['critical','high','error']) ? 'danger' : ($sev === 'warning' ? 'warning' : ($sev === 'watch' ? 'info' : 'neutral'));
+                                @endphp
+                                <x-nx-list-item :title="$rec->title" :subtitle="$rec->description">
+                                    <x-slot name="trailing">
+                                        @if($rec->url)
+                                            <a href="{{ route('seo.urls.show', $rec->url->id) }}" wire:navigate class="hidden sm:block max-w-[320px] truncate text-xs text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">{{ $rec->url->domain }}{{ $rec->url->path && $rec->url->path !== '/' ? $rec->url->path : '' }}</a>
+                                        @endif
+                                        <x-nx-badge :variant="$sevVariant">{{ $sev ?: 'info' }}</x-nx-badge>
+                                        <x-nx-button variant="ghost" size="sm" wire:click="resolveSignal({{ $rec->id }})">Erledigt</x-nx-button>
+                                    </x-slot>
+                                </x-nx-list-item>
+                            @endforeach
+                        </ul>
+                    </x-nx-card>
+                    @if($openRecCount > $topRecommendations->count())
+                        <button wire:click="$set('tab', 'recommendations')" class="text-xs text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Alle {{ $openRecCount }} Empfehlungen →</button>
+                    @endif
+                @else
+                    <x-nx-empty icon="heroicon-o-check-circle">Keine offenen Empfehlungen — alles abgearbeitet.</x-nx-empty>
+                @endif
+            </x-nx-section>
+
             @if($customerCount > 0)
                 <a href="{{ route('seo.perspective.customers', $entityId) }}" wire:navigate
                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm mb-6">
@@ -112,25 +126,32 @@
                 </div>
             @endif
 
-            @if($urls->isNotEmpty())
-                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                        <h2 class="text-[13px] font-semibold text-gray-700">Top-URLs</h2>
-                        <button wire:click="$set('tab', 'urls')" class="text-[11px] text-indigo-500 hover:underline">Alle URLs →</button>
-                    </div>
-                    <div class="divide-y divide-gray-50">
-                        @foreach($urls->take(6) as $url)
-                            <div class="px-4 py-2.5 flex items-center justify-between gap-3 text-[12px]">
-                                <a href="{{ route('seo.urls.show', $url->id) }}" wire:navigate class="text-indigo-600 hover:underline truncate">{{ $url->display_label }}</a>
-                                <span class="tabular-nums font-medium text-gray-700 flex-shrink-0">Sicht. {{ number_format($url->visibility_score, 0) }}</span>
-                            </div>
+            {{-- Deine URLs (nur eigene Assets — Wettbewerber getrennt) --}}
+            <x-nx-section title="Deine URLs" class="mb-6">
+                <x-slot name="action"><x-nx-button variant="ghost" size="sm" wire:click="$set('tab','urls')">Alle URLs</x-nx-button></x-slot>
+                @if($topOwnUrls->isNotEmpty())
+                    <x-nx-card flush>
+                        <ul class="divide-y divide-[color:var(--nx-line)]">
+                            @foreach($topOwnUrls as $url)
+                                <x-nx-list-item :title="$url->display_label" :meta="'Sicht. '.number_format($url->visibility_score, 0)" :href="route('seo.urls.show', $url->id)" />
+                            @endforeach
+                        </ul>
+                    </x-nx-card>
+                @else
+                    <x-nx-empty>Keine eigenen URLs in dieser Perspektive.</x-nx-empty>
+                @endif
+            </x-nx-section>
+
+            {{-- Wettbewerber-Streifen (klar getrennt von den eigenen) --}}
+            @if($topCompetitors->isNotEmpty())
+                <x-nx-section title="Wettbewerber" :hint="(string) $kpis['competitors']" class="mb-6">
+                    <x-slot name="action"><x-nx-button variant="ghost" size="sm" wire:click="$set('tab','competitors')">Alle</x-nx-button></x-slot>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($topCompetitors as $c)
+                            <x-nx-badge variant="warning" dot>{{ $c->domain }} · {{ number_format($c->visibility_score, 0) }}</x-nx-badge>
                         @endforeach
                     </div>
-                </div>
-            @else
-                <div class="bg-white rounded-lg border border-gray-200 p-8 text-center text-[13px] text-gray-400">
-                    Keine URLs in dieser Perspektive.
-                </div>
+                </x-nx-section>
             @endif
         @endif
 
@@ -234,28 +255,27 @@
         {{-- ============ EMPFEHLUNGEN ============ --}}
         @if($tab === 'recommendations')
             @if($recommendations->isNotEmpty())
-                <div class="space-y-2">
-                    @foreach($recommendations as $rec)
-                        <div class="bg-white rounded-lg border border-gray-200 p-4">
-                            <div class="flex items-start gap-3">
-                                <span class="inline-flex w-2 h-2 rounded-full flex-shrink-0 mt-1.5 {{ in_array(strtolower($rec->severity ?? ''), ['critical','high','error','action','danger']) ? 'bg-red-400' : (in_array(strtolower($rec->severity ?? ''), ['medium','warning','warn','watch']) ? 'bg-amber-400' : 'bg-blue-300') }}"></span>
-                                <div class="min-w-0 flex-1">
-                                    <div class="text-[13px] font-medium text-gray-900">{{ $rec->title }}</div>
-                                    @if($rec->description)
-                                        <div class="text-[11px] text-gray-400 mt-0.5">{{ $rec->description }}</div>
-                                    @endif
+                <x-nx-card flush>
+                    <ul class="divide-y divide-[color:var(--nx-line)]">
+                        @foreach($recommendations as $rec)
+                            @php
+                                $sev = strtolower($rec->severity ?? '');
+                                $sevVariant = in_array($sev, ['critical','high','error']) ? 'danger' : ($sev === 'warning' ? 'warning' : ($sev === 'watch' ? 'info' : 'neutral'));
+                            @endphp
+                            <x-nx-list-item :title="$rec->title" :subtitle="$rec->description">
+                                <x-slot name="trailing">
                                     @if($rec->url)
-                                        <a href="{{ route('seo.urls.show', $rec->url->id) }}" wire:navigate class="text-[11px] text-indigo-500 hover:underline mt-1 inline-block">{{ $rec->url->domain }}{{ $rec->url->path && $rec->url->path !== '/' ? $rec->url->path : '' }}</a>
+                                        <a href="{{ route('seo.urls.show', $rec->url->id) }}" wire:navigate class="hidden sm:block max-w-[320px] truncate text-xs text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">{{ $rec->url->domain }}{{ $rec->url->path && $rec->url->path !== '/' ? $rec->url->path : '' }}</a>
                                     @endif
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
+                                    <x-nx-badge :variant="$sevVariant">{{ $sev ?: 'info' }}</x-nx-badge>
+                                    <x-nx-button variant="ghost" size="sm" wire:click="resolveSignal({{ $rec->id }})">Erledigt</x-nx-button>
+                                </x-slot>
+                            </x-nx-list-item>
+                        @endforeach
+                    </ul>
+                </x-nx-card>
             @else
-                <div class="bg-white rounded-lg border border-gray-200 p-8 text-center text-[13px] text-gray-400">
-                    Keine offenen Empfehlungen für diese Perspektive.
-                </div>
+                <x-nx-empty icon="heroicon-o-check-circle">Keine offenen Empfehlungen für diese Perspektive.</x-nx-empty>
             @endif
         @endif
 
