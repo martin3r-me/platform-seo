@@ -46,7 +46,7 @@
         </div>
 
         {{-- Kontext-Tabs: die Linsen dieser Perspektive --}}
-        @php $tabs = ['overview' => 'Übersicht', 'urls' => 'URLs', 'competitors' => 'Wettbewerber', 'recommendations' => 'Empfehlungen', 'clusters' => 'Cluster']; @endphp
+        @php $tabs = ['overview' => 'Übersicht', 'movers' => 'Bewegung', 'urls' => 'URLs', 'competitors' => 'Wettbewerber', 'recommendations' => 'Empfehlungen', 'clusters' => 'Cluster']; @endphp
         <x-nx-tabs class="mb-6">
             @foreach($tabs as $key => $label)
                 <x-nx-tab :active="$tab === $key" wire:click="$set('tab', '{{ $key }}')">{{ $label }}</x-nx-tab>
@@ -326,6 +326,47 @@
                 </x-nx-card>
             @else
                 <x-nx-empty icon="heroicon-o-squares-2x2">Noch keine Cluster für diese Perspektive. Cluster entstehen über die Discovery (Keywords-Tab einer eigenen URL).</x-nx-empty>
+            @endif
+        @endif
+
+        {{-- ============ BEWEGUNG (Movers) ============ --}}
+        @if($tab === 'movers')
+            @if($moverGainers->isEmpty() && $moverLosers->isEmpty())
+                <x-nx-empty icon="heroicon-o-arrow-trending-up">Noch keine Bewegung — Positions-Deltas erscheinen ab der zweiten Messung (wöchentliche Rankings). Die Basis-Messung läuft.</x-nx-empty>
+            @else
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <x-nx-section icon="heroicon-o-arrow-trending-up" title="Gewinner" :hint="(string) $moverGainers->count()">
+                        @if($moverGainers->isNotEmpty())
+                            <x-nx-card flush>
+                                <ul class="divide-y divide-[color:var(--nx-line)]">
+                                    @foreach($moverGainers as $m)
+                                        <x-nx-list-item :title="$m->keyword" :subtitle="'Pos. '.$m->previous_position.' → '.$m->position">
+                                            <x-slot name="trailing"><x-nx-badge variant="success">▲ {{ $m->delta }}</x-nx-badge></x-slot>
+                                        </x-nx-list-item>
+                                    @endforeach
+                                </ul>
+                            </x-nx-card>
+                        @else
+                            <x-nx-empty>Keine Aufsteiger im aktuellen Zeitraum.</x-nx-empty>
+                        @endif
+                    </x-nx-section>
+
+                    <x-nx-section icon="heroicon-o-arrow-trending-down" title="Verlierer" :hint="(string) $moverLosers->count()">
+                        @if($moverLosers->isNotEmpty())
+                            <x-nx-card flush>
+                                <ul class="divide-y divide-[color:var(--nx-line)]">
+                                    @foreach($moverLosers as $m)
+                                        <x-nx-list-item :title="$m->keyword" :subtitle="'Pos. '.$m->previous_position.' → '.$m->position">
+                                            <x-slot name="trailing"><x-nx-badge variant="danger">▼ {{ abs($m->delta) }}</x-nx-badge></x-slot>
+                                        </x-nx-list-item>
+                                    @endforeach
+                                </ul>
+                            </x-nx-card>
+                        @else
+                            <x-nx-empty>Keine Absteiger im aktuellen Zeitraum.</x-nx-empty>
+                        @endif
+                    </x-nx-section>
+                </div>
             @endif
         @endif
 

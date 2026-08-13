@@ -214,7 +214,12 @@
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         @foreach($keywords as $keyword)
-                                            @php $bestUrl = $keyword->urls->sortBy('pivot.position')->first(); @endphp
+                                            @php
+                                                $bestUrl = $keyword->urls->sortBy('pivot.position')->first();
+                                                $posChange = ($bestUrl && $bestUrl->pivot->previous_position !== null && $bestUrl->pivot->position !== null)
+                                                    ? (int) $bestUrl->pivot->previous_position - (int) $bestUrl->pivot->position
+                                                    : null;
+                                            @endphp
                                             <tr wire:key="kw-{{ $keyword->id }}"
                                                 wire:click="selectKeyword({{ $keyword->id }})"
                                                 class="cursor-pointer transition-colors {{ $selectedKeywordId === $keyword->id ? 'bg-blue-50' : 'hover:bg-gray-50' }}">
@@ -265,7 +270,7 @@
                                                     {{ $keyword->cpc_euro !== null ? number_format($keyword->cpc_euro, 2) . '€' : '—' }}
                                                 </td>
                                                 <td class="px-4 py-2.5 text-right">
-                                                    @include('seo::partials.position-badge', ['position' => $bestUrl?->pivot->position, 'change' => null])
+                                                    @include('seo::partials.position-badge', ['position' => $bestUrl?->pivot->position, 'change' => $posChange])
                                                 </td>
                                                 <td class="px-4 py-2.5 text-right">
                                                     @include('seo::partials.kd-badge', ['value' => $keyword->keyword_difficulty])

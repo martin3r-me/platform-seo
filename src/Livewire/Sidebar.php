@@ -161,9 +161,10 @@ class Sidebar extends Component
                     ->filter()
                     ->values();
 
+                // Nur eigene URLs zählen/zeigen — Wettbewerber gehören nicht in den Kunden-Counter.
                 $entityUrls = collect($itemData['urls'] ?? [])
                     ->map(fn ($id) => $urls->firstWhere('id', $id))
-                    ->filter()
+                    ->filter(fn ($u) => $u && $u->is_own)
                     ->values();
 
                 // Total items count (own + children)

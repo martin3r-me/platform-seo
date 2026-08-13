@@ -337,6 +337,27 @@ class SeoPerspective extends Component
             }
         }
 
+        // Bewegung-Linse: Positions-Deltas der Keywords (aus dem url-keyword-Pivot,
+        // position vs. previous_position). Gewinner ▲ / Verlierer ▼.
+        $moverGainers = collect();
+        $moverLosers = collect();
+        if ($this->tab === 'movers' && ! empty($ownUrlIds)) {
+            $rows = DB::table('seo_url_keywords as uk')
+                ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+                ->whereIn('uk.url_id', $ownUrlIds)
+                ->whereNotNull('uk.position')
+                ->whereNotNull('uk.previous_position')
+                ->whereColumn('uk.position', '<>', 'uk.previous_position')
+                ->selectRaw('k.keyword, uk.position, uk.previous_position, (uk.previous_position - uk.position) as delta')
+                ->get()
+                ->groupBy('keyword')
+                ->map(fn ($g) => $g->sortByDesc(fn ($r) => abs($r->delta))->first())
+                ->values();
+
+            $moverGainers = $rows->where('delta', '>', 0)->sortByDesc('delta')->take(20)->values();
+            $moverLosers = $rows->where('delta', '<', 0)->sortBy('delta')->take(20)->values();
+        }
+
         return view('seo::livewire.seo-perspective', [
             'urls' => $urls,
             'kpis' => $kpis,
@@ -353,6 +374,8 @@ class SeoPerspective extends Component
             'topOwnUrls' => $own->take(6)->values(),
             'topCompetitors' => $urls->where('is_own', false)->take(6)->values(),
             'urlsRich' => $urlsRich,
+            'moverGainers' => $moverGainers,
+            'moverLosers' => $moverLosers,
         ])->layout('platform::layouts.app');
     }
 
