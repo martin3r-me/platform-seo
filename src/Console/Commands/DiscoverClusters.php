@@ -3,11 +3,7 @@
 namespace Platform\Seo\Console\Commands;
 
 use Illuminate\Console\Command;
-use Platform\Seo\Models\SeoTeamSettings;
-use Platform\Seo\Models\SeoUrl;
-use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoClusteringService;
-use Platform\Seo\Services\SeoOrganizationLinker;
 
 /**
  * Der „Entdecken"-Takt (Playbook §2): SERP-basiertes Auto-Clustering für eine
@@ -23,43 +19,13 @@ class DiscoverClusters extends Command
 
     protected $description = 'SERP-basiertes Auto-Clustering für eine URL (kunden-scoped, ohne Timeout)';
 
-    public function handle(SeoClusteringService $service, SeoOrganizationLinker $linker): int
+    public function handle(SeoClusteringService $service): int
     {
         $rootId = (int) $this->argument('url_id');
-        $root = SeoUrl::find($rootId);
-        if (! $root) {
-            $this->error("URL {$rootId} nicht gefunden.");
 
-            return self::FAILURE;
-        }
+        $this->info("Clustering für URL {$rootId} …");
 
-        $settings = SeoTeamSettings::where('team_id', $root->team_id)->first();
-        if (! $settings) {
-            $this->error("Keine SEO-Einstellungen für Team {$root->team_id}.");
-
-            return self::FAILURE;
-        }
-
-        $childIds = SeoUrlRelationship::where('source_url_id', $rootId)
-            ->where('type', 'parent_child')
-            ->pluck('target_url_id')->all();
-
-        $urlIds = SeoUrl::whereIn('id', array_merge([$rootId], $childIds))
-            ->where('team_id', $root->team_id)
-            ->where('is_own', true)
-            ->pluck('id')->all();
-
-        if (empty($urlIds)) {
-            $this->error('Keine eigenen URLs im Scope.');
-
-            return self::FAILURE;
-        }
-
-        $entityId = $linker->nodeIdsFor(SeoOrganizationLinker::ALIAS_URL, $rootId)[0] ?? null;
-
-        $this->info("Clustering {$root->url} — ".count($urlIds).' URL(s), Knoten '.($entityId ?? '—').' …');
-
-        $result = $service->autoCluster($settings, null, (int) $this->option('min-overlap'), $urlIds, $entityId);
+        $result = $service->autoClusterForUrl($rootId, (int) $this->option('min-overlap'));
 
         if (! empty($result['error'])) {
             $this->error("Abgebrochen: {$result['error']}");

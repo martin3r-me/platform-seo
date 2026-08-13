@@ -52,6 +52,22 @@ class SeoUrlDetail extends Component
         $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
     }
 
+    /**
+     * Stößt die kunden-gescopte Cluster-Discovery für diese URL im Hintergrund an
+     * (SERP-basiert, kann dauern). Status läuft über clustering_status + wire:poll.
+     */
+    public function discoverClusters(): void
+    {
+        if (! $this->seoUrl->is_own) {
+            return;
+        }
+
+        \Platform\Seo\Models\SeoTeamSettings::where('team_id', $this->seoUrl->team_id)
+            ->update(['clustering_status' => 'running']);
+
+        \Platform\Seo\Jobs\DiscoverClustersJob::dispatch($this->seoUrl->id);
+    }
+
     public function sortKeywords(string $field): void
     {
         if ($this->keywordSort === $field) {
@@ -384,9 +400,13 @@ class SeoUrlDetail extends Component
         $contextNodes = $linker->nodesForMany(\Platform\Seo\Services\SeoOrganizationLinker::ALIAS_URL, [$this->seoUrl->id])[$this->seoUrl->id] ?? [];
         $availableNodes = $linker->availableNodes((int) $this->seoUrl->team_id);
 
+        $clusteringStatus = \Platform\Seo\Models\SeoTeamSettings::where('team_id', $this->seoUrl->team_id)
+            ->value('clustering_status');
+
         return view('seo::livewire.seo-url-detail', [
             'contextNodes' => $contextNodes,
             'availableNodes' => $availableNodes,
+            'clusteringStatus' => $clusteringStatus,
             'parentUrl' => $parentUrl,
             'keywords' => $keywords,
             'availableIntents' => $availableIntents,

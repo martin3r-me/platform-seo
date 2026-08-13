@@ -5,11 +5,10 @@ namespace Platform\Seo\Tools;
 use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
+use Platform\Seo\Jobs\DiscoverClustersJob;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
-use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Services\SeoClusteringService;
-use Platform\Seo\Services\SeoOrganizationLinker;
 
 class AutoClusterTool implements ToolContract
 {
@@ -53,31 +52,33 @@ class AutoClusterTool implements ToolContract
                 return ToolResult::error('Keine SEO-Einstellungen für dieses Team konfiguriert.', 'NOT_CONFIGURED');
             }
 
-            $service = app(SeoClusteringService::class);
             $minOverlap = (int) ($arguments['min_overlap'] ?? 3);
 
-            // Optionales Kunden-Scope: nur Keywords einer eigenen URL + ihrer Kinder.
-            $urlIds = null;
-            $entityId = null;
+            // Kunden-Scope → Hintergrund-Job (SERP-Clustering läuft je nach
+            // Keyword-Zahl lange und würde ein synchrones Timeout reißen).
             if (! empty($arguments['url_id'])) {
                 $rootId = (int) $arguments['url_id'];
-                $childIds = SeoUrlRelationship::where('source_url_id', $rootId)
-                    ->where('type', 'parent_child')
-                    ->pluck('target_url_id')->all();
-                $urlIds = SeoUrl::whereIn('id', array_merge([$rootId], $childIds))
+                $own = SeoUrl::where('id', $rootId)
                     ->where('team_id', $team->id)
                     ->where('is_own', true)
-                    ->pluck('id')->all();
+                    ->exists();
 
-                if (empty($urlIds)) {
+                if (! $own) {
                     return ToolResult::error('URL nicht gefunden oder kein eigenes Asset.', 'NOT_FOUND');
                 }
 
-                $nodes = app(SeoOrganizationLinker::class)->nodeIdsFor(SeoOrganizationLinker::ALIAS_URL, $rootId);
-                $entityId = $nodes[0] ?? null;
+                $settings->update(['clustering_status' => 'running']);
+                DiscoverClustersJob::dispatch($rootId, $minOverlap);
+
+                return ToolResult::success([
+                    'status' => 'started',
+                    'url_id' => $rootId,
+                    'message' => 'Cluster-Discovery gestartet (läuft im Hintergrund). Fortschritt via clustering_status, Ergebnis via seo.clusters.GET.',
+                ]);
             }
 
-            $result = $service->autoCluster($settings, $context->user, $minOverlap, $urlIds, $entityId);
+            // Ohne url_id: team-weiter Synchronlauf (nur für kleine Bestände).
+            $result = app(SeoClusteringService::class)->autoCluster($settings, $context->user, $minOverlap);
 
             return ToolResult::success([
                 'result' => $result,

@@ -7,6 +7,8 @@ use Platform\Core\Models\User;
 use Platform\Integrations\Services\DataForSeoApiService;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoTeamSettings;
+use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlRelationship;
 
 class SeoClusteringService
 {
@@ -26,6 +28,43 @@ class SeoClusteringService
     /**
      * Auto-cluster keywords based on SERP overlap.
      */
+    /**
+     * Kunden-gescopte Discovery für eine eigene URL (+ Kinder). Löst Scope +
+     * Ziel-Knoten auf und clustert. Gemeinsame Logik für CLI-Command, Queue-Job
+     * und MCP-Tool.
+     */
+    public function autoClusterForUrl(int $rootId, int $minOverlap = 3): array
+    {
+        $root = SeoUrl::find($rootId);
+        if (! $root) {
+            return ['error' => 'URL nicht gefunden'];
+        }
+
+        $settings = SeoTeamSettings::where('team_id', $root->team_id)->first();
+        if (! $settings) {
+            return ['error' => 'Keine SEO-Einstellungen für dieses Team'];
+        }
+
+        $childIds = SeoUrlRelationship::where('source_url_id', $rootId)
+            ->where('type', 'parent_child')
+            ->pluck('target_url_id')->all();
+
+        $urlIds = SeoUrl::whereIn('id', array_merge([$rootId], $childIds))
+            ->where('team_id', $root->team_id)
+            ->where('is_own', true)
+            ->pluck('id')->all();
+
+        if (empty($urlIds)) {
+            $settings->update(['clustering_status' => 'completed']);
+
+            return ['error' => 'Keine eigenen URLs im Scope'];
+        }
+
+        $entityId = $this->linker->nodeIdsFor(SeoOrganizationLinker::ALIAS_URL, $rootId)[0] ?? null;
+
+        return $this->autoCluster($settings, null, $minOverlap, $urlIds, $entityId);
+    }
+
     /**
      * @param  int[]|null  $urlIds    Wenn gesetzt: nur Keywords dieser URLs clustern (kunden-scoped).
      * @param  int|null    $entityId  Wenn gesetzt: neue Cluster an diesen Org-Knoten hängen.
