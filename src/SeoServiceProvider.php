@@ -173,19 +173,18 @@ class SeoServiceProvider extends ServiceProvider
             ->withoutOverlapping()
             ->runInBackground();
 
-        // Alle 2 Wochen Sonntag 03:00 — Pipeline (Enrichment: Backlinks, OnPage etc.)
+        // Täglich 03:00 — vollständige URL-Pipeline. Der Cron ist nur der
+        // Herzschlag; WAS tatsächlich geholt wird, entscheiden die per-Collector-
+        // Intervalle (config('seo.refresh_intervals'), priority-skaliert via
+        // SeoUrl::getEffectiveRefreshInterval) plus der Budget-Guard (max.
+        // max_budget_percentage_per_run des Monatsbudgets pro Lauf, Monats-Cap
+        // via canFetch). Dadurch greifen die konfigurierten Frequenzen real:
+        // GSC/Plausible ~täglich (kostenlos), SERP/Keyword-Metriken wöchentlich,
+        // Backlinks/OnPage 2-wöchentlich, LLM-Mentions ~monatlich — statt alles
+        // pauschal alle 2 Wochen zu holen. Nur fällige URLs je Collector werden
+        // angefasst, der Rest wird übersprungen.
         Schedule::command('seo:pipeline')
-            ->weeklyOn(0, '03:00')
-            ->when(fn () => now()->weekOfYear % 2 === 0)
-            ->withoutOverlapping()
-            ->runInBackground();
-
-        // Täglich 03:30 — nur Plausible-Traffic. Kostenfrei (self-hosted) und
-        // täglich sinnvoll, daher entkoppelt von der 2-wöchentlichen (teuren)
-        // DataForSEO-Pipeline. Der Collector gleicht den eigenen URL-Bestand
-        // gegen Plausible ab und reichert die Domains an, die dort Daten haben.
-        Schedule::command('seo:pipeline --collector=plausible')
-            ->dailyAt('03:30')
+            ->dailyAt('03:00')
             ->withoutOverlapping()
             ->runInBackground();
 
