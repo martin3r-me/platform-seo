@@ -58,16 +58,16 @@ class AutoClusterTool implements ToolContract
             // Keyword-Zahl lange und würde ein synchrones Timeout reißen).
             if (! empty($arguments['url_id'])) {
                 $rootId = (int) $arguments['url_id'];
-                $own = SeoUrl::where('id', $rootId)
+                $url = SeoUrl::where('id', $rootId)
                     ->where('team_id', $team->id)
                     ->where('is_own', true)
-                    ->exists();
+                    ->first();
 
-                if (! $own) {
+                if (! $url) {
                     return ToolResult::error('URL nicht gefunden oder kein eigenes Asset.', 'NOT_FOUND');
                 }
 
-                $settings->update(['clustering_status' => 'running']);
+                $url->markClustering('running');
                 DiscoverClustersJob::dispatch($rootId, $minOverlap);
 
                 return ToolResult::success([

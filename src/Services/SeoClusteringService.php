@@ -55,14 +55,25 @@ class SeoClusteringService
             ->pluck('id')->all();
 
         if (empty($urlIds)) {
-            $settings->update(['clustering_status' => 'completed']);
+            $root->markClustering('failed', ['error' => 'Keine eigenen URLs im Scope']);
 
             return ['error' => 'Keine eigenen URLs im Scope'];
         }
 
         $entityId = $this->linker->nodeIdsFor(SeoOrganizationLinker::ALIAS_URL, $rootId)[0] ?? null;
 
-        return $this->autoCluster($settings, null, $minOverlap, $urlIds, $entityId);
+        $root->markClustering('running');
+
+        try {
+            $result = $this->autoCluster($settings, null, $minOverlap, $urlIds, $entityId);
+            $root->markClustering(empty($result['error']) ? 'completed' : 'failed', $result);
+
+            return $result;
+        } catch (\Throwable $e) {
+            $root->markClustering('failed', ['error' => $e->getMessage()]);
+
+            throw $e;
+        }
     }
 
     /**

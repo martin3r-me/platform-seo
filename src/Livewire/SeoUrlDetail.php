@@ -62,8 +62,7 @@ class SeoUrlDetail extends Component
             return;
         }
 
-        \Platform\Seo\Models\SeoTeamSettings::where('team_id', $this->seoUrl->team_id)
-            ->update(['clustering_status' => 'running']);
+        $this->seoUrl->markClustering('running');
 
         \Platform\Seo\Jobs\DiscoverClustersJob::dispatch($this->seoUrl->id);
     }
@@ -400,15 +399,17 @@ class SeoUrlDetail extends Component
         $contextNodes = $linker->nodesForMany(\Platform\Seo\Services\SeoOrganizationLinker::ALIAS_URL, [$this->seoUrl->id])[$this->seoUrl->id] ?? [];
         $availableNodes = $linker->availableNodes((int) $this->seoUrl->team_id);
 
-        $clusteringSettings = \Platform\Seo\Models\SeoTeamSettings::where('team_id', $this->seoUrl->team_id)
-            ->first(['clustering_status', 'clustering_result', 'updated_at']);
+        // Per-URL-Clustering-Status frisch aus der DB (damit wire:poll den Abschluss erkennt).
+        $freshMeta = SeoUrl::select('id', 'meta')->find($this->seoUrl->id)?->meta ?? [];
+        $clustering = $freshMeta['clustering'] ?? null;
+        $clusteringUpdatedAt = isset($clustering['at']) ? \Illuminate\Support\Carbon::parse($clustering['at']) : null;
 
         return view('seo::livewire.seo-url-detail', [
             'contextNodes' => $contextNodes,
             'availableNodes' => $availableNodes,
-            'clusteringStatus' => $clusteringSettings?->clustering_status,
-            'clusteringResult' => $clusteringSettings?->clustering_result,
-            'clusteringUpdatedAt' => $clusteringSettings?->updated_at,
+            'clusteringStatus' => $clustering['status'] ?? null,
+            'clusteringResult' => $clustering['result'] ?? null,
+            'clusteringUpdatedAt' => $clusteringUpdatedAt,
             'parentUrl' => $parentUrl,
             'keywords' => $keywords,
             'availableIntents' => $availableIntents,

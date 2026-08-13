@@ -245,6 +245,21 @@ class SeoUrl extends Model
     }
 
     /**
+     * Per-URL-Status der Cluster-Discovery (running/completed/failed) samt
+     * Ergebnis — in meta abgelegt, damit die UI pro URL (nicht team-weit) anzeigt.
+     */
+    public function markClustering(string $status, ?array $result = null): void
+    {
+        $meta = $this->meta ?? [];
+        $meta['clustering'] = [
+            'status' => $status,
+            'result' => $result,
+            'at' => now()->toIso8601String(),
+        ];
+        $this->update(['meta' => $meta]);
+    }
+
+    /**
      * Per-collector freshness map, mirroring the pipeline's due-logic.
      * Returns [collectorKey => ['last' => ?Carbon, 'due' => Carbon, 'overdue' => bool]].
      */

@@ -7,7 +7,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoClusteringService;
 
@@ -39,9 +38,6 @@ class DiscoverClustersJob implements ShouldQueue
 
     public function failed(\Throwable $e): void
     {
-        $teamId = SeoUrl::where('id', $this->urlId)->value('team_id');
-        if ($teamId) {
-            SeoTeamSettings::where('team_id', $teamId)->update(['clustering_status' => 'failed']);
-        }
+        SeoUrl::find($this->urlId)?->markClustering('failed', ['error' => $e->getMessage()]);
     }
 }
