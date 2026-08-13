@@ -158,97 +158,88 @@
         {{-- ============ URLS (Arbeitsplatz) ============ --}}
         @if($tab === 'urls')
             @if($notice)
-                <div class="mb-4 text-[12px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">{{ $notice }}</div>
+                <x-nx-callout variant="success" class="mb-4">{{ $notice }}</x-nx-callout>
             @endif
 
-            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-                    <h2 class="text-[13px] font-semibold text-gray-700">URLs in dieser Perspektive</h2>
-                    @if(!empty($selected))
+            <x-nx-section title="URLs in dieser Perspektive">
+                @if(!empty($selected))
+                    <x-slot name="action">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="text-[11px] text-gray-500 tabular-nums">{{ count($selected) }} ausgewählt</span>
-                            <select wire:model="assignNodeId" class="border border-gray-200 rounded-lg px-2 py-1.5 text-[12px] bg-white">
+                            <span class="text-xs tabular-nums text-[color:var(--nx-muted)]">{{ count($selected) }} ausgewählt</span>
+                            <select wire:model="assignNodeId" class="rounded-[6px] border border-[color:var(--nx-line-strong)] bg-[color:var(--nx-surface)] px-2 py-1 text-xs text-[color:var(--nx-text)]">
                                 <option value="">Kontext wählen…</option>
                                 @foreach($availableNodes as $node)
                                     <option value="{{ $node['id'] }}">{{ $node['name'] }}</option>
                                 @endforeach
                             </select>
-                            <button wire:click="assignSelected(false)" class="text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40" @disabled(!$assignNodeId)>Zuweisen</button>
-                            <button wire:click="assignSelected(true)" class="text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 disabled:opacity-40" @disabled(!$assignNodeId)>Als Wettbewerber zuweisen</button>
-                            <button wire:click="markCompetitor" class="text-[11px] px-2.5 py-1.5 rounded-lg text-gray-500 hover:text-amber-700">Nur als Wettbewerber</button>
-                            <button wire:click="clearSelection" class="text-[11px] text-gray-400 hover:text-gray-600">×</button>
+                            <x-nx-button variant="primary" size="sm" wire:click="assignSelected(false)" :disabled="!$assignNodeId">Zuweisen</x-nx-button>
+                            <x-nx-button size="sm" wire:click="assignSelected(true)" :disabled="!$assignNodeId">Als Wettbewerber</x-nx-button>
+                            <x-nx-button variant="ghost" size="sm" wire:click="markCompetitor">Nur Wettbewerber</x-nx-button>
+                            <x-nx-button variant="ghost" size="sm" wire:click="clearSelection">×</x-nx-button>
                         </div>
-                    @endif
-                </div>
+                    </x-slot>
+                @endif
+
                 @if($urls->isNotEmpty())
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-[12px]">
-                            <thead>
-                                <tr class="text-left text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50">
-                                    <th class="px-4 py-2 w-8">
-                                        <button wire:click="selectAll({{ $urls->pluck('id')->toJson() }})" title="Alle auswählen" class="hover:text-gray-600">☐</button>
-                                    </th>
-                                    <th class="px-4 py-2">URL</th>
-                                    <th class="px-4 py-2 text-right">Keywords</th>
-                                    <th class="px-4 py-2 text-right">Suchvolumen</th>
-                                    <th class="px-4 py-2 text-right">Sichtbarkeit</th>
-                                    <th class="px-4 py-2 text-right">Backlinks</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-50">
+                    <x-nx-card flush>
+                        <x-nx-table>
+                            <x-nx-table-header>
+                                <x-nx-table-header-cell class="w-8">
+                                    <button wire:click="selectAll({{ $urls->pluck('id')->toJson() }})" title="Alle auswählen">☐</button>
+                                </x-nx-table-header-cell>
+                                <x-nx-table-header-cell>URL</x-nx-table-header-cell>
+                                <x-nx-table-header-cell align="right">Keywords</x-nx-table-header-cell>
+                                <x-nx-table-header-cell align="right">Suchvolumen</x-nx-table-header-cell>
+                                <x-nx-table-header-cell align="right">Sichtbarkeit</x-nx-table-header-cell>
+                                <x-nx-table-header-cell align="right">Backlinks</x-nx-table-header-cell>
+                            </x-nx-table-header>
+                            <x-nx-table-body>
                                 @foreach($urls as $url)
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-4 py-2">
-                                            <input type="checkbox" wire:model.live="selected" value="{{ $url->id }}" class="rounded border-gray-300">
-                                        </td>
-                                        <td class="px-4 py-2">
-                                            <div class="flex items-center gap-2">
+                                    <x-nx-table-row>
+                                        <x-nx-table-cell>
+                                            <input type="checkbox" wire:model.live="selected" value="{{ $url->id }}" class="rounded border-[color:var(--nx-line-strong)]">
+                                        </x-nx-table-cell>
+                                        <x-nx-table-cell>
+                                            <span class="flex items-center gap-2">
                                                 @if(!$url->is_own)
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Wettbewerber"></span>
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-[color:var(--nx-warning)] shrink-0" title="Wettbewerber"></span>
                                                 @endif
-                                                <a href="{{ route('seo.urls.show', $url->id) }}" wire:navigate class="text-indigo-600 hover:underline truncate max-w-[320px] block font-medium">{{ $url->display_label }}</a>
+                                                <a href="{{ route('seo.urls.show', $url->id) }}" wire:navigate class="block truncate max-w-[320px] font-medium text-[color:var(--nx-text)] hover:underline">{{ $url->display_label }}</a>
                                                 @if(!empty($url->provenance_key) && !in_array($url->provenance_key, ['seo', 'competitor']))
                                                     @include('seo::partials.url-provenance-badge', ['key' => $url->provenance_key])
                                                 @endif
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ number_format($url->keyword_count) }}</td>
-                                        <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ number_format($url->total_search_volume) }}</td>
-                                        <td class="px-4 py-2 text-right tabular-nums font-medium text-gray-700">{{ number_format($url->visibility_score, 0) }}</td>
-                                        <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ number_format($url->backlink_count) }}</td>
-                                    </tr>
+                                            </span>
+                                        </x-nx-table-cell>
+                                        <x-nx-table-cell align="right"><span class="tabular-nums text-[color:var(--nx-muted)]">{{ number_format($url->keyword_count) }}</span></x-nx-table-cell>
+                                        <x-nx-table-cell align="right"><span class="tabular-nums text-[color:var(--nx-muted)]">{{ number_format($url->total_search_volume) }}</span></x-nx-table-cell>
+                                        <x-nx-table-cell align="right"><span class="tabular-nums font-medium">{{ number_format($url->visibility_score, 0) }}</span></x-nx-table-cell>
+                                        <x-nx-table-cell align="right"><span class="tabular-nums text-[color:var(--nx-muted)]">{{ number_format($url->backlink_count) }}</span></x-nx-table-cell>
+                                    </x-nx-table-row>
                                 @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                            </x-nx-table-body>
+                        </x-nx-table>
+                    </x-nx-card>
                 @else
-                    <div class="p-8 text-center text-[13px] text-gray-400">Keine URLs in dieser Perspektive.</div>
+                    <x-nx-empty>Keine URLs in dieser Perspektive.</x-nx-empty>
                 @endif
-            </div>
+            </x-nx-section>
         @endif
 
         {{-- ============ WETTBEWERBER ============ --}}
         @if($tab === 'competitors')
             @if($competitors->isNotEmpty())
-                <p class="text-[12px] text-gray-500 mb-3">Domains, die auf denselben Keywords ranken wie die eigenen URLs dieser Perspektive — die reale Konkurrenz um diese Themen.</p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    @foreach($competitors as $c)
-                        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center justify-between gap-3">
-                            <div class="min-w-0">
-                                <div class="text-[12px] font-medium text-gray-800 truncate">{{ $c->domain }}</div>
-                                <div class="text-[10px] text-gray-400 tabular-nums">{{ $c->url_count }} URLs · {{ number_format($c->total_keywords) }} KW</div>
-                            </div>
-                            <div class="text-right flex-shrink-0">
-                                <div class="text-[10px] text-gray-400 uppercase tracking-wide">Ø Sichtb.</div>
-                                <div class="text-[13px] font-medium text-gray-700 tabular-nums">{{ number_format((float) $c->avg_visibility, 0) }}</div>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
+                <p class="mb-3 text-xs text-[color:var(--nx-muted)]">Domains, die auf denselben Keywords ranken wie die eigenen URLs — die reale Konkurrenz um diese Themen.</p>
+                <x-nx-card flush>
+                    <ul class="divide-y divide-[color:var(--nx-line)]">
+                        @foreach($competitors as $c)
+                            <x-nx-list-item :title="$c->domain" :subtitle="$c->url_count.' URLs · '.number_format($c->total_keywords).' KW'" :meta="'Ø Sicht. '.number_format((float) $c->avg_visibility, 0)">
+                                <x-slot name="leading"><span class="w-1.5 h-1.5 rounded-full bg-[color:var(--nx-warning)]"></span></x-slot>
+                            </x-nx-list-item>
+                        @endforeach
+                    </ul>
+                </x-nx-card>
             @else
-                <div class="bg-white rounded-lg border border-gray-200 p-8 text-center text-[13px] text-gray-400">
-                    Keine Wettbewerber für diese Perspektive — sie entstehen aus dem Keyword-Überlapp mit den eigenen URLs, sobald Rankings gemessen sind.
-                </div>
+                <x-nx-empty>Keine Wettbewerber für diese Perspektive — sie entstehen aus dem Keyword-Überlapp mit den eigenen URLs, sobald Rankings gemessen sind.</x-nx-empty>
             @endif
         @endif
 
@@ -282,24 +273,28 @@
         {{-- ============ CLUSTER ============ --}}
         @if($tab === 'clusters')
             @if($clusters->isNotEmpty())
-                <div class="space-y-2">
-                    @foreach($clusters as $cluster)
-                        <a href="{{ route('seo.clusters.show', $cluster) }}" wire:navigate class="flex items-center justify-between gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:border-indigo-300 transition-colors">
-                            <div class="flex items-center gap-2.5 min-w-0">
-                                <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background: {{ $cluster->color ?: '#94a3b8' }}"></span>
-                                <span class="font-medium text-[13px] text-gray-900 truncate">{{ $cluster->name }}</span>
-                            </div>
-                            <div class="flex items-center gap-6 text-[12px] text-gray-500 flex-shrink-0">
-                                <span>{{ $cluster->keyword_count }} KW</span>
-                                <span class="tabular-nums">Sicht. {{ number_format($cluster->visibility, 0) }}</span>
-                            </div>
-                        </a>
-                    @endforeach
-                </div>
+                <x-nx-card flush>
+                    <ul class="divide-y divide-[color:var(--nx-line)]">
+                        @foreach($clusters as $cluster)
+                            @php
+                                $st = $cluster->status ?? 'candidate';
+                                $stVariant = match($st) { 'active' => 'accent', 'monitored' => 'success', 'stalled' => 'warning', 'archived' => 'neutral', default => 'info' };
+                                $stLabel = match($st) { 'candidate' => 'Kandidat', 'active' => 'Aktiv', 'monitored' => 'Beobachtet', 'stalled' => 'Stillstand', 'archived' => 'Archiv', default => $st };
+                            @endphp
+                            <x-nx-list-item :title="$cluster->name" :meta="$cluster->keyword_count.' KW · Sicht. '.number_format($cluster->visibility, 0)" :href="route('seo.clusters.show', $cluster)">
+                                <x-slot name="leading"><span class="w-2.5 h-2.5 rounded-full" style="background: {{ $cluster->color ?: 'var(--nx-faint)' }}"></span></x-slot>
+                                <x-slot name="trailing">
+                                    @if($cluster->penetration !== null)
+                                        <span class="text-xs tabular-nums text-[color:var(--nx-muted)]">Durchdr. {{ $cluster->penetration }}</span>
+                                    @endif
+                                    <x-nx-badge :variant="$stVariant">{{ $stLabel }}</x-nx-badge>
+                                </x-slot>
+                            </x-nx-list-item>
+                        @endforeach
+                    </ul>
+                </x-nx-card>
             @else
-                <div class="bg-white rounded-lg border border-gray-200 p-8 text-center text-[13px] text-gray-400">
-                    Noch keine Cluster für diese Perspektive. Cluster entstehen, wenn Keywords zu Themen gebündelt werden.
-                </div>
+                <x-nx-empty icon="heroicon-o-squares-2x2">Noch keine Cluster für diese Perspektive. Cluster entstehen über die Discovery (Keywords-Tab einer eigenen URL).</x-nx-empty>
             @endif
         @endif
 
