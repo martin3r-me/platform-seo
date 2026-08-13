@@ -46,7 +46,9 @@
             <span class="text-gray-300">—</span>
         @endif
     </td>
-    <td class="px-4 py-2.5 text-right text-[11px] text-gray-400 tabular-nums">
-        {{ $url->last_crawled_at?->format('d.m.Y') ?? '—' }}
+    <td class="px-4 py-2.5 text-right">
+        <div class="inline-flex justify-end">
+            @include('seo::partials.freshness-badge', ['url' => $url, 'showNext' => false])
+        </div>
     </td>
 </tr>

@@ -22,10 +22,8 @@
                         <span>{{ $seoUrl->is_own ? 'Eigene URL' : 'Wettbewerber' }}</span>
                         <span>&middot;</span>
                         <span>Priorität: {{ $seoUrl->priority }}</span>
-                        @if($seoUrl->last_crawled_at)
-                            <span>&middot;</span>
-                            <span>Gecrawlt: {{ $seoUrl->last_crawled_at->format('d.m.Y') }}</span>
-                        @endif
+                        <span>&middot;</span>
+                        @include('seo::partials.freshness-badge', ['url' => $seoUrl, 'showNext' => true])
                         @if($childUrls->isNotEmpty())
                             <span>&middot;</span>
                             <span>{{ $childUrls->count() }} Unterseiten</span>
@@ -92,6 +90,9 @@
                     @endif
                 </div>
             </div>
+
+            {{-- Datenaktualität pro Collector --}}
+            @include('seo::partials.data-freshness-panel', ['url' => $seoUrl])
 
             {{-- Tabs --}}
             <div>

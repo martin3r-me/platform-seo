@@ -243,4 +243,78 @@ class SeoUrl extends Model
         $meta['collector_ran_at'][$collectorKey] = now()->toIso8601String();
         $this->update(['meta' => $meta, 'last_crawled_at' => now()]);
     }
+
+    /**
+     * Per-collector freshness map, mirroring the pipeline's due-logic.
+     * Returns [collectorKey => ['last' => ?Carbon, 'due' => Carbon, 'overdue' => bool]].
+     */
+    public function collectorFreshness(): array
+    {
+        $intervals = config('seo.refresh_intervals', []);
+        $out = [];
+
+        foreach ($intervals as $key => $baseHours) {
+            $last = $this->getCollectorTimestamp($key);
+            $effective = $this->getEffectiveRefreshInterval((int) $baseHours);
+            // No timestamp → the collector has never run for this URL and is due now.
+            $due = $last ? $last->copy()->addHours($effective) : now();
+
+            $out[$key] = [
+                'last' => $last,
+                'due' => $due,
+                'overdue' => $due->isPast(),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Earliest upcoming (or overdue) refresh across all configured collectors.
+     * Null when the URL has never been crawled and no collector has run.
+     */
+    public function getNextRefreshDueAtAttribute(): ?\Carbon\Carbon
+    {
+        $earliest = null;
+
+        foreach ($this->collectorFreshness() as $info) {
+            if ($earliest === null || $info['due']->lt($earliest)) {
+                $earliest = $info['due'];
+            }
+        }
+
+        if ($earliest === null) {
+            return null;
+        }
+
+        // Never crawled at all → treat as "never", not "overdue".
+        if (! $this->last_crawled_at && ! $this->hasAnyCollectorTimestamp()) {
+            return null;
+        }
+
+        return $earliest;
+    }
+
+    /**
+     * Coarse freshness state for UI: never | overdue | due_soon | fresh.
+     */
+    public function getFreshnessStatusAttribute(): string
+    {
+        $due = $this->next_refresh_due_at;
+
+        if ($due === null) {
+            return 'never';
+        }
+
+        if ($due->isPast()) {
+            return 'overdue';
+        }
+
+        return $due->lte(now()->addDay()) ? 'due_soon' : 'fresh';
+    }
+
+    protected function hasAnyCollectorTimestamp(): bool
+    {
+        return ! empty($this->meta['collector_ran_at'] ?? []);
+    }
 }
