@@ -90,6 +90,12 @@ Eine Definition trennt sauber:
 - **Population** = die Menge, über die ausgewertet wird: **ganzes Portfolio · Entity(+Subtree)
   · Liste · [Cluster, später]** (`scope_type` + `scope_value`).
 
+**Grundprinzip: keine zwei Welten vermischen.** „Ganzes Portfolio" (`all`) ist nicht der rohe
+Team-URL-Pool, sondern nur das **bewusst zusammengestellte Arbeitsset** — eigene URLs, die an
+einem Org-Knoten hängen *oder* in einer Liste sind. Unzugeordnete Importe (Ablage, z. B. ein
+separates Produkt wie Syltjunkie) bleiben draußen, bis sie einem Kunden oder einer Liste
+zugeordnet werden. Erst dann laufen sie im normalen Fluss (Signale, Push, Dashboard) mit.
+
 **Beschluss: eine Population pro Definition.** Zwei Arenen = zwei Definitionen
 (z. B. „Caterer-Kannibalisierung" *und* „Foodpol-Kannibalisierung"), nebeneinander,
 explizit und nachvollziehbar. Kombiniert wird über mehrere Definitionen, nicht in einer.

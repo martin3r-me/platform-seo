@@ -154,7 +154,24 @@ class SeoSignalEvaluator
 
             case 'all':
             default:
-                return $base->pluck('id')->map(fn ($i) => (int) $i)->all();
+                // „Ganzes Portfolio" = das bewusst zusammengestellte Arbeitsset: eigene URLs,
+                // die an einem Org-Knoten hängen ODER in einer Liste sind. Rohe/unzugeordnete
+                // Importe (Ablage, z. B. Syltjunkie) bleiben draußen, bis sie zugeordnet werden —
+                // wir vermischen keine zwei Welten.
+                $ownIds = $base->pluck('id')->map(fn ($i) => (int) $i)->all();
+                if (empty($ownIds)) {
+                    return [];
+                }
+                $linked = $this->linker->linkedLinkableIds(SeoOrganizationLinker::ALIAS_URL, $ownIds);
+                $inList = DB::table('seo_url_list_entries')
+                    ->whereIn('url_id', $ownIds)
+                    ->distinct()
+                    ->pluck('url_id')
+                    ->map(fn ($i) => (int) $i)
+                    ->all();
+                $assigned = array_flip(array_merge($linked, $inList));
+
+                return array_values(array_filter($ownIds, fn ($id) => isset($assigned[$id])));
         }
     }
 
