@@ -8,6 +8,7 @@ use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoOrganizationLinker;
+use Platform\Seo\Services\SeoSignalRouting;
 
 /**
  * Liefert den SEO-Kontext eines Organisations-Knotens an den Flynk-Connector.
@@ -59,8 +60,12 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
         }
 
         return SeoSignal::where('team_id', $teamId)
-            ->where('signal_type', 'like', 'rec\_%')
             ->where('status', '!=', 'resolved')
+            // Legacy-Empfehlungen UND definition-getriebene Signale (docs/SIGNALS-CONCEPT.md).
+            ->where(function ($q) {
+                $q->where('signal_type', 'like', 'rec\_%')
+                    ->orWhereNotNull('signal_definition_id');
+            })
             ->where(function ($q) use ($signalIds, $urlIds) {
                 if (! empty($signalIds)) {
                     $q->orWhereIn('id', $signalIds);
@@ -73,16 +78,29 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
             ->orderByDesc('detected_at')
             ->limit(50)
             ->get()
-            ->map(fn (SeoSignal $s) => array_filter([
-                'type' => $s->signal_type,
-                'title' => $s->title,
-                'description' => $s->description,
-                'severity' => $s->severity,
-                'status' => $s->status,
-                'url' => $s->url?->url,
-                'detected_at' => optional($s->detected_at)->toDateString(),
-                'evidence' => $s->context,
-            ], fn ($v) => $v !== null))
+            ->map(function (SeoSignal $s) {
+                $kind = SeoSignalRouting::kindFor($s->signal_type);
+                $ai = $s->context['ai'] ?? null;
+
+                // change_kind + target sagen Flynk, welche Art Arbeit das ist
+                // (Seitenänderung → Aufgabe, Inhalt → Content-Brief). recommendation/steps
+                // sind die konkrete, geerdete KI-Handlungsanweisung. ref = stabile Rückverknüpfung.
+                return array_filter([
+                    'ref' => $s->uuid,
+                    'type' => $s->signal_type,
+                    'change_kind' => $kind,
+                    'target' => SeoSignalRouting::targetFor($kind),
+                    'title' => $s->title,
+                    'description' => $s->description,
+                    'recommendation' => $ai['recommendation'] ?? null,
+                    'steps' => $ai['steps'] ?? null,
+                    'severity' => $s->severity,
+                    'status' => $s->status,
+                    'url' => $s->url?->url,
+                    'detected_at' => optional($s->detected_at)->toDateString(),
+                    'evidence' => $s->context,
+                ], fn ($v) => $v !== null);
+            })
             ->values()
             ->all();
     }

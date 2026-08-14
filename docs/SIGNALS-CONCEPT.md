@@ -111,6 +111,25 @@ Cluster) ist die Population **keine Filter, sondern die Methode** — sie zieht 
 **v1-Muster-Set:** `striking_distance`, `position_drop`, `thin_content` (pro-URL, über
 Entity+Subtree *und* Liste) + `cannibalization` (zuerst über Listen). Cluster-Muster vertagt.
 
+## 4b. Routing der Arbeitskette (implementiert)
+
+Zentrale Klassifikation `SeoSignalRouting`: Muster → Änderungsart → Ziel.
+
+| Änderungsart | Muster | Ziel |
+|---|---|---|
+| `content` | thin_content, content_gap, cluster_underperformance | **Content-Brief** (SEO-intern) |
+| `page_edit` | striking_distance, position_drop, lost_ranking, decay | **Flynk-Aufgabe** |
+| `structural` | cannibalization | **Flynk-Aufgabe** (Konsolidierung/301) |
+
+- **Content** → `SeoSignalDispatcher` erzeugt einen `SeoContentBrief` (Sections aus dem
+  KI-`brief_outline`, Instruktion aus recommendation+steps). Idempotent über `context['work']`.
+- **page_edit/structural** → fließen über die **bestehende** Flynk-Brücke: der
+  `SeoFlynkContextProvider` pusht die Empfehlungen (jetzt inkl. definition-getriebener Signale)
+  mit `change_kind`, `target`, KI-`recommendation`/`steps` und stabiler `ref` (Signal-uuid).
+  **Prinzip: SEO ruft Flynk nie selbst.** Die ausgehende Task-Erzeugung auf Flynk-Seite ist der
+  letzte offene Meter (abhängig davon, wie Flynk Pushes zu Aufgaben macht).
+- Reihenfolge: **evaluate → enrich → dispatch** (`seo:dispatch-signals`).
+
 ## 5. Die Form (Datenmodell) — von Org geliehen, SEO-eigen
 
 Eigene SEO-Tabellen, aber die bewährte Form:

@@ -37,6 +37,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\DetectSignals::class,
                 \Platform\Seo\Console\Commands\EvaluateSignals::class,
                 \Platform\Seo\Console\Commands\EnrichSignals::class,
+                \Platform\Seo\Console\Commands\DispatchSignals::class,
                 \Platform\Seo\Console\Commands\RefreshCompetitors::class,
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
                 \Platform\Seo\Console\Commands\MigrateFromSyltjunkie::class,
