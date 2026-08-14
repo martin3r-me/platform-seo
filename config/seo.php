@@ -169,6 +169,10 @@ return [
         // Governance: Signale sind ein gesteuerter Arbeitsvorrat, keine Flut.
         'wip_limit' => 5,                      // max. gleichzeitig offene definition-getriebene Signale
         'daily_new_limit' => 3,                // max. neue Signale pro Tag (Nachschub erst wenn Platz frei)
+
+        // Legacy-Generatoren (rec_%, hardcoded detect-signals, budget_pressure). Default AUS:
+        // das definition-getriebene System (Evaluator) ist der go-forward-Weg.
+        'legacy_enabled' => false,
     ],
 
     /*

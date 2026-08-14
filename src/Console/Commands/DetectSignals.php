@@ -15,6 +15,12 @@ class DetectSignals extends Command
 
     public function handle(SeoSignalService $signalService): int
     {
+        if (! config('seo.signals.legacy_enabled', false)) {
+            $this->warn('Hardcoded Signal-Detection ist stummgeschaltet (seo.signals.legacy_enabled=false). Nutze das definition-getriebene System: seo:evaluate-signals.');
+
+            return self::SUCCESS;
+        }
+
         $teamId = $this->option('team');
 
         $query = SeoTeamSettings::query();

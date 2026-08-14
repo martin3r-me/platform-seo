@@ -249,8 +249,9 @@ class SeoUrlPipelineService
         $threshold = config('seo.pipeline.budget_pressure_threshold', 0.8);
         $settings->refresh();
 
-        if ($settings->budget_spent_cents >= ($settings->budget_limit_cents * $threshold)) {
-            // Emit a signal for budget pressure
+        if (config('seo.signals.legacy_enabled', false)
+            && $settings->budget_spent_cents >= ($settings->budget_limit_cents * $threshold)) {
+            // Emit a signal for budget pressure (Legacy — Budgetsteuerung selbst bleibt aktiv)
             app(SeoSignalService::class)->createSignal($settings->team_id, [
                 'signal_type' => 'budget_pressure',
                 'severity' => 'warning',

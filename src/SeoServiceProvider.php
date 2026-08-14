@@ -198,11 +198,14 @@ class SeoServiceProvider extends ServiceProvider
             ->withoutOverlapping()
             ->runInBackground();
 
-        // Wöchentlich Montag 05:00 — Handlungsempfehlungen ableiten (keine API-Kosten)
-        Schedule::command('seo:generate-recommendations')
-            ->weeklyOn(1, '05:00')
-            ->withoutOverlapping()
-            ->runInBackground();
+        // Legacy-Empfehlungen (rec_%) — nur wenn ausdrücklich aktiviert. Default aus:
+        // das definition-getriebene Signal-System (Evaluator) ist der go-forward-Weg.
+        if (config('seo.signals.legacy_enabled', false)) {
+            Schedule::command('seo:generate-recommendations')
+                ->weeklyOn(1, '05:00')
+                ->withoutOverlapping()
+                ->runInBackground();
+        }
     }
 
     protected function registerTools(): void

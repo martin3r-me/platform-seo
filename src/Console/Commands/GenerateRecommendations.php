@@ -19,6 +19,12 @@ class GenerateRecommendations extends Command
 
     public function handle(SeoRecommendationService $service): int
     {
+        if (! config('seo.signals.legacy_enabled', false)) {
+            $this->warn('Legacy-Empfehlungen sind stummgeschaltet (seo.signals.legacy_enabled=false). Nutze das definition-getriebene System: seo:evaluate-signals.');
+
+            return self::SUCCESS;
+        }
+
         $query = SeoTeamSettings::query();
         if ($teamId = $this->option('team')) {
             $query->where('team_id', $teamId);
