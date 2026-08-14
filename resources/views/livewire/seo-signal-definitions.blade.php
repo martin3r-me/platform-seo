@@ -155,7 +155,7 @@
             </div>
             <x-slot name="footer">
                 <x-ui-button variant="secondary" size="sm" wire:click="$set('showModal', false)">Abbrechen</x-ui-button>
-                <x-ui-button variant="primary" size="sm" type="submit">{{ $editingId ? 'Speichern' : 'Erstellen' }}</x-ui-button>
+                <x-ui-button variant="primary" size="sm" wire:click="save">{{ $editingId ? 'Speichern' : 'Erstellen' }}</x-ui-button>
             </x-slot>
         </form>
     </x-ui-modal>
