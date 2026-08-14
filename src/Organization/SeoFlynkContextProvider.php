@@ -56,6 +56,11 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
      * Offene Empfehlungen des Knotens: sowohl direkt an den Knoten gehängte Signale
      * (ALIAS_SIGNAL) als auch die offenen Empfehlungen seiner URLs (ALIAS_URL) —
      * so trägt der Flynk-Push dieselben Empfehlungen wie der Agentur-Workspace (U1).
+     *
+     * Content-getriebene Signale (target=content_brief) sind bewusst AUSGENOMMEN:
+     * die inhaltliche Arbeit entsteht hier (SEO-intern) und geht als fertiger Brief
+     * über content_briefs raus — nicht als „mach-Brief"-Auftrag an FLYNK. FLYNK
+     * bekommt hier also nur, was DORT umgesetzt wird (Seitenänderungen etc.).
      */
     protected function recommendations(array $signalIds, array $urlIds, int $teamId): array
     {
@@ -67,6 +72,8 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
             ->where('status', '!=', 'resolved')
             // Nur definition-getriebene Signale (das gesteuerte System). Legacy ist abgeschafft.
             ->whereNotNull('signal_definition_id')
+            // Content-Signale bleiben intern (→ Content-Brief), nicht als FLYNK-Auftrag pushen.
+            ->whereNotIn('signal_type', SeoSignalRouting::contentPatterns())
             ->where(function ($q) use ($signalIds, $urlIds) {
                 if (! empty($signalIds)) {
                     $q->orWhereIn('id', $signalIds);

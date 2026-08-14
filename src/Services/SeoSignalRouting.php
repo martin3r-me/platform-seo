@@ -45,6 +45,12 @@ class SeoSignalRouting
         return self::PATTERN_KIND[$pattern] ?? self::KIND_PAGE_EDIT;
     }
 
+    /** Signal-Muster, die zu Content-Briefs führen (SEO-interne Arbeit). */
+    public static function contentPatterns(): array
+    {
+        return array_keys(array_filter(self::PATTERN_KIND, fn ($kind) => $kind === self::KIND_CONTENT));
+    }
+
     /** Wohin die Arbeit fließt: content → Content-Brief (intern), sonst → Flynk-Aufgabe. */
     public static function targetFor(string $kind): string
     {
