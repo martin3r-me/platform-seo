@@ -9,20 +9,19 @@ use Platform\Seo\Models\SeoSignalDefinition;
 use Platform\Seo\Models\SeoUrl;
 
 /**
- * Definition-getriebener Signal-Evaluator (Schritt 2, docs/SIGNALS-CONCEPT.md).
+ * Definition-getriebener Signal-Evaluator (docs/SIGNALS-CONCEPT.md).
  *
- * Läuft die aktiven SeoSignalDefinitions über ihre Population und erzeugt daraus
- * echte seo_signals — verknüpft mit ihrer Definition, angeheftet ans richtige Ziel.
- * Eine Population pro Definition; bei relationalen Mustern ist die Population die Arena.
+ * GOVERNANCE: nicht jeder Treffer wird ein Signal. Kandidaten werden gesammelt,
+ * nach Impact gereiht und nur bis zum WIP-Limit (max. offene) + Tageslimit (max.
+ * neue/Tag) zugelassen. Neue Signale kommen erst nach, wenn offene erledigt sind —
+ * ein kleiner, bearbeitbarer Arbeitsvorrat statt einer Flut.
  */
 class SeoSignalEvaluator
 {
     public function __construct(private SeoOrganizationLinker $linker) {}
 
     /**
-     * Alle (optional nach Frequenz gefilterten) aktiven Definitionen eines Teams auswerten.
-     *
-     * @return array{definitions:int, created:int, by_pattern:array<string,int>}
+     * @return array{definitions:int, candidates:int, open_now:int, slots:int, admitted:int, by_pattern:array<string,int>}
      */
     public function evaluateTeam(int $teamId, ?string $frequency = null): array
     {
@@ -31,31 +30,83 @@ class SeoSignalEvaluator
             ->when($frequency, fn ($q) => $q->where('frequency', $frequency))
             ->get();
 
+        // 1. Kandidaten aus allen Definitionen sammeln (noch nicht persistieren).
+        $candidates = [];
+        foreach ($defs as $def) {
+            $urlIds = $this->populationUrlIds($def);
+            if (empty($urlIds)) {
+                continue;
+            }
+            foreach ($this->candidatesFor($def, $urlIds) as $cand) {
+                // Bereits offene (gleiche Definition + Ziel) zählen nicht als neuer Bedarf.
+                if ($this->alreadyOpen($def->id, $cand['url_id'], $cand['keyword_id'])) {
+                    continue;
+                }
+                $candidates[] = $cand;
+            }
+        }
+
+        // 2. Nach Wert (Impact) reihen — das Wertvollste zuerst.
+        usort($candidates, fn ($a, $b) => ($b['impact'] ?? 0) <=> ($a['impact'] ?? 0));
+
+        // 3. Freie Plätze = min(WIP-Rest, Tages-Rest). Nur so viele dürfen rein.
+        $wip = (int) config('seo.signals.wip_limit', 5);
+        $daily = (int) config('seo.signals.daily_new_limit', 3);
+        $openNow = $this->openCount($teamId);
+        $todayNew = $this->admittedToday($teamId);
+        $slots = max(0, min($wip - $openNow, $daily - $todayNew));
+
+        // 4. Nur die Top-Kandidaten zulassen.
+        $admitted = array_slice($candidates, 0, $slots);
         $created = 0;
         $byPattern = [];
-        foreach ($defs as $def) {
-            $n = $this->evaluateDefinition($def);
-            $created += $n;
-            $byPattern[$def->pattern_type] = ($byPattern[$def->pattern_type] ?? 0) + $n;
+        foreach ($admitted as $cand) {
+            if ($this->persist($cand['def'], $cand['data'], $cand['url_id'], $cand['keyword_id'])) {
+                $created++;
+                $p = $cand['def']->pattern_type;
+                $byPattern[$p] = ($byPattern[$p] ?? 0) + 1;
+            }
         }
 
-        return ['definitions' => $defs->count(), 'created' => $created, 'by_pattern' => $byPattern];
+        return [
+            'definitions' => $defs->count(),
+            'candidates' => count($candidates),
+            'open_now' => $openNow,
+            'slots' => $slots,
+            'admitted' => $created,
+            'by_pattern' => $byPattern,
+        ];
     }
 
-    public function evaluateDefinition(SeoSignalDefinition $def): int
-    {
-        $urlIds = $this->populationUrlIds($def);
-        if (empty($urlIds)) {
-            return 0;
-        }
+    // -------------------------------------------------------------------------
+    // Governance-Zähler
+    // -------------------------------------------------------------------------
 
-        return match ($def->pattern_type) {
-            'striking_distance' => $this->strikingDistance($def, $urlIds),
-            'position_drop' => $this->positionDrop($def, $urlIds),
-            'thin_content' => $this->thinContent($def, $urlIds),
-            'cannibalization' => $this->cannibalization($def, $urlIds),
-            default => 0, // weitere Muster: spätere Ausbaustufe
-        };
+    /** Offene definition-getriebene Signale (WIP-Zähler). */
+    protected function openCount(int $teamId): int
+    {
+        return SeoSignal::where('team_id', $teamId)
+            ->whereNotNull('signal_definition_id')
+            ->whereIn('status', ['new', 'acknowledged'])
+            ->count();
+    }
+
+    /** Heute bereits zugelassene definition-getriebene Signale (Tageslimit). */
+    protected function admittedToday(int $teamId): int
+    {
+        return SeoSignal::where('team_id', $teamId)
+            ->whereNotNull('signal_definition_id')
+            ->whereDate('detected_at', Carbon::today())
+            ->count();
+    }
+
+    protected function alreadyOpen(int $defId, ?int $urlId, ?int $keywordId): bool
+    {
+        return SeoSignal::where('signal_definition_id', $defId)
+            ->whereIn('status', ['new', 'acknowledged'])
+            ->when($urlId !== null, fn ($q) => $q->where('url_id', $urlId))
+            ->when($urlId === null && $keywordId !== null, fn ($q) => $q->where('keyword_id', $keywordId))
+            ->exists();
     }
 
     // -------------------------------------------------------------------------
@@ -99,11 +150,22 @@ class SeoSignalEvaluator
     }
 
     // -------------------------------------------------------------------------
-    // Muster (pro-URL)
+    // Kandidaten je Muster (NICHT persistieren — nur vorschlagen)
     // -------------------------------------------------------------------------
 
-    /** Position 4–10 für nachgefragtes Keyword → Ausbau-Hebel. Eine je URL (bestes KW). */
-    protected function strikingDistance(SeoSignalDefinition $def, array $urlIds): int
+    /** @return array<int, array{def:SeoSignalDefinition, url_id:?int, keyword_id:?int, impact:int, data:array}> */
+    protected function candidatesFor(SeoSignalDefinition $def, array $urlIds): array
+    {
+        return match ($def->pattern_type) {
+            'striking_distance' => $this->strikingDistance($def, $urlIds),
+            'position_drop' => $this->positionDrop($def, $urlIds),
+            'thin_content' => $this->thinContent($def, $urlIds),
+            'cannibalization' => $this->cannibalization($def, $urlIds),
+            default => [],
+        };
+    }
+
+    protected function strikingDistance(SeoSignalDefinition $def, array $urlIds): array
     {
         $c = $def->conditions ?? [];
         $minPos = (int) ($c['min_position'] ?? 4);
@@ -119,28 +181,32 @@ class SeoSignalEvaluator
             ->orderByDesc('k.search_volume')
             ->get();
 
-        $created = 0;
+        $out = [];
         foreach ($this->bestPerUrl($rows) as $r) {
             $impact = (int) round($r->search_volume * (11 - $r->position) / 10);
-            $created += $this->persist($def, [
-                'title' => "Griffweite: \"{$r->keyword}\" auf Pos. {$r->position} — ausbauen",
-                'description' => "Rankt auf Position {$r->position} für \"{$r->keyword}\" ({$r->search_volume} Vol.). Knapp außerhalb Top-3 — der klarste Ausbau-Hebel.",
-                'metric_after' => $r->position,
-                'context' => ['pattern' => 'striking_distance', 'keyword' => $r->keyword, 'volume' => (int) $r->search_volume, 'position' => (int) $r->position, 'impact' => $impact],
-            ], (int) $r->url_id, (int) $r->keyword_id);
+            $out[] = [
+                'def' => $def,
+                'url_id' => (int) $r->url_id,
+                'keyword_id' => (int) $r->keyword_id,
+                'impact' => $impact,
+                'data' => [
+                    'title' => "Griffweite: \"{$r->keyword}\" auf Pos. {$r->position} — ausbauen",
+                    'description' => "Rankt auf Position {$r->position} für \"{$r->keyword}\" ({$r->search_volume} Vol.). Knapp außerhalb Top-3 — der klarste Ausbau-Hebel.",
+                    'metric_after' => $r->position,
+                    'context' => ['pattern' => 'striking_distance', 'keyword' => $r->keyword, 'volume' => (int) $r->search_volume, 'position' => (int) $r->position, 'impact' => $impact],
+                ],
+            ];
         }
 
-        return $created;
+        return $out;
     }
 
-    /** Ranking über Snapshots deutlich abgerutscht. Eine je URL (größter Abfall). */
-    protected function positionDrop(SeoSignalDefinition $def, array $urlIds): int
+    protected function positionDrop(SeoSignalDefinition $def, array $urlIds): array
     {
         $c = $def->conditions ?? [];
         $minDrop = (int) ($c['min_drop'] ?? 3);
         $minVol = (int) ($c['min_volume'] ?? 50);
 
-        // UNSIGNED-Spalten: Delta in PHP rechnen, nicht in SQL (Overflow-Falle).
         $rows = DB::table('seo_url_keywords as uk')
             ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
             ->whereIn('uk.url_id', $urlIds)
@@ -157,24 +223,29 @@ class SeoSignalEvaluator
             ->sortByDesc('drop')
             ->values();
 
-        $created = 0;
+        $out = [];
         foreach ($this->bestPerUrl($rows) as $r) {
             $impact = (int) round($r->search_volume * $r->drop);
-            $created += $this->persist($def, [
-                'title' => "Position gefallen: \"{$r->keyword}\" {$r->previous_position}→{$r->position}",
-                'description' => "Für \"{$r->keyword}\" ({$r->search_volume} Vol.) von {$r->previous_position} auf {$r->position} abgerutscht. Ursache prüfen.",
-                'metric_before' => $r->previous_position,
-                'metric_after' => $r->position,
-                'metric_delta' => $r->drop,
-                'context' => ['pattern' => 'position_drop', 'keyword' => $r->keyword, 'volume' => (int) $r->search_volume, 'drop' => (int) $r->drop, 'impact' => $impact],
-            ], (int) $r->url_id, (int) $r->keyword_id);
+            $out[] = [
+                'def' => $def,
+                'url_id' => (int) $r->url_id,
+                'keyword_id' => (int) $r->keyword_id,
+                'impact' => $impact,
+                'data' => [
+                    'title' => "Position gefallen: \"{$r->keyword}\" {$r->previous_position}→{$r->position}",
+                    'description' => "Für \"{$r->keyword}\" ({$r->search_volume} Vol.) von {$r->previous_position} auf {$r->position} abgerutscht. Ursache prüfen.",
+                    'metric_before' => $r->previous_position,
+                    'metric_after' => $r->position,
+                    'metric_delta' => $r->drop,
+                    'context' => ['pattern' => 'position_drop', 'keyword' => $r->keyword, 'volume' => (int) $r->search_volume, 'drop' => (int) $r->drop, 'impact' => $impact],
+                ],
+            ];
         }
 
-        return $created;
+        return $out;
     }
 
-    /** Rankende URL mit zu dünnem Content → Content-Brief-Kandidat. Eine je URL. */
-    protected function thinContent(SeoSignalDefinition $def, array $urlIds): int
+    protected function thinContent(SeoSignalDefinition $def, array $urlIds): array
     {
         $c = $def->conditions ?? [];
         $thin = (int) ($c['thin_word_count'] ?? 300);
@@ -195,27 +266,29 @@ class SeoSignalEvaluator
             ->orderByDesc('k.search_volume')
             ->get();
 
-        $created = 0;
+        $out = [];
         foreach ($this->bestPerUrl($rows) as $r) {
             $wc = $r->word_count !== null ? (int) $r->word_count : null;
             $impact = (int) round($r->search_volume * (21 - min((int) $r->position, 20)) / 20);
-            $created += $this->persist($def, [
-                'title' => "Dünner Content: \"{$r->keyword}\" (Pos. {$r->position}".($wc !== null ? ", {$wc} W." : '').')',
-                'description' => "Rankt für \"{$r->keyword}\" ({$r->search_volume} Vol.) auf Pos. {$r->position}, aber zu wenig Inhalt. Content-Brief erstellen.",
-                'metric_after' => $r->position,
-                'context' => ['pattern' => 'thin_content', 'keyword' => $r->keyword, 'volume' => (int) $r->search_volume, 'position' => (int) $r->position, 'word_count' => $wc, 'impact' => $impact],
-            ], (int) $r->url_id, (int) $r->keyword_id);
+            $out[] = [
+                'def' => $def,
+                'url_id' => (int) $r->url_id,
+                'keyword_id' => (int) $r->keyword_id,
+                'impact' => $impact,
+                'data' => [
+                    'title' => "Dünner Content: \"{$r->keyword}\" (Pos. {$r->position}".($wc !== null ? ", {$wc} W." : '').')',
+                    'description' => "Rankt für \"{$r->keyword}\" ({$r->search_volume} Vol.) auf Pos. {$r->position}, aber zu wenig Inhalt. Content-Brief erstellen.",
+                    'metric_after' => $r->position,
+                    'context' => ['pattern' => 'thin_content', 'keyword' => $r->keyword, 'volume' => (int) $r->search_volume, 'position' => (int) $r->position, 'word_count' => $wc, 'impact' => $impact],
+                ],
+            ];
         }
 
-        return $created;
+        return $out;
     }
 
-    // -------------------------------------------------------------------------
-    // Muster (relational — Population = Arena)
-    // -------------------------------------------------------------------------
-
-    /** Mehrere eigene URLs der Arena ranken für dasselbe Keyword. Eine je Keyword. */
-    protected function cannibalization(SeoSignalDefinition $def, array $urlIds): int
+    /** Relational — Population = Arena. Eine Kandidatur je Keyword. */
+    protected function cannibalization(SeoSignalDefinition $def, array $urlIds): array
     {
         $c = $def->conditions ?? [];
         $minUrls = (int) ($c['min_urls'] ?? 2);
@@ -230,7 +303,7 @@ class SeoSignalEvaluator
             ->get()
             ->groupBy('keyword_id');
 
-        $created = 0;
+        $out = [];
         foreach ($rows as $keywordId => $group) {
             $urls = $group->unique('url_id');
             if ($urls->count() < $minUrls) {
@@ -241,14 +314,20 @@ class SeoSignalEvaluator
             $impact = $vol * ($urls->count() - 1);
             $competing = $urls->sortBy('position')->map(fn ($r) => ['url_id' => (int) $r->url_id, 'position' => (int) $r->position])->values()->all();
 
-            $created += $this->persist($def, [
-                'title' => "Kannibalisierung: \"{$first->keyword}\" — {$urls->count()} eigene URLs",
-                'description' => "{$urls->count()} eigene Seiten der Arena ranken für \"{$first->keyword}\" ({$vol} Vol.). Konsolidieren oder entflechten.",
-                'context' => ['pattern' => 'cannibalization', 'keyword' => $first->keyword, 'volume' => $vol, 'url_count' => $urls->count(), 'urls' => $competing, 'scope' => $def->scope_value, 'impact' => $impact],
-            ], null, (int) $keywordId);
+            $out[] = [
+                'def' => $def,
+                'url_id' => null,
+                'keyword_id' => (int) $keywordId,
+                'impact' => $impact,
+                'data' => [
+                    'title' => "Kannibalisierung: \"{$first->keyword}\" — {$urls->count()} eigene URLs",
+                    'description' => "{$urls->count()} eigene Seiten der Arena ranken für \"{$first->keyword}\" ({$vol} Vol.). Konsolidieren oder entflechten.",
+                    'context' => ['pattern' => 'cannibalization', 'keyword' => $first->keyword, 'volume' => $vol, 'url_count' => $urls->count(), 'urls' => $competing, 'scope' => $def->scope_value, 'impact' => $impact],
+                ],
+            ];
         }
 
-        return $created;
+        return $out;
     }
 
     // -------------------------------------------------------------------------

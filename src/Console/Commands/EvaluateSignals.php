@@ -39,11 +39,11 @@ class EvaluateSignals extends Command
         $total = 0;
         foreach ($settingsList as $settings) {
             $res = $evaluator->evaluateTeam((int) $settings->team_id, $frequency);
-            $this->info("Team {$settings->team_id}: {$res['definitions']} Definitionen → {$res['created']} neue Signale");
+            $this->info("Team {$settings->team_id}: {$res['definitions']} Definitionen, {$res['candidates']} Kandidaten, {$res['open_now']} offen → {$res['slots']} Platz, {$res['admitted']} zugelassen");
             foreach ($res['by_pattern'] as $pattern => $count) {
                 $this->line("  {$pattern}: {$count}");
             }
-            $total += $res['created'];
+            $total += $res['admitted'];
         }
 
         $this->info("Fertig. {$total} neue Signale erzeugt.");

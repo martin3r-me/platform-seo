@@ -165,6 +165,10 @@ return [
         'position_drop_threshold' => -5,       // 5+ positions lost
         'opportunity_min_volume' => 200,
         'onpage_fresh_days' => 21,             // KI erdet sich nur an Crawl-Daten, die höchstens so alt sind
+
+        // Governance: Signale sind ein gesteuerter Arbeitsvorrat, keine Flut.
+        'wip_limit' => 5,                      // max. gleichzeitig offene definition-getriebene Signale
+        'daily_new_limit' => 3,                // max. neue Signale pro Tag (Nachschub erst wenn Platz frei)
     ],
 
     /*
