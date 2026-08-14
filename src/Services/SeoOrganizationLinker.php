@@ -230,6 +230,59 @@ class SeoOrganizationLinker
         return array_values(array_unique(array_map('intval', $nodes)));
     }
 
+    /** @var array<int,int> Memo für customerForNode (Singleton = Request-Lebensdauer). */
+    private array $customerForNodeMemo = [];
+
+    /**
+     * Zu welchem Kunden gehört ein Knoten? Liegt der Knoten (oder ein Vorfahre) in einem
+     * Engagement, das einen Kunden bedient (engagement_with), gibt das den Kunden zurück —
+     * sonst den Knoten selbst. So lassen sich Agentur-Initiativen-URLs dem Kunden zuordnen.
+     */
+    public function customerForNode(int $nodeId): int
+    {
+        if (isset($this->customerForNodeMemo[$nodeId])) {
+            return $this->customerForNodeMemo[$nodeId];
+        }
+
+        $result = $nodeId;
+        $class = \Platform\Organization\Models\OrganizationEntity::class;
+        $relClass = \Platform\Organization\Models\OrganizationEntityRelationship::class;
+        $typeClass = \Platform\Organization\Models\OrganizationEntityRelationType::class;
+
+        if (class_exists($class) && class_exists($relClass) && class_exists($typeClass)) {
+            try {
+                $typeId = $typeClass::where('code', 'engagement_with')->value('id');
+                if ($typeId) {
+                    // Vorfahren-Kette (Knoten selbst zuerst → nächstes Engagement gewinnt).
+                    $chain = [$nodeId];
+                    $current = $nodeId;
+                    $guard = 0;
+                    while ($guard++ < 50) {
+                        $parent = $class::whereKey($current)->value('parent_entity_id');
+                        if (! $parent) {
+                            break;
+                        }
+                        $chain[] = (int) $parent;
+                        $current = (int) $parent;
+                    }
+                    foreach ($chain as $anc) {
+                        $customer = $relClass::where('relation_type_id', $typeId)
+                            ->where('from_entity_id', $anc)
+                            ->value('to_entity_id');
+                        if ($customer) {
+                            $result = (int) $customer;
+                            break;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Fallback: Knoten selbst
+            }
+        }
+
+        return $this->customerForNodeMemo[$nodeId] = $result;
+    }
+
     /**
      * Record-IDs eines Typs, die an einer Menge von Knoten hängen (Union).
      *

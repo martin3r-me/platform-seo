@@ -9,6 +9,7 @@ use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
 use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
+use Platform\Seo\Services\SeoOrganizationLinker;
 
 class Sidebar extends Component
 {
@@ -64,14 +65,17 @@ class Sidebar extends Component
                 }
             }
 
-            // URLs linked to entities
+            // URLs linked to entities — Agentur-Initiativen-URLs auf ihren Kunden zurückführen,
+            // damit der Kunde in der Kunden-Navigation sichtbar bleibt (Engagement-Brücke).
             if (!empty($urlIds)) {
+                $linker = app(SeoOrganizationLinker::class);
                 $urlLinks = EntityDimensionBridge::linksForLinkables(
                     ['seo_url', SeoUrl::class],
                     $urlIds
                 );
                 foreach ($urlLinks as $link) {
-                    $entityItemMap[$link->entity_id]['urls'][] = $link->linkable_id;
+                    $customerEntity = $linker->customerForNode((int) $link->entity_id);
+                    $entityItemMap[$customerEntity]['urls'][] = $link->linkable_id;
                     $linkedUrlIds[] = $link->linkable_id;
                 }
             }
