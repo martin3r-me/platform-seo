@@ -246,19 +246,22 @@ class SeoPerspective extends Component
 
         if (! empty($ownUrlIds)) {
             $openRecCount = SeoSignal::whereIn('url_id', $ownUrlIds)
-                ->where('signal_type', 'like', 'rec\_%')
+                ->whereNotNull('signal_definition_id')
                 ->whereIn('status', ['new', 'acknowledged'])
                 ->count();
 
-            $sevRank = ['critical' => 0, 'high' => 0, 'error' => 0, 'warning' => 1, 'watch' => 2, 'info' => 3];
             $topRecommendations = SeoSignal::whereIn('url_id', $ownUrlIds)
-                ->where('signal_type', 'like', 'rec\_%')
+                ->whereNotNull('signal_definition_id')
                 ->whereIn('status', ['new', 'acknowledged'])
                 ->with('url:id,url,domain,path')
                 ->orderByDesc('detected_at')
                 ->limit(40)
                 ->get()
-                ->sortBy(fn ($s) => (($sevRank[strtolower($s->severity ?? '')] ?? 5) * 1000000000) - (int) ($s->context['volume'] ?? 0))
+                // Notfälle zuerst, dann nach echtem Wert (Impact).
+                ->sortByDesc(fn ($s) => [
+                    $s->severity === 'critical' ? 1 : 0,
+                    (int) ($s->context['impact'] ?? 0),
+                ])
                 ->take(6)
                 ->values();
 
@@ -282,7 +285,7 @@ class SeoPerspective extends Component
         $urlsRich = collect();
         if ($this->tab === 'urls' && ! in_array($this->mode, ['unassigned', 'source'], true) && ! empty($ownUrlIds)) {
             $recCounts = SeoSignal::whereIn('url_id', $ownUrlIds)
-                ->where('signal_type', 'like', 'rec\_%')
+                ->whereNotNull('signal_definition_id')
                 ->whereIn('status', ['new', 'acknowledged'])
                 ->selectRaw('url_id, COUNT(*) as c')
                 ->groupBy('url_id')->pluck('c', 'url_id');
@@ -318,7 +321,7 @@ class SeoPerspective extends Component
 
         if ($this->tab === 'recommendations' && ! empty($ownUrlIds)) {
             $recommendations = SeoSignal::whereIn('url_id', $ownUrlIds)
-                ->where('signal_type', 'like', 'rec\_%')
+                ->whereNotNull('signal_definition_id')
                 ->where('status', '!=', 'resolved')
                 ->with('url:id,url,domain,path')
                 ->orderByDesc('detected_at')
