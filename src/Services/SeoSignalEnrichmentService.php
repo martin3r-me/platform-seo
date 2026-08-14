@@ -36,9 +36,10 @@ class SeoSignalEnrichmentService
             return ['enriched' => 0, 'skipped' => 0];
         }
 
-        $provider = $this->registry->getDefaultProvider();
+        // Bewusst OpenAI (der Default zeigt bei uns auf Anthropic mit ungültigem Key).
+        $provider = $this->registry->get('openai') ?? $this->registry->getDefaultProvider();
         if (! $provider || ! $provider->isAvailable()) {
-            return ['enriched' => 0, 'skipped' => 0, 'error' => 'Kein LLM-Provider verfügbar (API-Key?).'];
+            return ['enriched' => 0, 'skipped' => 0, 'error' => 'Kein OpenAI-Provider verfügbar (services.openai.api_key gesetzt?).'];
         }
 
         $signals = SeoSignal::with(['url', 'keyword'])
