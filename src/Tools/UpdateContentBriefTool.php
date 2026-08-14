@@ -6,6 +6,8 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Seo\Models\SeoContentBrief;
+use Platform\Seo\Models\SeoContentBriefNote;
+use Platform\Seo\Models\SeoContentBriefSection;
 
 /**
  * Aktualisiert einen Content-Brief — Status-Workflow und die Flynk-Referenzen
@@ -46,6 +48,16 @@ class UpdateContentBriefTool implements ToolContract
                 'external_task_ref' => ['type' => ['string', 'null'], 'description' => 'Flynk-Aufgaben-ID'],
                 'external_document_ref' => ['type' => ['string', 'null'], 'description' => 'Flynk-Dokument-ID'],
                 'published_url' => ['type' => ['string', 'null']],
+                'sections' => [
+                    'type' => 'array',
+                    'description' => 'Ersetzt ALLE Abschnitte (gleiche Struktur wie beim POST: {heading, heading_level?, description?, target_keywords?[], notes?}). Weglassen = unverändert; leeres Array = alle entfernen.',
+                    'items' => ['type' => 'object'],
+                ],
+                'notes' => [
+                    'type' => 'array',
+                    'description' => 'Ersetzt ALLE Notizen ({note_type, content}). Weglassen = unverändert; leeres Array = alle entfernen.',
+                    'items' => ['type' => 'object'],
+                ],
             ],
             'required' => ['brief_id'],
         ];
@@ -97,7 +109,54 @@ class UpdateContentBriefTool implements ToolContract
 
             $brief->update($data);
 
-            return ToolResult::success([
+            // Abschnitte ersetzen (nur wenn der Key übergeben wurde).
+            $sectionCount = null;
+            if (array_key_exists('sections', $arguments) && is_array($arguments['sections'])) {
+                SeoContentBriefSection::where('content_brief_id', $brief->id)->delete();
+                $sectionCount = 0;
+                foreach ($arguments['sections'] as $i => $section) {
+                    $heading = is_array($section) ? ($section['heading'] ?? '') : (string) $section;
+                    if ($heading === '') {
+                        continue;
+                    }
+                    SeoContentBriefSection::create([
+                        'content_brief_id' => $brief->id,
+                        'team_id' => $brief->team_id,
+                        'user_id' => $context->user?->id,
+                        'order' => $i,
+                        'heading' => $heading,
+                        'heading_level' => $section['heading_level'] ?? 'h2',
+                        'description' => $section['description'] ?? null,
+                        'target_keywords' => $section['target_keywords'] ?? null,
+                        'notes' => $section['notes'] ?? null,
+                    ]);
+                    $sectionCount++;
+                }
+            }
+
+            // Notizen ersetzen (nur wenn der Key übergeben wurde).
+            $noteCount = null;
+            if (array_key_exists('notes', $arguments) && is_array($arguments['notes'])) {
+                SeoContentBriefNote::where('content_brief_id', $brief->id)->delete();
+                $noteCount = 0;
+                foreach ($arguments['notes'] as $i => $note) {
+                    $content = is_array($note) ? ($note['content'] ?? '') : (string) $note;
+                    if ($content === '') {
+                        continue;
+                    }
+                    SeoContentBriefNote::create([
+                        'content_brief_id' => $brief->id,
+                        'team_id' => $brief->team_id,
+                        'user_id' => $context->user?->id,
+                        'note_type' => is_array($note) ? ($note['note_type'] ?? 'instruction') : 'instruction',
+                        'content' => $content,
+                        'order' => $i,
+                    ]);
+                    $noteCount++;
+                }
+            }
+
+            return ToolResult::success(array_filter([
                 'id' => $brief->id,
                 'uuid' => $brief->uuid,
                 'name' => $brief->name,
@@ -105,8 +164,10 @@ class UpdateContentBriefTool implements ToolContract
                 'external_task_ref' => $brief->external_task_ref,
                 'external_document_ref' => $brief->external_document_ref,
                 'published_url' => $brief->published_url,
+                'sections' => $sectionCount,
+                'notes' => $noteCount,
                 'message' => "Content-Brief '{$brief->name}' aktualisiert.",
-            ]);
+            ], fn ($v) => $v !== null));
         } catch (\Throwable $e) {
             return ToolResult::error('Fehler: ' . $e->getMessage(), 'EXECUTION_ERROR');
         }
