@@ -37,6 +37,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\EvaluateSignals::class,
                 \Platform\Seo\Console\Commands\EnrichSignals::class,
                 \Platform\Seo\Console\Commands\DispatchSignals::class,
+                \Platform\Seo\Console\Commands\ReconcileContentBriefs::class,
                 \Platform\Seo\Console\Commands\ArchiveLegacySignals::class,
                 \Platform\Seo\Console\Commands\RefreshCompetitors::class,
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
@@ -236,9 +237,11 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\CreateClusterTool());
             $registry->register(new \Platform\Seo\Tools\AutoClusterTool());
 
-            // Content-Briefs (Cluster → Arbeitsauftrag)
+            // Content-Briefs (Cluster → Arbeitsauftrag → Flynk-Loop)
             $registry->register(new \Platform\Seo\Tools\ListContentBriefsTool());
             $registry->register(new \Platform\Seo\Tools\CreateContentBriefTool());
+            $registry->register(new \Platform\Seo\Tools\UpdateContentBriefTool());
+            $registry->register(new \Platform\Seo\Tools\ReconcileContentBriefsTool());
 
             // Signale
             $registry->register(new \Platform\Seo\Tools\ListSignalsTool());

@@ -28,6 +28,11 @@ class SeoContentBrief extends Model implements HasDisplayName
         'content_type',
         'search_intent',
         'status',
+        'external_project_ref',
+        'external_task_ref',
+        'external_document_ref',
+        'published_url',
+        'published_at',
         'target_slug',
         'target_url',
         'target_word_count',
@@ -42,7 +47,32 @@ class SeoContentBrief extends Model implements HasDisplayName
         'order' => 'integer',
         'done' => 'boolean',
         'done_at' => 'datetime',
+        'published_at' => 'datetime',
     ];
+
+    /**
+     * Status-Kette der Produktion (docs/CONTENT-BRIEF-TRACKING.md):
+     * briefed → queued (an Flynk übergeben) → in_production → published.
+     */
+    public const STATUS_BRIEFED = 'briefed';
+    public const STATUS_QUEUED = 'queued';
+    public const STATUS_IN_PRODUCTION = 'in_production';
+    public const STATUS_PUBLISHED = 'published';
+
+    public const STATUSES = [
+        self::STATUS_BRIEFED,
+        self::STATUS_QUEUED,
+        self::STATUS_IN_PRODUCTION,
+        self::STATUS_PUBLISHED,
+    ];
+
+    /** Der Provenance-Marker, den die veröffentlichte Seite im <head> tragen soll. */
+    public const MARKER_META_NAME = 'x-content-brief';
+
+    public function markerMeta(): string
+    {
+        return '<meta name="'.self::MARKER_META_NAME.'" content="'.$this->uuid.'">';
+    }
 
     protected static function booted(): void
     {

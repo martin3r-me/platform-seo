@@ -64,6 +64,44 @@
                 </dl>
             </div>
 
+            {{-- Produktion & Tracking (SEO ↔ Flynk-Loop) --}}
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Produktion &amp; Tracking</h2>
+                @php
+                    $steps = ['briefed' => 'Briefed', 'queued' => 'An Flynk', 'in_production' => 'In Arbeit', 'published' => 'Veröffentlicht'];
+                    $current = array_search($brief->status, array_keys($steps), true);
+                @endphp
+                <div class="flex items-center gap-1.5 flex-wrap mb-4">
+                    @foreach($steps as $key => $label)
+                        @php $done = $current !== false && $loop->index <= $current; @endphp
+                        <span class="text-[11px] px-2.5 py-1 rounded-full border {{ $done ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-gray-50 text-gray-400 border-gray-200' }}">{{ $label }}</span>
+                        @if(!$loop->last)<span class="text-gray-300 text-[11px]">→</span>@endif
+                    @endforeach
+                </div>
+                <dl class="grid grid-cols-3 gap-4 text-[12px]">
+                    <div>
+                        <dt class="text-gray-400 uppercase tracking-wider text-[10px]">Flynk-Aufgabe</dt>
+                        <dd class="text-gray-800 mt-0.5 truncate">{{ $brief->external_task_ref ?: '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-400 uppercase tracking-wider text-[10px]">Flynk-Dokument</dt>
+                        <dd class="text-gray-800 mt-0.5 truncate">{{ $brief->external_document_ref ?: '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-gray-400 uppercase tracking-wider text-[10px]">Veröffentlicht</dt>
+                        <dd class="text-gray-800 mt-0.5 truncate">
+                            @if($brief->published_url)
+                                <a href="{{ $brief->published_url }}" target="_blank" rel="noopener" class="text-blue-600 underline">{{ $brief->published_url }}</a>
+                            @else — @endif
+                        </dd>
+                    </div>
+                </dl>
+                <div class="mt-4">
+                    <dt class="text-gray-400 uppercase tracking-wider text-[10px] mb-1">Provenance-Marker (in den &lt;head&gt; der Seite)</dt>
+                    <code class="block text-[11px] text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1.5" style="overflow-x: auto; white-space: nowrap;">{{ $brief->markerMeta() }}</code>
+                </div>
+            </div>
+
             {{-- Abschnitte --}}
             <div>
                 <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Abschnitte ({{ $sections->count() }})</h2>
