@@ -17,6 +17,8 @@ use Platform\Seo\Models\SeoSignalDefinition;
  */
 class SeoSignalEnrichmentService
 {
+    public ?string $lastError = null;
+
     public function __construct(private LLMProviderRegistry $registry) {}
 
     /**
@@ -55,7 +57,12 @@ class SeoSignalEnrichmentService
             }
         }
 
-        return ['enriched' => $enriched, 'skipped' => $signals->count() - $enriched];
+        $out = ['enriched' => $enriched, 'skipped' => $signals->count() - $enriched];
+        if ($enriched === 0 && $signals->count() > 0 && $this->lastError) {
+            $out['error'] = $this->lastError;
+        }
+
+        return $out;
     }
 
     public function enrichSignal(SeoSignal $signal, $provider): bool
@@ -65,13 +72,15 @@ class SeoSignalEnrichmentService
                 [['role' => 'user', 'content' => $this->userPrompt($signal)]],
                 [
                     'system' => $this->systemPrompt(),
-                    'temperature' => 0.4,
                     'max_tokens' => 700,
+                    'tools' => false, // keine Tool-Orchestrierung — schlanker Direkt-Call
                 ],
             );
 
             $ai = $this->parseJson($resp['content'] ?? '');
             if (! $ai) {
+                $this->lastError = 'Antwort nicht als JSON parsebar: '.substr(trim((string) ($resp['content'] ?? '')), 0, 200);
+
                 return false;
             }
 
@@ -85,6 +94,8 @@ class SeoSignalEnrichmentService
 
             return true;
         } catch (\Throwable $e) {
+            $this->lastError = $e->getMessage();
+
             return false;
         }
     }
