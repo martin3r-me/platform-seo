@@ -68,9 +68,12 @@ class SeoSignalEnrichmentService
 
     public function enrichSignal(SeoSignal $signal, $provider): bool
     {
+        // Kein Live-Sprung auf die Seite — nur der (frische) gespeicherte Crawl erdet.
+        $pageBlock = $signal->url ? $this->pageState($signal->url) : null;
+
         try {
             $resp = $provider->chat(
-                [['role' => 'user', 'content' => $this->userPrompt($signal)]],
+                [['role' => 'user', 'content' => $this->userPrompt($signal, $pageBlock)]],
                 [
                     'system' => $this->systemPrompt(),
                     'max_tokens' => 700,
@@ -88,6 +91,7 @@ class SeoSignalEnrichmentService
             $ctx = $signal->context ?? [];
             $ctx['ai'] = array_merge($ai, [
                 'model' => $resp['model'] ?? null,
+                'grounded' => $pageBlock !== null,
                 'enriched_at' => Carbon::now()->toIso8601String(),
             ]);
             $signal->context = $ctx;
@@ -125,7 +129,7 @@ class SeoSignalEnrichmentService
         TXT;
     }
 
-    protected function userPrompt(SeoSignal $signal): string
+    protected function userPrompt(SeoSignal $signal, ?string $pageBlock = null): string
     {
         $ctx = $signal->context ?? [];
         $lines = [
@@ -146,14 +150,18 @@ class SeoSignalEnrichmentService
             }
         }
 
-        if ($signal->url && ($page = $this->pageState($signal->url))) {
-            $lines[] = $page;
+        if ($pageBlock) {
+            $lines[] = $pageBlock;
         }
 
         return implode("\n", $lines);
     }
 
-    /** Realer Seitenstand aus dem Crawl (seo_url_on_page) — erdet die KI-Empfehlung. */
+    /**
+     * Realer Seitenstand aus dem Crawl (seo_url_on_page) — erdet die KI-Empfehlung.
+     * Nur FRISCHE Crawl-Daten (analyzed_at innerhalb onpage_fresh_days); sonst null
+     * → kein Seitenbezug, statt auf veraltetem Stand zu raten.
+     */
     protected function pageState($url): ?string
     {
         $op = $url->onPage ?? null;
@@ -161,7 +169,12 @@ class SeoSignalEnrichmentService
             return null;
         }
 
-        $lines = ['', 'Aktueller Seitenstand (aus dem Crawl):'];
+        $freshDays = (int) config('seo.signals.onpage_fresh_days', 21);
+        if (! $op->analyzed_at || $op->analyzed_at->lt(Carbon::now()->subDays($freshDays))) {
+            return null; // Crawl zu alt → nicht erden
+        }
+
+        $lines = ['', 'Aktueller Seitenstand (Crawl vom '.$op->analyzed_at->format('d.m.Y').'):'];
         if ($op->title) {
             $lines[] = 'Title: '.$op->title;
         }

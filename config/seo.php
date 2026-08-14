@@ -164,6 +164,7 @@ return [
         'position_rise_threshold' => 5,        // 5+ positions gained
         'position_drop_threshold' => -5,       // 5+ positions lost
         'opportunity_min_volume' => 200,
+        'onpage_fresh_days' => 21,             // KI erdet sich nur an Crawl-Daten, die höchstens so alt sind
     ],
 
     /*

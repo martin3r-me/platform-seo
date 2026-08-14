@@ -94,6 +94,9 @@
                                         <div class="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide" style="color: var(--nx-info)">
                                             @svg('heroicon-o-sparkles', 'w-3 h-3')
                                             KI-Empfehlung
+                                            @if(isset($ai['grounded']) && ! $ai['grounded'])
+                                                <span class="text-[color:var(--nx-faint)]" style="text-transform: none; font-weight: 400">· ohne Seitenbezug (Crawl fehlt/veraltet)</span>
+                                            @endif
                                         </div>
                                         <p class="mt-0.5 text-xs text-[color:var(--nx-text)]">{{ $ai['recommendation'] }}</p>
                                         @if(!empty($ai['steps']) && is_array($ai['steps']))
