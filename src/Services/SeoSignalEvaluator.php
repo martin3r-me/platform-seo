@@ -33,11 +33,7 @@ class SeoSignalEvaluator
         // 1. Kandidaten aus allen Definitionen sammeln (noch nicht persistieren).
         $candidates = [];
         foreach ($defs as $def) {
-            $urlIds = $this->populationUrlIds($def);
-            if (empty($urlIds)) {
-                continue;
-            }
-            foreach ($this->candidatesFor($def, $urlIds) as $cand) {
+            foreach ($this->candidatesFor($def) as $cand) {
                 // Bereits offene (gleiche Definition + Ziel) zählen nicht als neuer Bedarf.
                 if ($this->alreadyOpen($def->id, $cand['url_id'], $cand['keyword_id'])) {
                     continue;
@@ -113,12 +109,15 @@ class SeoSignalEvaluator
     // Population (eine pro Definition)
     // -------------------------------------------------------------------------
 
-    /** @return int[] eigene, aktive URL-IDs der Population dieser Definition */
-    protected function populationUrlIds(SeoSignalDefinition $def): array
+    /**
+     * @param  bool  $activeOnly  false für technische Muster (kaputte Seiten sind evtl. nicht 'active')
+     * @return int[] eigene URL-IDs der Population dieser Definition
+     */
+    protected function populationUrlIds(SeoSignalDefinition $def, bool $activeOnly = true): array
     {
         $base = SeoUrl::where('team_id', $def->team_id)
             ->where('is_own', true)
-            ->where('status', 'active');
+            ->when($activeOnly, fn ($q) => $q->where('status', 'active'));
 
         switch ($def->scope_type) {
             case 'list':
@@ -154,13 +153,23 @@ class SeoSignalEvaluator
     // -------------------------------------------------------------------------
 
     /** @return array<int, array{def:SeoSignalDefinition, url_id:?int, keyword_id:?int, impact:int, data:array}> */
-    protected function candidatesFor(SeoSignalDefinition $def, array $urlIds): array
+    protected function candidatesFor(SeoSignalDefinition $def): array
     {
+        // page_broken darf auch nicht-aktive URLs sehen (kaputte Seiten sind evtl. 'error'/'redirect').
+        $activeOnly = $def->pattern_type !== 'page_broken';
+        $urlIds = $this->populationUrlIds($def, $activeOnly);
+        if (empty($urlIds)) {
+            return [];
+        }
+
         return match ($def->pattern_type) {
             'striking_distance' => $this->strikingDistance($def, $urlIds),
             'position_drop' => $this->positionDrop($def, $urlIds),
             'thin_content' => $this->thinContent($def, $urlIds),
             'cannibalization' => $this->cannibalization($def, $urlIds),
+            'page_broken' => $this->pageBroken($def, $urlIds),
+            'backlink_gap' => $this->backlinkGap($def, $urlIds),
+            'page_retire' => $this->pageRetire($def, $urlIds),
             default => [],
         };
     }
@@ -323,6 +332,128 @@ class SeoSignalEvaluator
                     'title' => "Kannibalisierung: \"{$first->keyword}\" — {$urls->count()} eigene URLs",
                     'description' => "{$urls->count()} eigene Seiten der Arena ranken für \"{$first->keyword}\" ({$vol} Vol.). Konsolidieren oder entflechten.",
                     'context' => ['pattern' => 'cannibalization', 'keyword' => $first->keyword, 'volume' => $vol, 'url_count' => $urls->count(), 'urls' => $competing, 'scope' => $def->scope_value, 'impact' => $impact],
+                ],
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Technischer Alarm: eigene Seite mit Fehler-Status oder unerwarteter Weiterleitung. */
+    protected function pageBroken(SeoSignalDefinition $def, array $urlIds): array
+    {
+        $c = $def->conditions ?? [];
+        $minStatus = (int) ($c['min_http_status'] ?? 400);
+
+        $urls = SeoUrl::whereIn('id', $urlIds)
+            ->where(function ($q) use ($minStatus) {
+                $q->where('http_status', '>=', $minStatus)
+                    ->orWhereNotNull('redirect_detected_at');
+            })
+            ->get(['id', 'url', 'http_status', 'redirect_detected_at', 'visitors_30d', 'visibility_score']);
+
+        $out = [];
+        foreach ($urls as $u) {
+            $status = $u->http_status !== null ? (int) $u->http_status : null;
+            $isError = $status !== null && $status >= $minStatus;
+            $impact = (int) round((float) ($u->visitors_30d ?? 0) + (float) $u->visibility_score) + 1;
+
+            $out[] = [
+                'def' => $def,
+                'url_id' => (int) $u->id,
+                'keyword_id' => null,
+                'impact' => $impact,
+                'data' => [
+                    'title' => $isError
+                        ? "Seite kaputt: {$u->url} (HTTP {$status})"
+                        : "Unerwartete Weiterleitung: {$u->url}",
+                    'description' => $isError
+                        ? "Die Seite antwortet mit HTTP {$status} — kaputte Kundenseite, sofort prüfen."
+                        : 'Die Seite leitet um. Prüfen, ob die Weiterleitung gewollt ist (sonst Traffic-/Ranking-Verlust).',
+                    'context' => ['pattern' => 'page_broken', 'http_status' => $status, 'redirect' => ! $isError, 'impact' => $impact],
+                ],
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Guter Content rankt knapp, aber schwaches Backlink-Profil → Off-Page-Hebel. Eine je URL. */
+    protected function backlinkGap(SeoSignalDefinition $def, array $urlIds): array
+    {
+        $c = $def->conditions ?? [];
+        $maxPos = (int) ($c['max_position'] ?? 10);
+        $minVol = (int) ($c['min_volume'] ?? 100);
+        $minWords = (int) ($c['min_word_count'] ?? 300);
+        $maxBacklinks = (int) ($c['max_backlinks'] ?? 5);
+
+        $rows = DB::table('seo_url_keywords as uk')
+            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+            ->join('seo_urls as u', 'u.id', '=', 'uk.url_id')
+            ->join('seo_url_on_page as op', 'op.url_id', '=', 'uk.url_id')
+            ->whereIn('uk.url_id', $urlIds)
+            ->whereNotNull('uk.position')
+            ->where('uk.position', '<=', $maxPos)
+            ->where('k.search_volume', '>=', $minVol)
+            ->where('op.word_count', '>=', $minWords)      // bestätigt guter Content
+            ->where('u.backlink_count', '<', $maxBacklinks) // aber schwaches Linkprofil
+            ->select('uk.url_id', 'uk.keyword_id', 'uk.position', 'k.keyword', 'k.search_volume', 'u.backlink_count')
+            ->orderByDesc('k.search_volume')
+            ->get();
+
+        $out = [];
+        foreach ($this->bestPerUrl($rows) as $r) {
+            $impact = (int) round($r->search_volume * (11 - min((int) $r->position, 10)) / 10);
+            $out[] = [
+                'def' => $def,
+                'url_id' => (int) $r->url_id,
+                'keyword_id' => (int) $r->keyword_id,
+                'impact' => $impact,
+                'data' => [
+                    'title' => "Backlinks aufbauen: \"{$r->keyword}\" (Pos. {$r->position}, {$r->backlink_count} Links)",
+                    'description' => "Guter Content rankt auf Pos. {$r->position} für \"{$r->keyword}\" ({$r->search_volume} Vol.), aber nur {$r->backlink_count} Backlinks. Linkaufbau priorisieren.",
+                    'metric_after' => $r->position,
+                    'context' => ['pattern' => 'backlink_gap', 'keyword' => $r->keyword, 'volume' => (int) $r->search_volume, 'position' => (int) $r->position, 'backlinks' => (int) $r->backlink_count, 'impact' => $impact],
+                ],
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Eigene Seite ohne Traffic (30 Tage) und ohne Ranking → abstellen/konsolidieren. */
+    protected function pageRetire(SeoSignalDefinition $def, array $urlIds): array
+    {
+        $urls = SeoUrl::whereIn('id', $urlIds)
+            ->where('visitors_30d', 0)
+            ->whereNotNull('last_crawled_at')
+            ->get(['id', 'url']);
+
+        if ($urls->isEmpty()) {
+            return [];
+        }
+
+        $rankingUrlIds = DB::table('seo_url_keywords')
+            ->whereIn('url_id', $urls->pluck('id'))
+            ->whereNotNull('position')
+            ->distinct()
+            ->pluck('url_id')
+            ->flip();
+
+        $out = [];
+        foreach ($urls as $u) {
+            if ($rankingUrlIds->has($u->id)) {
+                continue;
+            }
+            $out[] = [
+                'def' => $def,
+                'url_id' => (int) $u->id,
+                'keyword_id' => null,
+                'impact' => 1, // Aufräumen — bewusst niedrig, verdrängt keine Wachstumshebel
+                'data' => [
+                    'title' => "Seite abstellen: {$u->url}",
+                    'description' => 'Kein Traffic (30 Tage) und kein Ranking. Weiterleiten (301) oder konsolidieren.',
+                    'context' => ['pattern' => 'page_retire', 'impact' => 1],
                 ],
             ];
         }

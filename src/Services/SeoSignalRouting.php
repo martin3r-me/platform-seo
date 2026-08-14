@@ -18,6 +18,8 @@ class SeoSignalRouting
     public const KIND_CONTENT = 'content';
     public const KIND_PAGE_EDIT = 'page_edit';
     public const KIND_STRUCTURAL = 'structural';
+    public const KIND_TECHNICAL = 'technical';
+    public const KIND_OFFPAGE = 'offpage';
 
     /** Muster → Änderungsart. */
     private const PATTERN_KIND = [
@@ -30,6 +32,9 @@ class SeoSignalRouting
         'lost_ranking' => self::KIND_PAGE_EDIT,
         'decay' => self::KIND_PAGE_EDIT,
         'cannibalization' => self::KIND_STRUCTURAL,
+        'page_retire' => self::KIND_STRUCTURAL,
+        'page_broken' => self::KIND_TECHNICAL,
+        'backlink_gap' => self::KIND_OFFPAGE,
     ];
 
     public const TARGET_CONTENT_BRIEF = 'content_brief';
@@ -60,6 +65,8 @@ class SeoSignalRouting
             self::KIND_CONTENT => 'Inhalt',
             self::KIND_PAGE_EDIT => 'Seitenänderung',
             self::KIND_STRUCTURAL => 'Struktur/Redirect',
+            self::KIND_TECHNICAL => 'Technik',
+            self::KIND_OFFPAGE => 'Backlinks',
         ][$kind] ?? $kind;
     }
 }

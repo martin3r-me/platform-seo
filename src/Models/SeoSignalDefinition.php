@@ -81,6 +81,21 @@ class SeoSignalDefinition extends Model
                 'description' => 'Mehrere eigene URLs ranken für dasselbe Keyword — konsolidieren/entflechten.',
                 'conditions' => ['min_urls' => 2, 'min_volume' => 0],
             ],
+            'page_broken' => [
+                'label' => 'Seite kaputt / Weiterleitung',
+                'description' => 'Eigene Seite antwortet mit Fehler (4xx/5xx) oder leitet unerwartet um — technischer Alarm.',
+                'conditions' => ['min_http_status' => 400],
+            ],
+            'backlink_gap' => [
+                'label' => 'Backlink-Lücke',
+                'description' => 'Guter Content rankt knapp, hat aber kaum Backlinks — Off-Page-Hebel.',
+                'conditions' => ['max_position' => 10, 'min_volume' => 100, 'min_word_count' => 300, 'max_backlinks' => 5],
+            ],
+            'page_retire' => [
+                'label' => 'Seite abstellen',
+                'description' => 'Eigene Seite ohne Traffic (30 Tage) und ohne Ranking — abstellen/konsolidieren.',
+                'conditions' => [],
+            ],
             'thin_content' => [
                 'label' => 'Dünner Content',
                 'description' => 'Rankende URL mit zu wenig Inhalt — Content-Brief (inhaltlich).',
