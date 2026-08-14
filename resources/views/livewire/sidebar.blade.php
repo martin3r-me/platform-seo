@@ -23,6 +23,14 @@
             @svg('heroicon-o-signal', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Signale</span>
         </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('seo.clusters')" :active="request()->routeIs('seo.clusters') || request()->routeIs('seo.clusters.show')">
+            @svg('heroicon-o-squares-2x2', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Cluster</span>
+        </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('seo.briefs')" :active="request()->routeIs('seo.briefs') || request()->routeIs('seo.briefs.show')">
+            @svg('heroicon-o-document-text', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Content-Briefs</span>
+        </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
     {{-- Der Baum = der Perspektiv-Wähler. Jeder Knoten/Typ ist eine Perspektive. --}}

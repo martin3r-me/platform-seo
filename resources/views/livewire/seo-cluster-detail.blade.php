@@ -99,11 +99,12 @@
                     <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Content-Briefs</h2>
                     <div class="space-y-1.5">
                         @foreach($contentBriefs as $brief)
-                            <div class="flex items-center gap-2 text-[12px]">
+                            <a href="{{ route('seo.briefs.show', $brief->id) }}" wire:navigate
+                               class="flex items-center gap-2 text-[12px] hover:bg-gray-50 -mx-2 px-2 py-1 rounded">
                                 <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded">{{ $brief->pivot->role ?? 'primary' }}</span>
                                 <span class="font-medium text-gray-800">{{ $brief->name }}</span>
                                 <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 bg-gray-100 text-gray-500 rounded">{{ $brief->status }}</span>
-                            </div>
+                            </a>
                         @endforeach
                     </div>
                 </div>
