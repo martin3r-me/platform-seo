@@ -173,6 +173,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Setup / Aufbau-Reife — Vorgabe für einen belastbaren Kunden-Start
+    |--------------------------------------------------------------------------
+    | Für Kunden bei Null: wie viele Wettbewerber braucht es, damit das
+    | Keyword-Umfeld aussagekräftig ist? Die Werkbank fordert das aktiv ein.
+    */
+    'setup' => [
+        'competitors_min' => 3,    // Minimum für eine brauchbare Marktkarte
+        'competitors_ideal' => 5,  // ideal (5–8); danach kaum Mehrwert
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Budget Defaults
     |--------------------------------------------------------------------------
     */

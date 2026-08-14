@@ -55,6 +55,72 @@
 
         {{-- ============ ÜBERSICHT ============ --}}
         @if($tab === 'overview')
+            @if($setup)
+                {{-- AUFBAU-MODUS: geführte Startstrecke für einen Kunden bei Null (Reife-Vorgabe) --}}
+                <x-nx-section icon="heroicon-o-rocket-launch" title="Aufbau" hint="startet bei Null" class="mb-6">
+                    @if($notice)
+                        <div class="mb-3 text-xs text-[color:var(--nx-success)]">{{ $notice }}</div>
+                    @endif
+                    <x-nx-card>
+                        <p class="text-[13px] text-[color:var(--nx-muted)] mb-4">
+                            <span class="font-medium text-[color:var(--nx-text)]">{{ $setup['name'] }}</span> hat noch keinen SEO-Fußabdruck. Das Umfeld rankt für
+                            <span class="font-medium text-[color:var(--nx-text)]">{{ number_format($setup['pool_count']) }} Keywords</span>
+                            ({{ number_format($setup['pool_volume']) }} Suchvolumen). So kommst du in den Betrieb:
+                        </p>
+
+                        <div class="space-y-2">
+                            {{-- 1. Eigene Seite --}}
+                            <div class="flex items-start gap-2">
+                                @svg('heroicon-o-check-circle', 'w-4 h-4 shrink-0 mt-0.5', ['style' => 'color: '.($setup['own_url']['done'] ? 'var(--nx-success)' : 'var(--nx-faint)')])
+                                <div class="text-sm text-[color:var(--nx-text)]">Eigene Seite aufgehängt <span class="text-[color:var(--nx-faint)] tabular-nums">· {{ $setup['own_url']['count'] }}</span></div>
+                            </div>
+
+                            {{-- 2. Wettbewerber — die Vorgabe --}}
+                            <div class="flex items-start gap-2">
+                                @svg('heroicon-o-check-circle', 'w-4 h-4 shrink-0 mt-0.5', ['style' => 'color: '.($setup['competitors']['ideal_done'] ? 'var(--nx-success)' : ($setup['competitors']['done'] ? 'var(--nx-info)' : 'var(--nx-faint)'))])
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-[color:var(--nx-text)]">Wettbewerber
+                                        <span class="tabular-nums font-medium">{{ $setup['competitors']['count'] }}/{{ $setup['competitors']['ideal'] }}</span>
+                                        @unless($setup['competitors']['done'])<span class="text-[color:var(--nx-danger)] text-xs">· min. {{ $setup['competitors']['min'] }} nötig</span>@endunless
+                                    </div>
+                                    <div class="mt-1 h-1.5 w-full max-w-[320px] rounded-full overflow-hidden" style="background: var(--nx-line)">
+                                        <div class="h-full rounded-full" style="width: {{ min(100, (int) round($setup['competitors']['count'] / max(1, $setup['competitors']['ideal']) * 100)) }}%; background: {{ $setup['competitors']['ideal_done'] ? 'var(--nx-success)' : 'var(--nx-info)' }}"></div>
+                                    </div>
+                                    @unless($setup['competitors']['ideal_done'])
+                                        <div class="mt-2 text-xs text-[color:var(--nx-muted)]">Für ein robustes Bild {{ $setup['competitors']['done'] ? 'wäre noch einer ideal' : 'fehlt noch mind. einer' }}. Weitere ergänzen:</div>
+                                        <form wire:submit="addCompetitor" class="mt-1.5 flex items-center gap-2">
+                                            <input type="url" wire:model="newCompetitorUrl" placeholder="https://wettbewerber.de" class="flex-1 max-w-[320px] border border-[color:var(--nx-line)] rounded-md px-2 py-1 text-xs bg-transparent text-[color:var(--nx-text)]">
+                                            <x-nx-button type="submit" size="sm" variant="secondary">Hinzufügen</x-nx-button>
+                                        </form>
+                                    @endunless
+                                </div>
+                            </div>
+
+                            {{-- 3. Ziel-Keywords säen --}}
+                            <div class="flex items-start gap-2">
+                                @svg('heroicon-o-check-circle', 'w-4 h-4 shrink-0 mt-0.5', ['style' => 'color: var(--nx-faint)'])
+                                <div class="text-sm text-[color:var(--nx-text)]">Ziel-Keywords säen
+                                    <span class="block text-xs text-[color:var(--nx-muted)]">{{ number_format($setup['pool_count']) }} Keywords im Umfeld verfügbar — nächster Baustein.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if($setup['pool_top']->isNotEmpty())
+                            <div class="mt-4 pt-4 border-t" style="border-color: var(--nx-line)">
+                                <div class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)] mb-2">Stärkste Keywords im Umfeld</div>
+                                <div class="flex flex-wrap gap-1.5">
+                                    @foreach($setup['pool_top'] as $kw)
+                                        <span class="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs text-[color:var(--nx-muted)]" style="border-color: var(--nx-line)">
+                                            {{ $kw->keyword }}
+                                            <span class="tabular-nums text-[color:var(--nx-faint)]">{{ number_format($kw->search_volume) }}</span>
+                                        </span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </x-nx-card>
+                </x-nx-section>
+            @else
             {{-- WAS JETZT — der Held: priorisierte Aktionen dieses Kunden --}}
             <x-nx-section icon="heroicon-o-bolt" title="Was jetzt" :hint="$openRecCount ? $openRecCount.' offen' : null" class="mb-6">
                 @if($topRecommendations->isNotEmpty())
@@ -84,6 +150,7 @@
                     <x-nx-empty icon="heroicon-o-check-circle">Keine offenen Empfehlungen — alles abgearbeitet.</x-nx-empty>
                 @endif
             </x-nx-section>
+            @endif
 
             @if($customerCount > 0)
                 <a href="{{ route('seo.perspective.customers', $entityId) }}" wire:navigate

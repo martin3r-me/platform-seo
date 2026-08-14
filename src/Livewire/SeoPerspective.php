@@ -40,6 +40,9 @@ class SeoPerspective extends Component
     public ?int $assignNodeId = null;
     public ?string $notice = null;
 
+    // Aufbau-Modus: Wettbewerber inline ergänzen (der „gib weitere ein"-Nudge).
+    public string $newCompetitorUrl = '';
+
     public function mount(?int $entity = null, ?string $relation = null, ?string $module = null): void
     {
         $this->resolveSettings();
@@ -83,6 +86,31 @@ class SeoPerspective extends Component
     public function clearSelection(): void
     {
         $this->selected = [];
+    }
+
+    /**
+     * Aufbau-Modus: einen Wettbewerber inline ergänzen (registrieren + an den Kunden hängen).
+     * Schnell (kein API); Keywords/Rankings kommen mit dem nächsten Pipeline-Lauf.
+     */
+    public function addCompetitor(): void
+    {
+        $url = trim($this->newCompetitorUrl);
+        if ($url === '' || ! $this->entityId) {
+            return;
+        }
+
+        $teamId = (int) $this->seoSettings->team_id;
+        $res = app(\Platform\Seo\Services\SeoUrlService::class)->register($teamId, $url, ['is_own' => false]);
+        $urlId = $res['url_id'] ?? null;
+
+        if ($urlId) {
+            app(SeoOrganizationLinker::class)->addNode(SeoOrganizationLinker::ALIAS_URL, (int) $urlId, (int) $this->entityId);
+            $this->notice = 'Wettbewerber ergänzt: '.$url.' — Keywords folgen beim nächsten Lauf.';
+        } else {
+            $this->notice = 'Konnte die URL nicht registrieren.';
+        }
+
+        $this->newCompetitorUrl = '';
     }
 
     /**
@@ -386,9 +414,51 @@ class SeoPerspective extends Component
             $moverLosers = $rows->where('delta', '<', 0)->sortBy('delta')->take(20)->values();
         }
 
+        // Aufbau-Modus: Kunde bei ~Null (eigene Keywords/Sichtbarkeit = 0), aber mit
+        // Wettbewerbern → geführte Startstrecke mit Reife-Vorgabe statt leerem Bildschirm.
+        $setup = null;
+        if ($this->mode === 'subtree' && (int) $own->sum('keyword_count') === 0 && (float) $own->sum('visibility_score') <= 0) {
+            $compUrls = $urls->where('is_own', false);
+            $compCount = $compUrls->count();
+            $min = (int) config('seo.setup.competitors_min', 3);
+            $ideal = (int) config('seo.setup.competitors_ideal', 5);
+
+            // Das Umfeld: Keywords, für die die Wettbewerber ranken (Seed-Pool).
+            $pool = collect();
+            if ($compUrls->isNotEmpty()) {
+                $pool = DB::table('seo_url_keywords as uk')
+                    ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+                    ->whereIn('uk.url_id', $compUrls->pluck('id')->all())
+                    ->select('k.id', 'k.keyword', 'k.search_volume')
+                    ->distinct()
+                    ->orderByDesc('k.search_volume')
+                    ->limit(300)
+                    ->get()
+                    ->unique('id')
+                    ->values();
+            }
+
+            $setup = [
+                'name' => $this->heading,
+                'own_url' => ['done' => $own->count() >= 1, 'count' => $own->count()],
+                'competitors' => [
+                    'count' => $compCount,
+                    'min' => $min,
+                    'ideal' => $ideal,
+                    'done' => $compCount >= $min,
+                    'ideal_done' => $compCount >= $ideal,
+                ],
+                'target_keywords' => ['done' => false, 'count' => 0],
+                'pool_count' => $pool->count(),
+                'pool_volume' => (int) $pool->sum('search_volume'),
+                'pool_top' => $pool->take(12)->values(),
+            ];
+        }
+
         return view('seo::livewire.seo-perspective', [
             'urls' => $urls,
             'kpis' => $kpis,
+            'setup' => $setup,
             'relations' => $relations,
             'subPerspectives' => $subPerspectives,
             'customerCount' => $customerCount,
