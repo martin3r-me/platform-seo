@@ -140,6 +140,31 @@ Bewegung + Keyword-/Content-Kontext eines Signals und liefert (a) die **wertbegr
 Priorisierung** und (b) optional einen **Content-Brief-Entwurf**. Die KI selbst, die
 Snapshots/Bewegung und die Signal-Form sind Bestand.
 
+## 6a. Zwei Sparten: berechnet vs. KI-gestützt
+
+Die KI bleibt in einer **klar abgegrenzten Spur**, nicht diffus überall. Am Datenmodell
+sichtbar über `engine` (an der Definition) und `enrich_with_ai`.
+
+**Sparte A — Berechnete Signale** (`engine = computed`): deterministisch aus Schwellen/
+Relationen (der Evaluator, Schritt 2). Das verlässliche Gerüst.
+
+**Sparte B — KI-gestützt**, drei Rollen:
+
+1. **Anreicherung** (`enrich_with_ai = true` an einer berechneten Definition) — **gebaut,
+   Schritt 4**: `SeoSignalEnrichmentService` nimmt ein gefeuertes Signal + Kontext und lässt
+   die generative KI (core's `LLMProviderRegistry`) eine konkrete Handlungsanweisung schreiben
+   (+ optional Content-Brief-Umriss). Ergebnis in `signal.context['ai']`. Command-getrieben
+   (`seo:enrich-signals`, `--limit`) wegen LLM-Kosten. Das berechnete Signal bleibt das Gerüst,
+   die KI schreibt das „wie".
+2. **KI-native Signale** (`engine = ai`) — *später (Rolle 2)*: Muster, die Regeln nicht sehen
+   (semantische Kannibalisierung, Content-Gap vs. Intention, Marken-/Tonbruch). Der LLM bewertet
+   statt einer Schwelle.
+3. **Synthese** — *später (Rolle 3)*: KI liest alle offenen Signale eines Kunden und schreibt die
+   priorisierte „Was jetzt"-Empfehlung.
+
+KI kommt aus `core` (`LLMProviderRegistry` → `OpenAiProvider`/`AnthropicProvider`), kein eigener
+KI-Stack.
+
 ## 7. Priorisierung — der Fix für „Foodpol: abstellen statt ausbauen"
 
 Heute reiht die Engine rein nach `severity`; `RETIRE_URL` (`watch`) schlägt bei

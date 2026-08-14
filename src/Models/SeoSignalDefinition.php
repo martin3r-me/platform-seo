@@ -25,6 +25,8 @@ class SeoSignalDefinition extends Model
         'name',
         'description',
         'pattern_type',
+        'engine',
+        'enrich_with_ai',
         'conditions',
         'scope_type',
         'scope_value',
@@ -38,7 +40,11 @@ class SeoSignalDefinition extends Model
         'conditions' => 'array',
         'scope_value' => 'array',
         'is_active' => 'boolean',
+        'enrich_with_ai' => 'boolean',
     ];
+
+    /** computed = deterministisch berechnet; ai = KI-nativ erkannt (Rolle 2). */
+    public const ENGINES = ['computed', 'ai'];
 
     public const SCOPE_TYPES = ['all', 'entity', 'entity_subtree', 'list'];
 

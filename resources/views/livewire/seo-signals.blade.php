@@ -86,6 +86,31 @@
                                         <span class="tabular-nums" title="Impact-Score">Impact {{ number_format($signal->context['impact']) }}</span>
                                     @endif
                                 </div>
+
+                                {{-- KI-Anreicherung (Sparte B, Rolle 1) --}}
+                                @if(!empty($signal->context['ai']['recommendation']))
+                                    @php($ai = $signal->context['ai'])
+                                    <div class="mt-3 rounded-md py-1 pl-2.5" style="border-left: 2px solid var(--nx-info)">
+                                        <div class="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide" style="color: var(--nx-info)">
+                                            @svg('heroicon-o-sparkles', 'w-3 h-3')
+                                            KI-Empfehlung
+                                        </div>
+                                        <p class="mt-0.5 text-xs text-[color:var(--nx-text)]">{{ $ai['recommendation'] }}</p>
+                                        @if(!empty($ai['steps']) && is_array($ai['steps']))
+                                            <ul class="mt-1 space-y-1">
+                                                @foreach($ai['steps'] as $step)
+                                                    <li class="text-[11px] text-[color:var(--nx-muted)]">• {{ $step }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                        @if(!empty($ai['brief_outline']) && is_array($ai['brief_outline']))
+                                            <div class="mt-1.5 text-[11px] text-[color:var(--nx-muted)]">
+                                                <span class="text-[color:var(--nx-faint)]">Content-Brief-Umriss:</span>
+                                                {{ implode(' · ', $ai['brief_outline']) }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
 
                             @if($signal->status !== 'resolved')

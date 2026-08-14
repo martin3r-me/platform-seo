@@ -27,6 +27,7 @@ class SeoSignalDefinitions extends Component
     public string $scopeType = 'all';
     public string $scopeValue = '';
     public string $conditionsJson = '';
+    public bool $enrichWithAi = false;
 
     public function mount(): void
     {
@@ -35,7 +36,7 @@ class SeoSignalDefinitions extends Component
 
     public function openCreate(): void
     {
-        $this->reset(['editingId', 'name', 'description', 'scopeValue']);
+        $this->reset(['editingId', 'name', 'description', 'scopeValue', 'enrichWithAi']);
         $this->patternType = 'striking_distance';
         $this->severity = 'warning';
         $this->frequency = 'daily';
@@ -56,6 +57,7 @@ class SeoSignalDefinitions extends Component
         $this->scopeType = $def->scope_type;
         $this->scopeValue = (string) ($def->scope_value['entity_id'] ?? $def->scope_value['list_id'] ?? '');
         $this->conditionsJson = json_encode($def->conditions ?? [], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $this->enrichWithAi = (bool) $def->enrich_with_ai;
         $this->showModal = true;
     }
 
@@ -108,6 +110,7 @@ class SeoSignalDefinitions extends Component
             'scope_value' => $scopeVal,
             'frequency' => $this->frequency,
             'severity' => $this->severity,
+            'enrich_with_ai' => $this->enrichWithAi,
         ];
 
         if ($this->editingId) {

@@ -33,6 +33,7 @@ class UpdateSignalDefinitionTool implements ToolContract
                 'scope_value' => ['type' => 'object'],
                 'frequency' => ['type' => 'string', 'enum' => SeoSignalDefinition::FREQUENCIES],
                 'severity' => ['type' => 'string', 'enum' => SeoSignalDefinition::SEVERITIES],
+                'enrich_with_ai' => ['type' => 'boolean', 'description' => 'KI-Anreicherung an-/ausschalten'],
                 'is_active' => ['type' => 'boolean'],
                 'description' => ['type' => 'string'],
             ],
@@ -60,6 +61,9 @@ class UpdateSignalDefinitionTool implements ToolContract
             }
             if (array_key_exists('is_active', $arguments)) {
                 $def->is_active = (bool) $arguments['is_active'];
+            }
+            if (array_key_exists('enrich_with_ai', $arguments)) {
+                $def->enrich_with_ai = (bool) $arguments['enrich_with_ai'];
             }
             if (! empty($arguments['conditions']) && is_array($arguments['conditions'])) {
                 $def->conditions = array_merge($def->conditions ?? [], $arguments['conditions']);

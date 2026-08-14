@@ -37,6 +37,7 @@ class CreateSignalDefinitionTool implements ToolContract
                 'scope_value' => ['type' => 'object', 'description' => 'z.B. {"entity_id": 14} oder {"list_id": 5}'],
                 'frequency' => ['type' => 'string', 'enum' => SeoSignalDefinition::FREQUENCIES],
                 'severity' => ['type' => 'string', 'enum' => SeoSignalDefinition::SEVERITIES],
+                'enrich_with_ai' => ['type' => 'boolean', 'description' => 'Berechnetes Signal zusätzlich per generativer KI anreichern (Handlungsanweisung + ggf. Content-Brief-Umriss)'],
                 'description' => ['type' => 'string'],
             ],
             'required' => ['name', 'pattern_type'],
@@ -81,6 +82,7 @@ class CreateSignalDefinitionTool implements ToolContract
                 'scope_value' => $arguments['scope_value'] ?? null,
                 'frequency' => $arguments['frequency'] ?? 'daily',
                 'severity' => $arguments['severity'] ?? 'warning',
+                'enrich_with_ai' => (bool) ($arguments['enrich_with_ai'] ?? false),
                 'is_active' => true,
             ]);
 

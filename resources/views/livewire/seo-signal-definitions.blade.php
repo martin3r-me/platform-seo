@@ -38,6 +38,12 @@
                                 <div class="flex items-center gap-2">
                                     <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background: {{ $sevColor[$def->severity] ?? 'var(--nx-faint)' }}"></span>
                                     <span class="font-medium text-[color:var(--nx-text)] truncate">{{ $def->name }}</span>
+                                    @if($def->enrich_with_ai)
+                                        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide" style="background: color-mix(in srgb, var(--nx-info) 15%, transparent); color: var(--nx-info)">
+                                            @svg('heroicon-o-sparkles', 'w-3 h-3')
+                                            KI
+                                        </span>
+                                    @endif
                                     @unless($def->is_active)
                                         <span class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)]">pausiert</span>
                                     @endunless
@@ -161,6 +167,14 @@
                     <textarea wire:model="conditionsJson" rows="5" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono" spellcheck="false"></textarea>
                     @error('conditionsJson') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     <p class="text-xs text-gray-500 mt-1">Tunbare Parameter des Musters. Vorbelegt mit sinnvollen Defaults.</p>
+                </div>
+
+                <div class="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+                    <input type="checkbox" wire:model="enrichWithAi" id="enrichAi" class="mt-0.5">
+                    <label for="enrichAi" class="cursor-pointer">
+                        <span class="block text-sm font-medium text-gray-700">Mit KI anreichern</span>
+                        <span class="block text-xs text-gray-500">Generative KI schreibt zu jedem gefeuerten Signal eine konkrete Handlungsanweisung (+ ggf. Content-Brief-Umriss). Verbraucht LLM-Budget.</span>
+                    </label>
                 </div>
 
                 <div>
