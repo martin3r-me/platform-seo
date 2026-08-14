@@ -4,6 +4,7 @@ namespace Platform\Seo\Organization;
 
 use Platform\FlynkConnector\Contracts\ProvidesFlynkContext;
 use Platform\Organization\Models\OrganizationEntity;
+use Platform\Seo\Models\SeoContentBrief;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
@@ -32,18 +33,21 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
         $signalIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_SIGNAL, $nodeId);
         $clusterIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_CLUSTER, $nodeId);
         $urlIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_URL, $nodeId);
+        $briefIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_CONTENT_BRIEF, $nodeId);
 
         $recommendations = $this->recommendations($signalIds, $urlIds, (int) $node->team_id);
         $clusters = $this->clusters($clusterIds);
+        $contentBriefs = $this->contentBriefs($briefIds);
         $urls = $this->urlSummary($urlIds);
 
-        if (empty($recommendations) && empty($clusters) && $urls === null) {
+        if (empty($recommendations) && empty($clusters) && empty($contentBriefs) && $urls === null) {
             return null;
         }
 
         return array_filter([
             'recommendations' => $recommendations ?: null,
             'clusters' => $clusters ?: null,
+            'content_briefs' => $contentBriefs ?: null,
             'urls' => $urls,
         ], fn ($value) => $value !== null);
     }
@@ -118,6 +122,46 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
                 'keyword_count' => (int) $c->keyword_count,
                 'top10_count' => (int) $c->top10_count,
             ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Fertige Content-Briefs des Knotens — der Produktions-Plan, den FLYNK umsetzen soll.
+     * Reine Entwürfe (status=draft) bleiben interne WIP; alles Freigegebene (briefed,
+     * in_production, review, published) fließt inkl. Gliederung (sections) + Ziel-Cluster.
+     */
+    protected function contentBriefs(array $briefIds): array
+    {
+        if (empty($briefIds)) {
+            return [];
+        }
+
+        return SeoContentBrief::whereIn('id', $briefIds)
+            ->where('status', '!=', 'draft')
+            ->with(['sections', 'clusters'])
+            ->orderBy('order')
+            ->get()
+            ->map(fn (SeoContentBrief $b) => array_filter([
+                'ref'               => $b->uuid,
+                'name'              => $b->name,
+                'description'       => $b->description,
+                'content_type'      => $b->content_type,
+                'search_intent'     => $b->search_intent,
+                'status'            => $b->status,
+                'target_url'        => $b->target_url,
+                'target_slug'       => $b->target_slug,
+                'target_word_count' => $b->target_word_count,
+                'clusters'          => $b->clusters->pluck('name')->filter()->values()->all(),
+                // Gliederung: Überschriften + Beschreibung + Ziel-Keywords je Abschnitt.
+                'sections'          => $b->sections->map(fn ($s) => array_filter([
+                    'heading'         => $s->heading,
+                    'level'           => $s->heading_level,
+                    'description'     => $s->description,
+                    'target_keywords' => $s->target_keywords,
+                    'notes'           => $s->notes,
+                ], fn ($v) => $v !== null && $v !== '' && $v !== []))->values()->all(),
+            ], fn ($v) => $v !== null && $v !== '' && $v !== []))
             ->values()
             ->all();
     }
