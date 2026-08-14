@@ -2,9 +2,11 @@
 
 namespace Platform\Seo\Organization;
 
+use Illuminate\Database\Eloquent\Collection;
 use Platform\FlynkConnector\Contracts\ProvidesFlynkContext;
 use Platform\Organization\Models\OrganizationEntity;
 use Platform\Seo\Models\SeoContentBrief;
+use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
@@ -31,13 +33,16 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
         $nodeId = $node->id;
 
         $signalIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_SIGNAL, $nodeId);
-        $clusterIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_CLUSTER, $nodeId);
         $urlIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_URL, $nodeId);
-        $briefIds = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_CONTENT_BRIEF, $nodeId);
+
+        // Cluster + Briefs hängen NICHT extra am Knoten — sie leiten sich aus den URLs
+        // des Knotens ab (URL→Keyword→Cluster→Brief) und werden per Reifegrad (Status)
+        // gefiltert. So reicht die eine URL-Verknüpfung; Cluster/Briefs fließen automatisch.
+        $reifeCluster = $this->clusterModelsForNode($linker, $nodeId, $urlIds);
 
         $recommendations = $this->recommendations($signalIds, $urlIds, (int) $node->team_id);
-        $clusters = $this->clusters($clusterIds);
-        $contentBriefs = $this->contentBriefs($briefIds);
+        $clusters = $this->clusters($reifeCluster);
+        $contentBriefs = $this->contentBriefs($reifeCluster->pluck('id')->all());
         $urls = $this->urlSummary($urlIds);
 
         if (empty($recommendations) && empty($clusters) && empty($contentBriefs) && $urls === null) {
@@ -113,14 +118,40 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
             ->all();
     }
 
-    protected function clusters(array $clusterIds): array
+    /**
+     * Die reifen Cluster des Knotens. Zwei Quellen, vereint:
+     *  1. abgeleitet aus den URLs des Knotens (URL→seo_url_keywords→Keyword.cluster_id) —
+     *     der Normalfall: wer die URL verortet, bekommt automatisch deren Cluster.
+     *  2. optional manuell an den Knoten gehängte Cluster (ALIAS_CLUSTER) — Override für
+     *     strategische/domänenübergreifende Cluster, die keiner Knoten-URL folgen.
+     * Reifegrad-Gate: nur active/monitored (candidate/stalled/archived bleiben intern).
+     */
+    protected function clusterModelsForNode(SeoOrganizationLinker $linker, int $nodeId, array $urlIds): Collection
     {
+        $derived = empty($urlIds) ? [] : SeoKeyword::query()
+            ->whereNotNull('cluster_id')
+            ->whereIn('id', function ($q) use ($urlIds) {
+                $q->select('keyword_id')->from('seo_url_keywords')->whereIn('url_id', $urlIds);
+            })
+            ->distinct()
+            ->pluck('cluster_id')
+            ->all();
+
+        $manual = $linker->linkableIdsForNode(SeoOrganizationLinker::ALIAS_CLUSTER, $nodeId);
+
+        $clusterIds = array_values(array_unique(array_merge($derived, $manual)));
         if (empty($clusterIds)) {
-            return [];
+            return new Collection;
         }
 
         return SeoKeywordCluster::whereIn('id', $clusterIds)
-            ->get()
+            ->whereIn('status', [SeoKeywordCluster::STATUS_ACTIVE, SeoKeywordCluster::STATUS_MONITORED])
+            ->get();
+    }
+
+    protected function clusters(Collection $clusters): array
+    {
+        return $clusters
             ->map(fn (SeoKeywordCluster $c) => [
                 'name' => $c->name,
                 'coverage_pct' => (float) $c->coverage_pct,
@@ -135,16 +166,19 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
 
     /**
      * Fertige Content-Briefs des Knotens — der Produktions-Plan, den FLYNK umsetzen soll.
-     * Reine Entwürfe (status=draft) bleiben interne WIP; alles Freigegebene (briefed,
-     * in_production, review, published) fließt inkl. Gliederung (sections) + Ziel-Cluster.
+     * Aufgelöst über die reifen Cluster des Knotens (Brief↔Cluster-Pivot), NICHT über einen
+     * eigenen Brief-Knoten-Link (den gibt es im SEO-Modul nicht). Reine Entwürfe (draft)
+     * bleiben interne WIP; alles Freigegebene (briefed, in_production, review, published)
+     * fließt inkl. Gliederung (sections) + Ziel-Cluster.
      */
-    protected function contentBriefs(array $briefIds): array
+    protected function contentBriefs(array $clusterIds): array
     {
-        if (empty($briefIds)) {
+        if (empty($clusterIds)) {
             return [];
         }
 
-        return SeoContentBrief::whereIn('id', $briefIds)
+        return SeoContentBrief::query()
+            ->whereHas('clusters', fn ($q) => $q->whereIn('seo_keyword_clusters.id', $clusterIds))
             ->where('status', '!=', 'draft')
             ->with(['sections', 'clusters'])
             ->orderBy('order')
