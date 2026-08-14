@@ -98,9 +98,9 @@ class SeoProjectDashboard extends Component
             ->take(5)
             ->get();
 
-        // Strategie-KPIs (Empfehlungs-Engine + Cluster-Erfolgsmessung)
+        // Strategie-KPIs: offene definition-getriebene Signale (gesteuertes System)
         $openRecommendations = SeoSignal::where('team_id', $teamId)
-            ->where('signal_type', 'like', 'rec\_%')
+            ->whereNotNull('signal_definition_id')
             ->whereIn('status', ['new', 'acknowledged'])
             ->count();
 

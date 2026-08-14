@@ -38,7 +38,7 @@
             };
         @endphp
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <a href="{{ route('seo.recommendations') }}" wire:navigate
+            <a href="{{ route('seo.signals') }}" wire:navigate
                class="group bg-white rounded-lg border border-gray-200 p-5 hover:border-indigo-300 hover:shadow-sm transition-all">
                 <div class="flex items-center justify-between mb-1">
                     <div class="flex items-center gap-2">

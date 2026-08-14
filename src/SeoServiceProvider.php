@@ -34,7 +34,6 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\RefreshKeywords::class,
                 \Platform\Seo\Console\Commands\RunPipeline::class,
                 \Platform\Seo\Console\Commands\SnapshotUrls::class,
-                \Platform\Seo\Console\Commands\DetectSignals::class,
                 \Platform\Seo\Console\Commands\EvaluateSignals::class,
                 \Platform\Seo\Console\Commands\EnrichSignals::class,
                 \Platform\Seo\Console\Commands\DispatchSignals::class,
@@ -45,7 +44,6 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\InspectLinks::class,
                 \Platform\Seo\Console\Commands\SnapshotClusters::class,
                 \Platform\Seo\Console\Commands\DiscoverClusters::class,
-                \Platform\Seo\Console\Commands\GenerateRecommendations::class,
                 \Platform\Seo\Console\Commands\MigrateFromBrands::class,
             ]);
         }
@@ -60,7 +58,6 @@ class SeoServiceProvider extends ServiceProvider
         $this->app->singleton(SeoScoringService::class);
         $this->app->singleton(\Platform\Seo\Services\SeoOrganizationLinker::class);
         $this->app->singleton(\Platform\Seo\Services\SeoClusterMetricsService::class);
-        $this->app->singleton(\Platform\Seo\Services\SeoRecommendationService::class);
         $this->app->singleton(\Platform\Seo\Services\SeoSignalReadService::class);
         $this->app->singleton(
             \Platform\Core\Contracts\SeoSignalServiceInterface::class,
@@ -198,15 +195,6 @@ class SeoServiceProvider extends ServiceProvider
             ->dailyAt('04:00')
             ->withoutOverlapping()
             ->runInBackground();
-
-        // Legacy-Empfehlungen (rec_%) — nur wenn ausdrücklich aktiviert. Default aus:
-        // das definition-getriebene Signal-System (Evaluator) ist der go-forward-Weg.
-        if (config('seo.signals.legacy_enabled', false)) {
-            Schedule::command('seo:generate-recommendations')
-                ->weeklyOn(1, '05:00')
-                ->withoutOverlapping()
-                ->runInBackground();
-        }
     }
 
     protected function registerTools(): void

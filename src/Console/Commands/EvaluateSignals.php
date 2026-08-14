@@ -8,8 +8,8 @@ use Platform\Seo\Services\SeoSignalEvaluator;
 
 /**
  * Wertet die aktiven Signal-Definitionen aus und erzeugt daraus echte Signale.
- * Definition-getrieben (docs/SIGNALS-CONCEPT.md) — das Gegenstück zum hartcodierten
- * seo:detect-signals.
+ * Definition-getrieben (docs/SIGNALS-CONCEPT.md) — die einzige Signal-Quelle,
+ * seit die Legacy-Generatoren abgeschafft sind.
  */
 class EvaluateSignals extends Command
 {

@@ -182,11 +182,6 @@ class SeoUrlPipelineService
             }
         }
 
-        // Check for budget pressure
-        if (! $dryRun) {
-            $this->checkBudgetPressure($settings);
-        }
-
         return [
             'urls_processed' => $urlsProcessed,
             'collectors_run' => $collectorsRun,
@@ -240,29 +235,4 @@ class SeoUrlPipelineService
         return $selected;
     }
 
-    protected function checkBudgetPressure(SeoTeamSettings $settings): void
-    {
-        if ($settings->budget_limit_cents === null) {
-            return;
-        }
-
-        $threshold = config('seo.pipeline.budget_pressure_threshold', 0.8);
-        $settings->refresh();
-
-        if (config('seo.signals.legacy_enabled', false)
-            && $settings->budget_spent_cents >= ($settings->budget_limit_cents * $threshold)) {
-            // Emit a signal for budget pressure (Legacy — Budgetsteuerung selbst bleibt aktiv)
-            app(SeoSignalService::class)->createSignal($settings->team_id, [
-                'signal_type' => 'budget_pressure',
-                'severity' => 'warning',
-                'title' => 'Budget-Warnung',
-                'description' => sprintf(
-                    'Das SEO-Budget ist zu %.0f%% ausgeschoepft (%d/%d Cents).',
-                    ($settings->budget_spent_cents / $settings->budget_limit_cents) * 100,
-                    $settings->budget_spent_cents,
-                    $settings->budget_limit_cents,
-                ),
-            ]);
-        }
-    }
 }

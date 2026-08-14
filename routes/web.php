@@ -11,7 +11,6 @@ use Platform\Seo\Livewire\SeoKeywordExplorer;
 use Platform\Seo\Livewire\SeoPerspective;
 use Platform\Seo\Livewire\SeoProjectDashboard;
 use Platform\Seo\Livewire\SeoRankingTracker;
-use Platform\Seo\Livewire\SeoRecommendations;
 use Platform\Seo\Livewire\SeoSignalDefinitions;
 use Platform\Seo\Livewire\SeoSignalIndex;
 use Platform\Seo\Livewire\SeoSignals;
@@ -23,7 +22,6 @@ use Platform\Seo\Livewire\SeoUrlListManager;
 // Top-Level
 Route::get('/', SeoCockpit::class)->name('seo.dashboard');
 Route::get('/overview', SeoProjectDashboard::class)->name('seo.overview');
-Route::get('/recommendations', SeoRecommendations::class)->name('seo.recommendations');
 Route::get('/signals', SeoSignals::class)->name('seo.signals');
 Route::get('/signals/definitions', SeoSignalDefinitions::class)->name('seo.signals.definitions');
 Route::get('/clusters', SeoClusters::class)->name('seo.clusters');

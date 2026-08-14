@@ -61,13 +61,8 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
 
         return SeoSignal::where('team_id', $teamId)
             ->where('status', '!=', 'resolved')
-            // Definition-getriebene Signale (go-forward); Legacy-rec_% nur wenn aktiviert.
-            ->where(function ($q) {
-                $q->whereNotNull('signal_definition_id');
-                if (config('seo.signals.legacy_enabled', false)) {
-                    $q->orWhere('signal_type', 'like', 'rec\_%');
-                }
-            })
+            // Nur definition-getriebene Signale (das gesteuerte System). Legacy ist abgeschafft.
+            ->whereNotNull('signal_definition_id')
             ->where(function ($q) use ($signalIds, $urlIds) {
                 if (! empty($signalIds)) {
                     $q->orWhereIn('id', $signalIds);
