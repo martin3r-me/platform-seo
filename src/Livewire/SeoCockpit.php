@@ -111,15 +111,22 @@ class SeoCockpit extends Component
             $visDelta = null;
             $topRec = null;
             if (! empty($custUrlIds)) {
+                // Offene Hebel = definition-getriebene Signale (erstklassig) + Legacy-Empfehlungen.
                 $recs = SeoSignal::whereIn('url_id', $custUrlIds)
-                    ->where('signal_type', 'like', 'rec\_%')
                     ->whereIn('status', ['new', 'acknowledged'])
-                    ->get(['id', 'title', 'severity', 'metric_delta']);
+                    ->where(function ($q) {
+                        $q->whereNotNull('signal_definition_id')
+                            ->orWhere('signal_type', 'like', 'rec\_%');
+                    })
+                    ->get(['id', 'title', 'severity', 'metric_delta', 'context', 'signal_definition_id']);
                 $openRecs = $recs->count();
-                $topRec = $recs->sortByDesc(function ($r) {
-                    $rank = self::SEVERITY_RANK[$r->severity] ?? 0;
-                    return $rank * 1_000_000 + abs((float) $r->metric_delta);
-                })->first();
+                // Wert-Priorisierung: Definition-getrieben zuerst, dann Impact, dann Severity.
+                $topRec = $recs->sortByDesc(fn ($r) => [
+                    $r->signal_definition_id ? 1 : 0,
+                    (int) data_get($r->context, 'impact', 0),
+                    self::SEVERITY_RANK[$r->severity] ?? 0,
+                    abs((float) $r->metric_delta),
+                ])->first();
 
                 $pastByUrl = [];
                 foreach (SeoUrlSnapshot::whereIn('url_id', $custUrlIds)

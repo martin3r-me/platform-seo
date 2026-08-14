@@ -6,7 +6,8 @@
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
-            ['label' => 'Signal-Definitionen'],
+            ['label' => 'Signale', 'route' => 'seo.signals'],
+            ['label' => 'Definitionen'],
         ]">
             <x-ui-button variant="primary" size="sm" wire:click="openCreate">
                 @svg('heroicon-o-plus', 'w-4 h-4')
