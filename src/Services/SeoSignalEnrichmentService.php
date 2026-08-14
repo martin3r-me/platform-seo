@@ -26,7 +26,7 @@ class SeoSignalEnrichmentService
      *
      * @return array{enriched:int, skipped:int, error?:string}
      */
-    public function enrichTeam(int $teamId, int $limit = 20): array
+    public function enrichTeam(int $teamId, int $limit = 20, bool $force = false): array
     {
         $defIds = SeoSignalDefinition::where('team_id', $teamId)
             ->where('enrich_with_ai', true)
@@ -42,13 +42,13 @@ class SeoSignalEnrichmentService
             return ['enriched' => 0, 'skipped' => 0, 'error' => 'Kein OpenAI-Provider verfügbar (services.openai.api_key gesetzt?).'];
         }
 
-        $signals = SeoSignal::with(['url', 'keyword'])
+        $signals = SeoSignal::with(['url.onPage', 'keyword'])
             ->where('team_id', $teamId)
             ->whereIn('signal_definition_id', $defIds)
             ->whereIn('status', ['new', 'acknowledged'])
             ->orderByDesc('detected_at')
             ->get()
-            ->filter(fn ($s) => empty(($s->context['ai'] ?? null)))
+            ->filter(fn ($s) => $force || empty(($s->context['ai'] ?? null)))
             ->take($limit);
 
         $enriched = 0;
@@ -108,6 +108,12 @@ class SeoSignalEnrichmentService
         SEO-Signal lieferst du eine konkrete, sofort umsetzbare Handlungsempfehlung — kein
         Allgemeinplatz, sondern spezifisch für die genannte URL und das Keyword.
 
+        Wenn der aktuelle Seitenstand (Title, H1, Überschriften, Meta) mitgegeben ist, beziehe
+        dich KONKRET darauf: nenne, was bereits passt und was genau zu ändern ist — z. B. ein
+        konkreter Title-/H1-Vorschlag statt allgemeiner Ratschläge. Erfinde keine Inhalte, die
+        nicht plausibel zur Seite passen. Ohne Seitenstand gib die beste Empfehlung auf Basis
+        von Keyword und Position.
+
         Antworte AUSSCHLIESSLICH mit einem JSON-Objekt, ohne Markdown, mit den Feldern:
         {
           "recommendation": "ein Satz: der wichtigste nächste Schritt",
@@ -140,7 +146,46 @@ class SeoSignalEnrichmentService
             }
         }
 
+        if ($signal->url && ($page = $this->pageState($signal->url))) {
+            $lines[] = $page;
+        }
+
         return implode("\n", $lines);
+    }
+
+    /** Realer Seitenstand aus dem Crawl (seo_url_on_page) — erdet die KI-Empfehlung. */
+    protected function pageState($url): ?string
+    {
+        $op = $url->onPage ?? null;
+        if (! $op) {
+            return null;
+        }
+
+        $lines = ['', 'Aktueller Seitenstand (aus dem Crawl):'];
+        if ($op->title) {
+            $lines[] = 'Title: '.$op->title;
+        }
+        if ($op->h1) {
+            $lines[] = 'H1: '.$op->h1;
+        }
+        if ($op->meta_description) {
+            $lines[] = 'Meta-Description: '.$op->meta_description;
+        }
+        if (! empty($op->headings) && is_array($op->headings)) {
+            $hs = array_slice(array_map(
+                fn ($h) => 'H'.($h['level'] ?? '?').': '.($h['text'] ?? ''),
+                $op->headings
+            ), 0, 15);
+            $lines[] = 'Überschriften: '.implode(' | ', $hs);
+        }
+        if ($op->word_count !== null) {
+            $lines[] = 'Wortzahl: '.$op->word_count;
+        }
+        if (! empty($op->issues) && is_array($op->issues)) {
+            $lines[] = 'Erkannte Issues: '.count($op->issues);
+        }
+
+        return count($lines) > 2 ? implode("\n", $lines) : null;
     }
 
     /** Robustes JSON-Parsing (entfernt evtl. Code-Fences). */

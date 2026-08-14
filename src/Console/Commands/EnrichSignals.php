@@ -14,7 +14,8 @@ class EnrichSignals extends Command
 {
     protected $signature = 'seo:enrich-signals
                             {--team= : Nur dieses Team}
-                            {--limit=20 : Max. Signale pro Team}';
+                            {--limit=20 : Max. Signale pro Team}
+                            {--force : Auch bereits angereicherte Signale neu anreichern}';
 
     protected $description = 'Reichert offene Signale enrich-aktiver Definitionen per KI an.';
 
@@ -35,9 +36,11 @@ class EnrichSignals extends Command
             return self::SUCCESS;
         }
 
+        $force = (bool) $this->option('force');
+
         $total = 0;
         foreach ($settingsList as $settings) {
-            $res = $service->enrichTeam((int) $settings->team_id, $limit);
+            $res = $service->enrichTeam((int) $settings->team_id, $limit, $force);
             if (! empty($res['error'])) {
                 $this->warn("Team {$settings->team_id}: {$res['error']}");
 
