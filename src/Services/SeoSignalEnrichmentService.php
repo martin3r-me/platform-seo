@@ -4,8 +4,11 @@ namespace Platform\Seo\Services;
 
 use Carbon\Carbon;
 use Platform\Core\Services\LLMProviderRegistry;
+use Platform\Seo\Collectors\OnPageCollector;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoSignalDefinition;
+use Platform\Seo\Models\SeoTeamSettings;
+use Platform\Seo\Models\SeoUrl;
 
 /**
  * KI-Anreicherung berechneter Signale (Schritt 4, Rolle 1 — docs/SIGNALS-CONCEPT.md §6a).
@@ -26,7 +29,7 @@ class SeoSignalEnrichmentService
      *
      * @return array{enriched:int, skipped:int, error?:string}
      */
-    public function enrichTeam(int $teamId, int $limit = 20, bool $force = false): array
+    public function enrichTeam(int $teamId, int $limit = 20, bool $force = false, bool $refreshStale = false): array
     {
         $defIds = SeoSignalDefinition::where('team_id', $teamId)
             ->where('enrich_with_ai', true)
@@ -51,19 +54,43 @@ class SeoSignalEnrichmentService
             ->filter(fn ($s) => $force || empty(($s->context['ai'] ?? null)))
             ->take($limit);
 
+        // Stufe 2: veraltete/fehlende Crawls gezielt auffrischen, bevor die KI erdet.
+        $settings = $refreshStale ? SeoTeamSettings::where('team_id', $teamId)->first() : null;
+
         $enriched = 0;
+        $refreshed = 0;
         foreach ($signals as $signal) {
+            if ($refreshStale && $settings && $signal->url && $this->pageState($signal->url) === null) {
+                if ($this->refreshOnPage($settings, $signal->url)) {
+                    $refreshed++;
+                }
+            }
             if ($this->enrichSignal($signal, $provider)) {
                 $enriched++;
             }
         }
 
-        $out = ['enriched' => $enriched, 'skipped' => $signals->count() - $enriched];
+        $out = ['enriched' => $enriched, 'skipped' => $signals->count() - $enriched, 'refreshed' => $refreshed];
         if ($enriched === 0 && $signals->count() > 0 && $this->lastError) {
             $out['error'] = $this->lastError;
         }
 
         return $out;
+    }
+
+    /** Gezielter On-Page-Crawl EINER URL (Stufe 2). Bewusster Crawl-Schritt, kein Live-LLM-Sprung. */
+    protected function refreshOnPage(SeoTeamSettings $settings, SeoUrl $url): bool
+    {
+        try {
+            app(OnPageCollector::class)->collect($settings, collect([$url]));
+            $url->load('onPage');
+
+            return true;
+        } catch (\Throwable $e) {
+            $this->lastError = 'On-Page-Refresh fehlgeschlagen: '.$e->getMessage();
+
+            return false;
+        }
     }
 
     public function enrichSignal(SeoSignal $signal, $provider): bool
