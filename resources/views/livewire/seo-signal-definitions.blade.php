@@ -133,10 +133,25 @@
                             <option value="list">Liste</option>
                         </select>
                     </div>
-                    @if($scopeType !== 'all')
+                    @if($scopeType === 'list')
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">{{ $scopeType === 'list' ? 'Listen-ID' : 'Entity-ID' }}</label>
-                            <input type="number" wire:model="scopeValue" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="z.B. 14">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Liste</label>
+                            <select wire:model="scopeValue" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                <option value="">— Liste wählen —</option>
+                                @foreach($lists as $l)
+                                    <option value="{{ $l->id }}">{{ $l->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @elseif(in_array($scopeType, ['entity', 'entity_subtree']))
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Entity</label>
+                            <select wire:model="scopeValue" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                <option value="">— Entity wählen —</option>
+                                @foreach($entities as $e)
+                                    <option value="{{ $e->id }}">{{ $e->name }}</option>
+                                @endforeach
+                            </select>
                         </div>
                     @endif
                 </div>

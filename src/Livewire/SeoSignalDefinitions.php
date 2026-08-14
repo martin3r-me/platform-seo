@@ -6,6 +6,7 @@ use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoSignalDefinition;
+use Platform\Seo\Models\SeoUrlList;
 
 /**
  * Verwaltung der Signal-Definitionen — DB-Objekte, in der UI bearbeitbar.
@@ -138,14 +139,36 @@ class SeoSignalDefinitions extends Component
 
     public function render()
     {
-        $definitions = SeoSignalDefinition::where('team_id', (int) $this->seoSettings->team_id)
+        $teamId = (int) $this->seoSettings->team_id;
+
+        $definitions = SeoSignalDefinition::where('team_id', $teamId)
             ->withCount('signals')
             ->orderBy('name')
             ->get();
 
+        // Für die Scope-Auswahl per Select: Team-Listen + Org-Entities.
+        $lists = SeoUrlList::whereHas('urls', fn ($q) => $q->where('seo_urls.team_id', $teamId))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $entities = collect();
+        try {
+            $cls = \Platform\Organization\Models\OrganizationEntity::class;
+            if (class_exists($cls)) {
+                $entities = $cls::where('team_id', $teamId)
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name']);
+            }
+        } catch (\Throwable $e) {
+            // Organization nicht geladen — Fallback auf ID-Eingabe im Blade
+        }
+
         return view('seo::livewire.seo-signal-definitions', [
             'definitions' => $definitions,
             'catalog' => SeoSignalDefinition::patternCatalog(),
+            'lists' => $lists,
+            'entities' => $entities,
         ])->layout('platform::layouts.app');
     }
 }
