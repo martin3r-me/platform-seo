@@ -93,7 +93,8 @@ class SeoCockpit extends Component
         $cut = now()->subDays(30)->toDateString();
 
         foreach ($topLevelIds as $cid) {
-            $subtree = $descOf[(int) $cid] ?? $linker->descendantEntityIds((int) $cid);
+            // URLs über die Engagement-Brücke: Ownership-Teilbaum + Agentur-Initiativen.
+            $subtree = $linker->workingSetNodeIds((int) $cid);
             $urlIds = $linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $subtree);
 
             $urls = collect();

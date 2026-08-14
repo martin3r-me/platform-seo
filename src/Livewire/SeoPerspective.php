@@ -186,7 +186,8 @@ class SeoPerspective extends Component
             case 'subtree':
                 $subtree = $linker->descendantEntityIds($this->entityId);
                 $nodesCount = count($subtree);
-                $urlIds = $linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $subtree);
+                // URLs über die Engagement-Brücke: Kunden-Teilbaum + Agentur-Initiativen.
+                $urlIds = $linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $linker->workingSetNodeIds($this->entityId));
                 $relations = $linker->availableRelations($this->entityId);
                 $subPerspectives = $this->entityPerspectives($this->childEntityIds($this->entityId), $linker);
                 $customerCount = count($linker->customersViaEngagement($this->entityId));

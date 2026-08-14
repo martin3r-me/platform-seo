@@ -183,6 +183,54 @@ class SeoOrganizationLinker
     }
 
     /**
+     * Engagement-Knoten, die einen Kunden bedienen (from_entity_id via engagement_with,
+     * to_entity_id = Kunde). Die Brücke zwischen Ownership-Ast und Agentur-Arbeit.
+     *
+     * @return int[]
+     */
+    public function engagementsServing(int $customerEntityId, string $relationCode = 'engagement_with'): array
+    {
+        $relClass = \Platform\Organization\Models\OrganizationEntityRelationship::class;
+        $typeClass = \Platform\Organization\Models\OrganizationEntityRelationType::class;
+        if (! class_exists($relClass) || ! class_exists($typeClass)) {
+            return [];
+        }
+        try {
+            $typeId = $typeClass::where('code', $relationCode)->value('id');
+            if (! $typeId) {
+                return [];
+            }
+
+            return $relClass::where('relation_type_id', $typeId)
+                ->where('to_entity_id', $customerEntityId)
+                ->pluck('from_entity_id')->map(fn ($i) => (int) $i)->unique()->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Das volle Arbeitsset-Knoten eines Kunden: der Ownership-Teilbaum PLUS die Teilbäume
+     * der Engagements, die diesen Kunden (oder seine Unter-Kunden) bedienen. So werden URLs,
+     * die VSM-korrekt an Agentur-Initiativen hängen, dem Kunden zugerechnet — ohne die zwei
+     * Achsen (Ownership / Agentur-Arbeit) im Baum zu vermischen.
+     *
+     * @return int[]
+     */
+    public function workingSetNodeIds(int $entityId): array
+    {
+        $ownership = $this->descendantEntityIds($entityId);
+        $nodes = $ownership;
+        foreach ($ownership as $nodeId) {
+            foreach ($this->engagementsServing((int) $nodeId) as $engagementId) {
+                $nodes = array_merge($nodes, $this->descendantEntityIds($engagementId));
+            }
+        }
+
+        return array_values(array_unique(array_map('intval', $nodes)));
+    }
+
+    /**
      * Record-IDs eines Typs, die an einer Menge von Knoten hängen (Union).
      *
      * @param  int[]  $entityIds
