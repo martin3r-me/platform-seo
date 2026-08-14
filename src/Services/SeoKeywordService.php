@@ -474,6 +474,102 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     }
 
     /**
+     * Wettbewerber first-class: holt die ranked keywords einer Wettbewerber-Domain
+     * (1 API-Call, dieselbe getRankedKeywords-Quelle wie das Rankings-Tracking) und
+     * verknüpft sie MIT Position an die Wettbewerber-URL — inkl. Pool-Upsert und
+     * Neuberechnung von keyword_count / total_search_volume / visibility_score.
+     *
+     * Bewusst getrennt von fetchRankingsByDomain: das trackt eigene URLs pfad-genau
+     * und legt Unterseiten an. Hier wird der Domain-Footprint an die eine
+     * Wettbewerber-URL gehängt (kein Auto-Create, keine is_own-Beschränkung).
+     */
+    public function linkCompetitorKeywords(int $teamId, SeoUrl $url, ?User $user = null, array $options = []): array
+    {
+        $settings = SeoTeamSettings::where('team_id', $teamId)->firstOrFail();
+        $limit = $options['keywords_limit'] ?? 200;
+        $minVolume = $options['min_volume'] ?? 0;
+
+        if (!$url->domain) {
+            return ['linked' => 0, 'imported' => 0, 'keywords' => 0, 'cost_cents' => 0, 'error' => 'URL hat keine Domain'];
+        }
+
+        $estimatedCost = $this->estimateCost('labs_ranked', 1);
+        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
+            return ['linked' => 0, 'imported' => 0, 'keywords' => 0, 'cost_cents' => 0, 'error' => 'Budget limit exceeded'];
+        }
+
+        $api = $this->resolveApiService($settings);
+        $rankedResults = $api->getRankedKeywords($user, $url->domain, $settings->location_code, $settings->resolveLanguageName(), $limit);
+
+        $actualCost = $this->estimateCost('labs_ranked', 1);
+        $this->budgetGuard->recordCost($settings, 'link_competitor_keywords', count($rankedResults), $actualCost, $user);
+
+        if ($minVolume > 0) {
+            $rankedResults = array_values(array_filter($rankedResults, fn ($rk) => ($rk->searchVolume ?? 0) >= $minVolume));
+        }
+
+        if (empty($rankedResults)) {
+            return ['linked' => 0, 'imported' => 0, 'keywords' => 0, 'cost_cents' => $actualCost];
+        }
+
+        $linked = 0;
+        $keywordModels = [];
+
+        DB::beginTransaction();
+        try {
+            // Pool-Upsert (seo_keywords) mit Metriken — dieselbe Quelle wie eigene URLs
+            $keywordModels = $this->upsertKeywordsFromRanked($teamId, $rankedResults);
+
+            foreach ($rankedResults as $rk) {
+                if (!$rk->position) {
+                    continue;
+                }
+                $keywordLower = strtolower(trim($rk->keyword));
+                $keywordModel = $keywordModels[$keywordLower] ?? null;
+                if (!$keywordModel) {
+                    continue;
+                }
+
+                $existingPivot = $url->keywords()
+                    ->where('keyword_id', $keywordModel->id)
+                    ->first();
+                $previousPosition = $existingPivot?->pivot?->position;
+
+                $url->keywords()->syncWithoutDetaching([
+                    $keywordModel->id => [
+                        'position' => $rk->position,
+                        'previous_position' => $previousPosition,
+                        'position_updated_at' => now(),
+                    ],
+                ]);
+                $linked++;
+            }
+
+            // keyword_count / total_search_volume / visibility_score neu berechnen
+            $this->updateUrlDenormalized($url);
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return [
+                'linked' => 0,
+                'imported' => count($keywordModels),
+                'keywords' => count($rankedResults),
+                'cost_cents' => $actualCost,
+                'error' => 'persist: '.$e->getMessage(),
+            ];
+        }
+
+        return [
+            'linked' => $linked,
+            'imported' => count($keywordModels),
+            'keywords' => count($rankedResults),
+            'cost_cents' => $actualCost,
+        ];
+    }
+
+    /**
      * Fetch rankings per domain using getRankedKeywords() — 1 API-Call pro Domain statt N pro Keyword.
      *
      * Kosten: ~10 Cent pro Domain statt ~10 Cent pro Keyword.

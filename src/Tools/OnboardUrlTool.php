@@ -6,6 +6,7 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Seo\Models\SeoTeamSettings;
+use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Services\SeoKeywordService;
 use Platform\Seo\Services\SeoUrlService;
 
@@ -100,7 +101,10 @@ class OnboardUrlTool implements ToolContract
                 $estimatedCost = 0;
                 if (!$skipDiscover) {
                     $discoverCost = 10; // ~10 Cent für Domain-Discovery
-                    $steps[] = "2. Keywords discovern (~{$discoverCost} Cent, max {$keywordsLimit} Keywords)";
+                    $label = $isOwn
+                        ? "2. Keywords discovern (~{$discoverCost} Cent, max {$keywordsLimit} Keywords)"
+                        : "2. Keywords discovern + mit Position an URL verknüpfen (~{$discoverCost} Cent, max {$keywordsLimit} Keywords)";
+                    $steps[] = $label;
                     $estimatedCost += $discoverCost;
                 }
                 if (!$skipRankings && $isOwn) {
@@ -135,7 +139,35 @@ class OnboardUrlTool implements ToolContract
             ];
 
             // Step 2: Keywords discovern
-            if (!$skipDiscover) {
+            if (!$skipDiscover && !$isOwn) {
+                // Wettbewerber first-class: 1 API-Call holt die Keywords UND verknüpft
+                // sie MIT Position an die Wettbewerber-URL (keyword_count/visibility real).
+                $keywordService = app(SeoKeywordService::class);
+                try {
+                    $urlModel = SeoUrl::find($registerResult['url_id'] ?? null);
+                    if (!$urlModel) {
+                        throw new \RuntimeException('URL-Model nach Registrierung nicht gefunden.');
+                    }
+
+                    $linkResult = $keywordService->linkCompetitorKeywords($team->id, $urlModel, $context->user, [
+                        'keywords_limit' => $keywordsLimit,
+                        'min_volume' => $minVolume,
+                    ]);
+                    $totalCost += $linkResult['cost_cents'] ?? 0;
+
+                    $results['discover'] = [
+                        'discovered' => $linkResult['keywords'] ?? 0,
+                        'imported' => $linkResult['imported'] ?? 0,
+                        'linked' => $linkResult['linked'] ?? 0,
+                        'cost_cents' => $linkResult['cost_cents'] ?? 0,
+                    ];
+                    if (isset($linkResult['error'])) {
+                        $results['discover']['error'] = $linkResult['error'];
+                    }
+                } catch (\Throwable $e) {
+                    $results['discover'] = ['error' => $e->getMessage()];
+                }
+            } elseif (!$skipDiscover) {
                 $keywordService = app(SeoKeywordService::class);
                 try {
                     $discoverResult = $keywordService->discoverFromDomain(
@@ -214,6 +246,9 @@ class OnboardUrlTool implements ToolContract
             }
             if (isset($results['discover']['imported'])) {
                 $parts[] = $results['discover']['imported'] . ' Keywords importiert';
+            }
+            if (isset($results['discover']['linked'])) {
+                $parts[] = $results['discover']['linked'] . ' Keywords mit Position verknüpft';
             }
             if (isset($results['rankings']['fetched'])) {
                 $parts[] = $results['rankings']['fetched'] . ' Rankings getrackt';
