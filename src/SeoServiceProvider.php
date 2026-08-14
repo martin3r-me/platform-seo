@@ -236,6 +236,10 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\CreateClusterTool());
             $registry->register(new \Platform\Seo\Tools\AutoClusterTool());
 
+            // Content-Briefs (Cluster → Arbeitsauftrag)
+            $registry->register(new \Platform\Seo\Tools\ListContentBriefsTool());
+            $registry->register(new \Platform\Seo\Tools\CreateContentBriefTool());
+
             // Signale
             $registry->register(new \Platform\Seo\Tools\ListSignalsTool());
             $registry->register(new \Platform\Seo\Tools\UpdateSignalTool());
