@@ -39,7 +39,8 @@ class EvaluateSignals extends Command
         $total = 0;
         foreach ($settingsList as $settings) {
             $res = $evaluator->evaluateTeam((int) $settings->team_id, $frequency);
-            $this->info("Team {$settings->team_id}: {$res['definitions']} Definitionen, {$res['candidates']} Kandidaten, {$res['open_now']} offen → {$res['slots']} Platz, {$res['admitted']} zugelassen");
+            $crit = ! empty($res['critical']) ? " (davon {$res['critical']} kritisch, mit Vorfahrt)" : '';
+            $this->info("Team {$settings->team_id}: {$res['definitions']} Definitionen, {$res['candidates']} Kandidaten, {$res['open_now']} offen → {$res['slots']} Platz, {$res['admitted']} zugelassen{$crit}");
             foreach ($res['by_pattern'] as $pattern => $count) {
                 $this->line("  {$pattern}: {$count}");
             }

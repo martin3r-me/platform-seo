@@ -130,6 +130,18 @@ Zentrale Klassifikation `SeoSignalRouting`: Muster → Änderungsart → Ziel.
   letzte offene Meter (abhängig davon, wie Flynk Pushes zu Aufgaben macht).
 - Reihenfolge: **evaluate → enrich → dispatch** (`seo:dispatch-signals`).
 
+## 4c. Governance — gesteuerter Vorrat, Vorfahrt für Notfälle
+
+Signale sind ein **Arbeitsvorrat**, keine Flut. Der Evaluator sammelt Kandidaten, reiht
+sie nach Impact und lässt nur bis zu zwei Grenzen durch:
+- **WIP-Limit** (`seo.signals.wip_limit`, Default 5) — max. gleichzeitig offen.
+- **Tageslimit** (`daily_new_limit`, Default 3) — max. neue/Tag; Nachschub erst, wenn
+  offene erledigt sind.
+
+**Ausnahme: `severity = critical` umgeht beide Limits** — eine kaputte Kundenseite (5xx,
+Redirect) darf nicht hinter „URL ausbauen" warten. Dedup gilt weiter. Damit: gesteuerter
+Fluss fürs Tagesgeschäft, sofortige Vorfahrt für echte Notfälle.
+
 ## 5. Die Form (Datenmodell) — von Org geliehen, SEO-eigen
 
 Eigene SEO-Tabellen, aber die bewährte Form:

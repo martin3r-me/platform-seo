@@ -45,20 +45,29 @@ class SeoSignalEvaluator
         // 2. Nach Wert (Impact) reihen — das Wertvollste zuerst.
         usort($candidates, fn ($a, $b) => ($b['impact'] ?? 0) <=> ($a['impact'] ?? 0));
 
-        // 3. Freie Plätze = min(WIP-Rest, Tages-Rest). Nur so viele dürfen rein.
+        // 3. Notfälle (severity=critical) haben Vorfahrt — sie umgehen WIP-/Tageslimit.
+        //    Eine kaputte Kundenseite darf nicht hinter „URL ausbauen" warten.
+        $critical = array_values(array_filter($candidates, fn ($c) => ($c['def']->severity ?? null) === 'critical'));
+        $normal = array_values(array_filter($candidates, fn ($c) => ($c['def']->severity ?? null) !== 'critical'));
+
+        // 4. Normales bleibt gedeckelt: freie Plätze = min(WIP-Rest, Tages-Rest).
         $wip = (int) config('seo.signals.wip_limit', 5);
         $daily = (int) config('seo.signals.daily_new_limit', 3);
         $openNow = $this->openCount($teamId);
         $todayNew = $this->admittedToday($teamId);
         $slots = max(0, min($wip - $openNow, $daily - $todayNew));
 
-        // 4. Nur die Top-Kandidaten zulassen.
-        $admitted = array_slice($candidates, 0, $slots);
+        // 5. Alle Notfälle + so viele normale, wie Platz ist.
+        $admitted = array_merge($critical, array_slice($normal, 0, $slots));
         $created = 0;
+        $criticalCreated = 0;
         $byPattern = [];
         foreach ($admitted as $cand) {
             if ($this->persist($cand['def'], $cand['data'], $cand['url_id'], $cand['keyword_id'])) {
                 $created++;
+                if (($cand['def']->severity ?? null) === 'critical') {
+                    $criticalCreated++;
+                }
                 $p = $cand['def']->pattern_type;
                 $byPattern[$p] = ($byPattern[$p] ?? 0) + 1;
             }
@@ -70,6 +79,7 @@ class SeoSignalEvaluator
             'open_now' => $openNow,
             'slots' => $slots,
             'admitted' => $created,
+            'critical' => $criticalCreated,
             'by_pattern' => $byPattern,
         ];
     }
