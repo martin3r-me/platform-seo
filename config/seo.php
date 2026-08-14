@@ -183,6 +183,9 @@ return [
         'competitors_ideal' => 5,  // ideal (5–8); danach kaum Mehrwert
     ],
 
+    // Entity-Typen, die NIE als Kunden im Portfolio gelten (eigene Ventures = 21).
+    'portfolio_exclude_types' => [21],
+
     /*
     |--------------------------------------------------------------------------
     | Budget Defaults

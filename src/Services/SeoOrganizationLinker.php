@@ -448,11 +448,30 @@ class SeoOrganizationLinker
                 return [];
             }
 
-            return $relClass::where('team_id', $teamId)
+            $ids = $relClass::where('team_id', $teamId)
                 ->where('relation_type_id', $typeId)
                 ->pluck('to_entity_id')
                 ->map(fn ($i) => (int) $i)
                 ->unique()->values()->all();
+
+            if (empty($ids)) {
+                return [];
+            }
+
+            // Eigene Ventures (entity_type 21) sind KEINE Kunden — nie ins Portfolio.
+            // Selbst wenn ein Venture versehentlich ein engagement_with-Ziel wird.
+            $excludeTypes = array_map('intval', (array) config('seo.portfolio_exclude_types', [21]));
+            $entityClass = \Platform\Organization\Models\OrganizationEntity::class;
+            if (! empty($excludeTypes) && class_exists($entityClass)) {
+                $excludeIds = $entityClass::whereIn('id', $ids)
+                    ->whereIn('entity_type_id', $excludeTypes)
+                    ->pluck('id')->map(fn ($i) => (int) $i)->all();
+                if (! empty($excludeIds)) {
+                    $ids = array_values(array_diff($ids, $excludeIds));
+                }
+            }
+
+            return $ids;
         } catch (\Throwable $e) {
             return [];
         }
