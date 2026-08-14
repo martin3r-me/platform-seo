@@ -193,21 +193,34 @@
                 </div>
             @endif
 
-            {{-- Deine URLs (nur eigene Assets — Wettbewerber getrennt) --}}
-            <x-nx-section title="Deine URLs" class="mb-6">
+            {{-- In Arbeit: eigene Seiten im Engagement (unser Mandat) --}}
+            <x-nx-section title="In Arbeit" hint="im Engagement" class="mb-6">
                 <x-slot name="action"><x-nx-button variant="ghost" size="sm" wire:click="$set('tab','urls')">Alle URLs</x-nx-button></x-slot>
-                @if($topOwnUrls->isNotEmpty())
+                @if($ownWorked->isNotEmpty())
                     <x-nx-card flush>
                         <ul class="divide-y divide-[color:var(--nx-line)]">
-                            @foreach($topOwnUrls as $url)
+                            @foreach($ownWorked->take(8) as $url)
                                 <x-nx-list-item :title="$url->display_label" :meta="'Sicht. '.number_format($url->visibility_score, 0)" :href="route('seo.urls.show', $url->id)" />
                             @endforeach
                         </ul>
                     </x-nx-card>
                 @else
-                    <x-nx-empty>Keine eigenen URLs in dieser Perspektive.</x-nx-empty>
+                    <x-nx-empty>Noch keine Seite im Engagement — hänge die Kunden-URL an eine Initiative im DIGITAL-Engagement, dann wird sie bearbeitet (Signale, Aufgaben).</x-nx-empty>
                 @endif
             </x-nx-section>
+
+            {{-- Umwelt: beobachtete eigene Seiten (kein aktives Mandat) --}}
+            @if($ownEnvironment->isNotEmpty())
+                <x-nx-section title="Umwelt" hint="beobachtet" class="mb-6">
+                    <x-nx-card flush>
+                        <ul class="divide-y divide-[color:var(--nx-line)]">
+                            @foreach($ownEnvironment->take(8) as $url)
+                                <x-nx-list-item :title="$url->display_label" subtitle="beobachtet — kein aktives Mandat" :meta="'Sicht. '.number_format($url->visibility_score, 0)" :href="route('seo.urls.show', $url->id)" />
+                            @endforeach
+                        </ul>
+                    </x-nx-card>
+                </x-nx-section>
+            @endif
 
             {{-- Wettbewerber-Streifen (klar getrennt von den eigenen) --}}
             @if($topCompetitors->isNotEmpty())

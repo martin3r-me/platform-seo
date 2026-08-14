@@ -141,37 +141,23 @@ class SeoSignalEvaluator
 
             case 'entity':
             case 'entity_subtree':
+                // „Bearbeitet": nur URLs im Engagement des Kunden (unser Mandat), nicht Umwelt.
                 $eid = (int) ($def->scope_value['entity_id'] ?? 0);
                 if (! $eid) {
                     return [];
                 }
-                $nodes = $def->scope_type === 'entity_subtree'
-                    ? $this->linker->descendantEntityIds($eid)
-                    : [$eid];
-                $ids = $this->linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $nodes);
+                $ids = $this->linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $this->linker->engagementNodeIds($eid));
 
                 return empty($ids) ? [] : $base->whereIn('id', $ids)->pluck('id')->map(fn ($i) => (int) $i)->all();
 
             case 'all':
             default:
-                // „Ganzes Portfolio" = das bewusst zusammengestellte Arbeitsset: eigene URLs,
-                // die an einem Org-Knoten hängen ODER in einer Liste sind. Rohe/unzugeordnete
-                // Importe (Ablage, z. B. Syltjunkie) bleiben draußen, bis sie zugeordnet werden —
-                // wir vermischen keine zwei Welten.
-                $ownIds = $base->pluck('id')->map(fn ($i) => (int) $i)->all();
-                if (empty($ownIds)) {
-                    return [];
-                }
-                $linked = $this->linker->linkedLinkableIds(SeoOrganizationLinker::ALIAS_URL, $ownIds);
-                $inList = DB::table('seo_url_list_entries')
-                    ->whereIn('url_id', $ownIds)
-                    ->distinct()
-                    ->pluck('url_id')
-                    ->map(fn ($i) => (int) $i)
-                    ->all();
-                $assigned = array_flip(array_merge($linked, $inList));
+                // „Ganzes Portfolio" = alles, was wir bearbeiten: eigene URLs in den Engagements
+                // aller Kunden (unser Mandat). Umwelt (nur beobachtete/Ablage-URLs, z. B.
+                // Syltjunkie) bleibt draußen — Signale entstehen nur, wo wir beauftragt sind.
+                $ids = $this->linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $this->linker->allEngagementNodeIdsForTeam($def->team_id));
 
-                return array_values(array_filter($ownIds, fn ($id) => isset($assigned[$id])));
+                return empty($ids) ? [] : $base->whereIn('id', $ids)->pluck('id')->map(fn ($i) => (int) $i)->all();
         }
     }
 

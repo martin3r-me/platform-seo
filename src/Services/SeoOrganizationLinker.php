@@ -230,6 +230,35 @@ class SeoOrganizationLinker
         return array_values(array_unique(array_map('intval', $nodes)));
     }
 
+    /**
+     * Die „bearbeiteten" Knoten eines Kunden = die Teilbäume der Engagements, die ihn
+     * bedienen (unser Mandat). URLs hier drin arbeiten wir aktiv; alles andere ist Umwelt.
+     *
+     * @return int[]
+     */
+    public function engagementNodeIds(int $customerEntityId): array
+    {
+        $nodes = [];
+        foreach ($this->descendantEntityIds($customerEntityId) as $ownNode) {
+            foreach ($this->engagementsServing((int) $ownNode) as $engagementId) {
+                $nodes = array_merge($nodes, $this->descendantEntityIds($engagementId));
+            }
+        }
+
+        return array_values(array_unique(array_map('intval', $nodes)));
+    }
+
+    /** Alle „bearbeiteten" Knoten des Teams = Engagement-Teilbäume aller Kunden. @return int[] */
+    public function allEngagementNodeIdsForTeam(int $teamId): array
+    {
+        $nodes = [];
+        foreach ($this->customerEntityIdsForTeam($teamId) as $cid) {
+            $nodes = array_merge($nodes, $this->engagementNodeIds((int) $cid));
+        }
+
+        return array_values(array_unique(array_map('intval', $nodes)));
+    }
+
     /** @var array<int,int> Memo für customerForNode (Singleton = Request-Lebensdauer). */
     private array $customerForNodeMemo = [];
 

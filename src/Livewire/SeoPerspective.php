@@ -456,10 +456,20 @@ class SeoPerspective extends Component
             ];
         }
 
+        // „In Arbeit" (Engagement = unser Mandat) vs. „Umwelt" (beobachtet) — nur im Kunden-Modus.
+        $workedSet = [];
+        if ($this->mode === 'subtree' && $this->entityId) {
+            $workedSet = array_flip($linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $linker->engagementNodeIds((int) $this->entityId)));
+        }
+        $ownWorked = $own->filter(fn ($u) => isset($workedSet[$u->id]))->values();
+        $ownEnvironment = $own->reject(fn ($u) => isset($workedSet[$u->id]))->values();
+
         return view('seo::livewire.seo-perspective', [
             'urls' => $urls,
             'kpis' => $kpis,
             'setup' => $setup,
+            'ownWorked' => $ownWorked,
+            'ownEnvironment' => $ownEnvironment,
             'relations' => $relations,
             'subPerspectives' => $subPerspectives,
             'customerCount' => $customerCount,
