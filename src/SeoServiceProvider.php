@@ -38,6 +38,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\EnrichSignals::class,
                 \Platform\Seo\Console\Commands\DispatchSignals::class,
                 \Platform\Seo\Console\Commands\ReconcileContentBriefs::class,
+                \Platform\Seo\Console\Commands\ClassifyIntent::class,
                 \Platform\Seo\Console\Commands\ArchiveLegacySignals::class,
                 \Platform\Seo\Console\Commands\RefreshCompetitors::class,
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
@@ -203,6 +204,13 @@ class SeoServiceProvider extends ServiceProvider
             ->dailyAt('05:00')
             ->withoutOverlapping()
             ->runInBackground();
+
+        // Wöchentlich (Mo 05:30) — fehlendes search_intent nachziehen. Günstiger
+        // Bulk-Call; selbstwartend für neue Keywords aus der Discovery.
+        Schedule::command('seo:classify-intent')
+            ->weeklyOn(1, '05:30')
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     protected function registerTools(): void
@@ -238,6 +246,7 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\AttachKeywordsTool());
             $registry->register(new \Platform\Seo\Tools\FetchMetricsTool());
             $registry->register(new \Platform\Seo\Tools\FetchRankingsTool());
+            $registry->register(new \Platform\Seo\Tools\ClassifyIntentTool());
 
             // Cluster
             $registry->register(new \Platform\Seo\Tools\ListClustersTool());

@@ -495,6 +495,67 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     }
 
     /**
+     * Füllt das (bisher immer leere) search_intent — Bulk-Klassifikation über
+     * DataForSeo Labs. Standard: nur Keywords ohne Intent, in 1000er-Chunks.
+     *
+     * @return array{classified:int, candidates:int, cost_cents:int, error?:string, dry_run?:bool}
+     */
+    public function classifyIntentForTeam(int $teamId, ?User $user = null, array $options = []): array
+    {
+        $settings = SeoTeamSettings::where('team_id', $teamId)->firstOrFail();
+        $onlyMissing = $options['only_missing'] ?? true;
+        $limit = (int) ($options['limit'] ?? 1000);
+        $dryRun = $options['dry_run'] ?? false;
+
+        $query = SeoKeyword::where('team_id', $teamId);
+        if ($onlyMissing) {
+            $query->whereNull('search_intent');
+        }
+        $keywords = $query->limit($limit)->get();
+
+        if ($keywords->isEmpty()) {
+            return ['classified' => 0, 'candidates' => 0, 'cost_cents' => 0];
+        }
+
+        $callCount = (int) ceil($keywords->count() / 1000);
+        $estimatedCost = $this->estimateCost('search_intent', $callCount);
+
+        if ($dryRun) {
+            return [
+                'dry_run' => true,
+                'classified' => 0,
+                'candidates' => $keywords->count(),
+                'cost_cents' => 0,
+                'estimated_cost_cents' => $estimatedCost,
+            ];
+        }
+
+        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
+            return ['classified' => 0, 'candidates' => $keywords->count(), 'cost_cents' => 0, 'error' => 'Budget limit exceeded'];
+        }
+
+        $api = $this->resolveApiService($settings);
+        $valid = ['informational', 'navigational', 'commercial', 'transactional'];
+        $classified = 0;
+
+        foreach ($keywords->chunk(1000) as $chunk) {
+            $map = $api->getSearchIntent($user, $chunk->pluck('keyword')->all(), $settings->resolveLanguageName());
+            foreach ($chunk as $kw) {
+                $hit = $map[mb_strtolower(trim($kw->keyword))] ?? null;
+                if ($hit && in_array($hit['label'], $valid, true)) {
+                    $kw->update(['search_intent' => $hit['label']]);
+                    $classified++;
+                }
+            }
+        }
+
+        $actualCost = $this->estimateCost('search_intent', $callCount);
+        $this->budgetGuard->recordCost($settings, 'classify_intent', $keywords->count(), $actualCost, $user);
+
+        return ['classified' => $classified, 'candidates' => $keywords->count(), 'cost_cents' => $actualCost];
+    }
+
+    /**
      * Wettbewerber first-class: holt die ranked keywords einer Wettbewerber-Domain
      * (1 API-Call, dieselbe getRankedKeywords-Quelle wie das Rankings-Tracking) und
      * verknüpft sie MIT Position an die Wettbewerber-URL — inkl. Pool-Upsert und
