@@ -109,7 +109,7 @@ class SetNodeProfileTool implements ToolContract
                 'dry_run' => $dryRun,
                 'monthly_cents' => $monthly,
                 'monthly_euro' => number_format($monthly / 100, 2),
-                'message' => ($dryRun ? '[dry-run] ' : '') . "{$set} URL(s) auf „{$profile}" gesetzt"
+                'message' => ($dryRun ? '[dry-run] ' : '') . "{$set} URL(s) auf Profil {$profile} gesetzt"
                     . ($skipped ? ", {$skipped} übersprungen" : '')
                     . '. Neue Monatskosten dieser URLs: ' . number_format($monthly / 100, 2) . ' €.',
             ]);
