@@ -200,10 +200,35 @@ class SeoServiceProvider extends ServiceProvider
             ->withoutOverlapping()
             ->runInBackground();
 
-        // Täglich 05:00 — Content-Briefs mit ihren Live-Seiten abgleichen (Marker im
+        // --- Signal-Kette: aus den frischen Daten die Arbeitsobjekte machen ---
+        // 04:30 erkennen → 04:45 KI-anreichern → 05:00 routen (Content-Brief / Flynk).
+        // Die Governance (WIP-Limit, Tageslimit) deckelt, wie viel morgens auftaucht.
+        Schedule::command('seo:evaluate-signals')
+            ->dailyAt('04:30')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        Schedule::command('seo:enrich-signals')
+            ->dailyAt('04:45')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        Schedule::command('seo:dispatch-signals')
+            ->dailyAt('05:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Täglich 05:15 — Content-Briefs mit ihren Live-Seiten abgleichen (Marker im
         // <head>). Leichter HTTP-Fetch, keine API-Kosten; setzt published + trackt die URL.
         Schedule::command('seo:reconcile-briefs')
-            ->dailyAt('05:00')
+            ->dailyAt('05:15')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Monatlich (1. um 00:05) — Monats-Budget zurücksetzen, sonst blockiert der
+        // Budget-Guard irgendwann alle Fetches.
+        Schedule::command('seo:reset-budgets')
+            ->monthlyOn(1, '00:05')
             ->withoutOverlapping()
             ->runInBackground();
 
