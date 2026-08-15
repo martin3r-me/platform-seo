@@ -196,6 +196,13 @@ class SeoServiceProvider extends ServiceProvider
             ->dailyAt('04:00')
             ->withoutOverlapping()
             ->runInBackground();
+
+        // Täglich 05:00 — Content-Briefs mit ihren Live-Seiten abgleichen (Marker im
+        // <head>). Leichter HTTP-Fetch, keine API-Kosten; setzt published + trackt die URL.
+        Schedule::command('seo:reconcile-briefs')
+            ->dailyAt('05:00')
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     protected function registerTools(): void
