@@ -209,23 +209,18 @@
                 </div>
             @endif
 
-            {{-- Interne Verlinkung (Hub-and-Spoke) --}}
-            @if($outgoingLinks->isNotEmpty() || $incomingLinks->isNotEmpty())
+            {{-- Interne Verlinkung (Hub-and-Spoke), reziproke Paare dedupliziert --}}
+            @if($linkedBriefs->isNotEmpty())
                 <div>
-                    <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Interne Verlinkung</h2>
+                    <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Interne Verlinkung <span class="text-gray-400 font-normal">({{ $linkedBriefs->count() }})</span></h2>
                     <div class="bg-white rounded-lg border border-gray-200 divide-y divide-gray-50">
-                        @foreach($outgoingLinks as $link)
-                            @continue(! $link->target)
-                            <a href="{{ route('seo.briefs.show', $link->target->id) }}" wire:navigate class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
-                                <span class="text-[12px] text-gray-700">→ {{ $link->target->name }}</span>
-                                <span class="text-[10px] uppercase tracking-wide text-gray-400">{{ str_replace('_', ' ', $link->link_type) }}</span>
-                            </a>
-                        @endforeach
-                        @foreach($incomingLinks as $link)
-                            @continue(! $link->source)
-                            <a href="{{ route('seo.briefs.show', $link->source->id) }}" wire:navigate class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
-                                <span class="text-[12px] text-gray-500">← {{ $link->source->name }}</span>
-                                <span class="text-[10px] uppercase tracking-wide text-gray-400">{{ str_replace('_', ' ', $link->link_type) }}</span>
+                        @foreach($linkedBriefs as $link)
+                            <a href="{{ route('seo.briefs.show', $link['brief']->id) }}" wire:navigate class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+                                <span class="text-[12px] text-gray-700 inline-flex items-center gap-2">
+                                    <span class="text-gray-300">{{ $link['dir'] === 'out' ? '→' : '←' }}</span>
+                                    {{ $link['brief']->name }}
+                                </span>
+                                <span class="text-[10px] uppercase tracking-wide text-gray-400">{{ str_replace('_', ' ', $link['type']) }}</span>
                             </a>
                         @endforeach
                     </div>

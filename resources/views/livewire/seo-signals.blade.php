@@ -63,7 +63,9 @@
                         <div class="flex items-start justify-between gap-4">
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background: {{ $sevColor[$signal->severity] ?? 'var(--nx-faint)' }}"></span>
+                                    @php($__sev = $sevColor[$signal->severity] ?? 'var(--nx-faint)')
+                                    @php($__sevLabel = ['critical' => 'Kritisch', 'warning' => 'Warnung', 'watch' => 'Beobachten', 'info' => 'Info', 'opportunity' => 'Chance'][$signal->severity] ?? $signal->severity)
+                                    <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded" style="color: {{ $__sev }}; background: color-mix(in srgb, {{ $__sev }} 12%, transparent)">{{ $__sevLabel }}</span>
                                     <span class="font-medium text-[color:var(--nx-text)] truncate">{{ $signal->title }}</span>
                                 </div>
                                 @if($signal->description)

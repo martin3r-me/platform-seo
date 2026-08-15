@@ -100,13 +100,31 @@ class SeoContentBriefDetail extends Component
             'revisions',
         ]);
 
+        // Verlinkte Briefs deduplizieren: reziproke Links (aus+ein) zeigen sonst
+        // jeden Partner doppelt. Ausgehende bevorzugt, dann fehlende Eingehende.
+        $seen = [];
+        $linkedBriefs = collect();
+        foreach ($this->brief->outgoingLinks as $l) {
+            if (! $l->target || isset($seen[$l->target->id])) {
+                continue;
+            }
+            $seen[$l->target->id] = true;
+            $linkedBriefs->push(['brief' => $l->target, 'type' => $l->link_type, 'dir' => 'out']);
+        }
+        foreach ($this->brief->incomingLinks as $l) {
+            if (! $l->source || isset($seen[$l->source->id])) {
+                continue;
+            }
+            $seen[$l->source->id] = true;
+            $linkedBriefs->push(['brief' => $l->source, 'type' => $l->link_type, 'dir' => 'in']);
+        }
+
         return view('seo::livewire.seo-content-brief-detail', [
             'brief' => $this->brief,
             'sections' => $this->brief->sections,
             'notes' => $this->brief->notes,
             'clusters' => $this->brief->clusters,
-            'outgoingLinks' => $this->brief->outgoingLinks,
-            'incomingLinks' => $this->brief->incomingLinks,
+            'linkedBriefs' => $linkedBriefs,
             'revisions' => $this->brief->revisions,
             'ranking' => $this->rankingFeedback(),
         ])->layout('platform::layouts.app');
