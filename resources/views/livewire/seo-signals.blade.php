@@ -85,7 +85,7 @@
                                     @endif
                                     @if(!empty($signal->context['impact']))
                                         <span class="text-[color:var(--nx-faint)]">·</span>
-                                        <span class="tabular-nums" title="Impact-Score">Impact {{ number_format($signal->context['impact']) }}</span>
+                                        <span class="tabular-nums cursor-help" title="Priorisierungs-Score: höher = größerer Hebel (grob Suchvolumen × Nähe zur Chance). Signale mit höchstem Impact zuerst angehen.">Impact {{ number_format($signal->context['impact']) }}</span>
                                     @endif
                                 </div>
 

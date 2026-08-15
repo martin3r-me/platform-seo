@@ -4,9 +4,7 @@
     </td>
     <td class="px-4 py-2.5">
         <div class="flex items-center gap-2">
-            @if(!$url->is_own)
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" title="Wettbewerber"></span>
-            @endif
+            <span class="w-2 h-2 rounded-full flex-shrink-0 {{ $url->is_own ? 'bg-blue-500' : 'bg-amber-400' }}" title="{{ $url->is_own ? 'Eigene URL' : 'Wettbewerber' }}"></span>
             <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline truncate block max-w-xs font-medium">
                 {{ ($url->path && $url->path !== '/') ? $url->path : $url->domain }}
             </a>
@@ -15,7 +13,7 @@
             @endif
         </div>
         @if($url->path && $url->path !== '/')
-            <div class="text-[10px] text-gray-400 ml-{{ $url->is_own ? '0' : '3.5' }}">{{ $url->domain }}</div>
+            <div class="text-[10px] text-gray-400 ml-3.5">{{ $url->domain }}</div>
         @endif
     </td>
     <td class="px-4 py-2.5 text-center">
