@@ -39,7 +39,9 @@ class SeoCompetitorAnalysis extends Component
         $listUrlIds = $this->getListUrlIds();
 
         $analysisService = app(SeoAnalysisService::class);
-        $gaps = $analysisService->getCompetitorGapsForTeam($this->seoSettings->team_id);
+        // Auf die Liste gescoped, sonst bluten fremde Kontexte (andere Kunden/
+        // Ventures) in die Gap-Analyse dieser Liste.
+        $gaps = $analysisService->getCompetitorGapsForList($this->seoSettings->team_id, $listUrlIds);
 
         $competitorDomains = SeoUrl::where('team_id', $this->seoSettings->team_id)
             ->where('is_own', false)

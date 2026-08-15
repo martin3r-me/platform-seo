@@ -152,6 +152,34 @@ class SeoAnalysisService implements SeoAnalysisServiceInterface
             ->with(['cluster', 'competitors', 'urls' => fn ($q) => $q->where('seo_urls.is_own', true)])
             ->get();
 
+        return $this->buildGapsResult($keywords);
+    }
+
+    /**
+     * Gaps auf eine Liste gescoped: nur Keywords, die an den URLs der Liste
+     * hängen — sonst bluten fremde Kontexte (z.B. Arbeitsmedizin-Terme aus
+     * anderweitig onboardeten Wettbewerbern) in die Gap-Analyse der Liste rein.
+     */
+    public function getCompetitorGapsForList(int $teamId, array $listUrlIds): array
+    {
+        if (empty($listUrlIds)) {
+            return ['gaps' => [], 'gaps_count' => 0, 'total_keywords' => 0, 'keywords_with_competitors' => 0, 'top_competitor_domains' => []];
+        }
+
+        $keywords = SeoKeyword::where('team_id', $teamId)
+            ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $listUrlIds))
+            ->with(['cluster', 'competitors', 'urls' => fn ($q) => $q->where('seo_urls.is_own', true)])
+            ->get();
+
+        return $this->buildGapsResult($keywords);
+    }
+
+    /**
+     * Baut das Gap-Ergebnis aus einer Keyword-Collection (geteilt von Team- und
+     * Listen-Scope): Keyword mit Wettbewerbern, für das keine eigene URL rankt.
+     */
+    private function buildGapsResult($keywords): array
+    {
         $gaps = [];
         $domains = [];
 
