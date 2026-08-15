@@ -128,6 +128,26 @@ class SeoPerspective extends Component
         return app(SeoCostProjectionService::class)->urlsMonthlyCents(SeoUrl::whereIn('id', $ids)->get());
     }
 
+    /**
+     * Aktuell gesetztes Daten-Profil der eigenen URLs dieses Knotens.
+     * Einheitlich → das Profil; unterschiedlich → 'gemischt'; keine URLs → null.
+     * Damit der Toggle den echten Zustand markiert (statt gar keinen).
+     */
+    public function nodeProfile(): ?string
+    {
+        $ids = $this->ownNodeUrlIds();
+        if (empty($ids)) {
+            return null;
+        }
+        $default = config('seo.data_profile_defaults.own', 'basis');
+        $profiles = SeoUrl::whereIn('id', $ids)->pluck('data_profile')
+            ->map(fn ($p) => $p ?: $default)
+            ->unique()
+            ->values();
+
+        return $profiles->count() === 1 ? $profiles->first() : 'gemischt';
+    }
+
     public function addCompetitor(): void
     {
         $url = trim($this->newCompetitorUrl);

@@ -71,8 +71,8 @@
             </div>
 
             {{-- URL Table --}}
-            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <table class="w-full text-[13px]">
+            <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                <table class="w-full text-[13px]" style="min-width: 960px">
                     <thead class="sticky top-0 z-10">
                         <tr class="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 uppercase tracking-wider">
                             <th class="px-4 py-2.5 w-8">

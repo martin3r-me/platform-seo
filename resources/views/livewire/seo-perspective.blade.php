@@ -50,15 +50,23 @@
             <div class="flex items-center justify-between flex-wrap gap-3 mb-6 bg-white rounded-lg border border-gray-200 p-3">
                 <div class="flex items-center gap-3 flex-wrap">
                     <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Daten-Profil (Kunde)</span>
+                    @php($__activeProfile = $this->nodeProfile())
                     <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
                         @foreach(array_keys(config('seo.data_profiles.own', [])) as $p)
                             <button wire:click="setNodeProfile('{{ $p }}')"
                                     wire:confirm="Profil „{{ ucfirst($p) }}" auf ALLE eigenen URLs dieses Kunden setzen?"
-                                    class="px-3 py-1.5 text-[12px] rounded-md text-gray-600 hover:text-gray-900 hover:bg-white transition-colors">
+                                    @class([
+                                        'px-3 py-1.5 text-[12px] rounded-md transition-colors',
+                                        'bg-white text-gray-900 shadow-sm font-medium' => $p === $__activeProfile,
+                                        'text-gray-600 hover:text-gray-900 hover:bg-white' => $p !== $__activeProfile,
+                                    ])>
                                 {{ ucfirst($p) }}
                             </button>
                         @endforeach
                     </div>
+                    @if($__activeProfile === 'gemischt')
+                        <span class="text-[11px] text-amber-700" title="Die eigenen URLs dieses Kunden haben unterschiedliche Profile">gemischt</span>
+                    @endif
                 </div>
                 <div class="text-[12px] text-gray-500">
                     <span class="text-gray-400 uppercase tracking-wide text-[10px]">Kosten</span>
