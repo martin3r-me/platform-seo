@@ -45,6 +45,28 @@
             <x-nx-stat label="Traffic (30T)" :value="number_format($kpis['visitors'])" />
         </div>
 
+        {{-- Daten-Profil dieses Kunden: setzt die Tiefe (und Kosten) für alle eigenen Arbeits-URLs --}}
+        @if($entityId)
+            <div class="flex items-center justify-between flex-wrap gap-3 mb-6 bg-white rounded-lg border border-gray-200 p-3">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Daten-Profil (Kunde)</span>
+                    <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+                        @foreach(array_keys(config('seo.data_profiles.own', [])) as $p)
+                            <button wire:click="setNodeProfile('{{ $p }}')"
+                                    wire:confirm="Profil „{{ ucfirst($p) }}" auf ALLE eigenen URLs dieses Kunden setzen?"
+                                    class="px-3 py-1.5 text-[12px] rounded-md text-gray-600 hover:text-gray-900 hover:bg-white transition-colors">
+                                {{ ucfirst($p) }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="text-[12px] text-gray-500">
+                    <span class="text-gray-400 uppercase tracking-wide text-[10px]">Kosten</span>
+                    <span class="font-semibold text-gray-800 tabular-nums ml-1">{{ number_format($this->nodeMonthlyCents() / 100, 2, ',', '.') }} € / Monat</span>
+                </div>
+            </div>
+        @endif
+
         {{-- Kontext-Tabs: die Linsen dieser Perspektive --}}
         @php $tabs = ['overview' => 'Übersicht', 'movers' => 'Bewegung', 'urls' => 'URLs', 'cannibalization' => 'Überschneidungen', 'competitors' => 'Wettbewerber', 'recommendations' => 'Empfehlungen', 'clusters' => 'Cluster']; @endphp
         <x-nx-tabs class="mb-6">

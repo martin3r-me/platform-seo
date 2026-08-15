@@ -256,6 +256,7 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\DashboardTool());
             $registry->register(new \Platform\Seo\Tools\AnalysisTool());
             $registry->register(new \Platform\Seo\Tools\DataCostsTool());
+            $registry->register(new \Platform\Seo\Tools\SetNodeProfileTool());
             $registry->register(new \Platform\Seo\Tools\CannibalizationTool());
 
             // URLs

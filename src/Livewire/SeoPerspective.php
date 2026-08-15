@@ -10,6 +10,8 @@ use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
+use Platform\Seo\Services\SeoCostProjectionService;
+use Platform\Seo\Services\SeoDataProfileService;
 use Platform\Seo\Services\SeoOrganizationLinker;
 
 /**
@@ -92,6 +94,40 @@ class SeoPerspective extends Component
      * Aufbau-Modus: einen Wettbewerber inline ergänzen (registrieren + an den Kunden hängen).
      * Schnell (kein API); Keywords/Rankings kommen mit dem nächsten Pipeline-Lauf.
      */
+    /** URL-IDs der eigenen Arbeits-URLs dieses Knotens (inkl. Unterbaum). */
+    protected function ownNodeUrlIds(): array
+    {
+        if (! $this->entityId) {
+            return [];
+        }
+        $linker = app(SeoOrganizationLinker::class);
+        $urlIds = $linker->linkableIdsForNodes(SeoOrganizationLinker::ALIAS_URL, $linker->workingSetNodeIds((int) $this->entityId));
+
+        return SeoUrl::whereIn('id', $urlIds)->where('is_own', true)->pluck('id')->all();
+    }
+
+    /** Setzt das Daten-Profil auf alle eigenen URLs dieses Kunden/Knotens. */
+    public function setNodeProfile(string $profile): void
+    {
+        $svc = app(SeoDataProfileService::class);
+        if (! $svc->isValidProfile(true, $profile)) {
+            return;
+        }
+        SeoUrl::whereIn('id', $this->ownNodeUrlIds())->update(['data_profile' => $profile]);
+        $this->notice = 'Daten-Profil „'.$profile.'" auf die eigenen URLs dieses Kunden gesetzt.';
+    }
+
+    /** Monatskosten der eigenen URLs dieses Knotens (für die Anzeige). */
+    public function nodeMonthlyCents(): int
+    {
+        $ids = $this->ownNodeUrlIds();
+        if (empty($ids)) {
+            return 0;
+        }
+
+        return app(SeoCostProjectionService::class)->urlsMonthlyCents(SeoUrl::whereIn('id', $ids)->get());
+    }
+
     public function addCompetitor(): void
     {
         $url = trim($this->newCompetitorUrl);

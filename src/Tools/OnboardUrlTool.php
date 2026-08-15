@@ -138,6 +138,17 @@ class OnboardUrlTool implements ToolContract
                 'created' => $registerResult['created'] ?? false,
             ];
 
+            // Onboarding-Default: du fügst die URL zum Arbeiten hinzu → eigene URLs
+            // starten auf "standard" (Rankings/OnPage), Wettbewerber auf "beobachten".
+            // Nur setzen, wenn noch kein Profil vergeben (Bestand nicht überschreiben).
+            if ($urlModelForProfile = SeoUrl::find($registerResult['url_id'] ?? null)) {
+                if ($urlModelForProfile->data_profile === null) {
+                    $urlModelForProfile->update([
+                        'data_profile' => $isOwn ? 'standard' : 'beobachten',
+                    ]);
+                }
+            }
+
             // Step 2: Keywords discovern
             if (!$skipDiscover && !$isOwn) {
                 // Wettbewerber first-class: 1 API-Call holt die Keywords UND verknüpft
