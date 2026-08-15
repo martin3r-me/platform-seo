@@ -557,6 +557,70 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     }
 
     /**
+     * Keyword-Gap: Keywords, für die ein Wettbewerber rankt, die eigene Domain
+     * aber NICHT (Domain-Intersection, intersections=false). Ein Call, nach
+     * Volumen sortiert; optional direkt in den Team-Pool importieren.
+     *
+     * @return array{own_domain:string, competitor_domain:string, gap_count:int, imported:int, cost_cents:int, gap:array, error?:string}
+     */
+    public function keywordGap(int $teamId, string $competitorDomain, ?string $ownDomain = null, ?User $user = null, array $options = []): array
+    {
+        $settings = SeoTeamSettings::where('team_id', $teamId)->firstOrFail();
+        $limit = (int) ($options['limit'] ?? 100);
+        $minVolume = (int) ($options['min_volume'] ?? 0);
+        $import = (bool) ($options['import'] ?? false);
+
+        $ownDomain = $ownDomain ?: SeoUrl::where('team_id', $teamId)->where('is_own', true)->value('domain');
+        if (! $ownDomain) {
+            return ['own_domain' => '', 'competitor_domain' => $competitorDomain, 'gap_count' => 0, 'imported' => 0, 'cost_cents' => 0, 'gap' => [], 'error' => 'Keine eigene Domain gefunden.'];
+        }
+
+        $estimatedCost = $this->estimateCost('labs_ranked', 1);
+        if (! $this->budgetGuard->canFetch($settings, $estimatedCost)) {
+            return ['own_domain' => $ownDomain, 'competitor_domain' => $competitorDomain, 'gap_count' => 0, 'imported' => 0, 'cost_cents' => 0, 'gap' => [], 'error' => 'Budget limit exceeded'];
+        }
+
+        $api = $this->resolveApiService($settings);
+        // target1 = Wettbewerber (rankt), target2 = eigen (rankt nicht) → die Lücke.
+        $results = $api->getDomainIntersection($user, $competitorDomain, $ownDomain, false, $limit, $settings->location_code, $settings->resolveLanguageName());
+
+        $actualCost = $this->estimateCost('labs_ranked', 1);
+        $this->budgetGuard->recordCost($settings, 'keyword_gap', count($results), $actualCost, $user);
+
+        $gap = collect($results)
+            ->filter(fn ($r) => ($r->searchVolume ?? 0) >= $minVolume)
+            ->sortByDesc(fn ($r) => $r->searchVolume ?? 0)
+            ->values();
+
+        $imported = 0;
+        if ($import && $gap->isNotEmpty()) {
+            $toImport = $gap->map(fn ($r) => [
+                'keyword' => $r->keyword,
+                'search_volume' => $r->searchVolume,
+                'keyword_difficulty' => $r->keywordDifficulty,
+                'cpc_cents' => $r->cpc !== null ? (int) round($r->cpc * 100) : null,
+                'competition' => $r->competition,
+            ])->all();
+            $imported = $this->addKeywords($teamId, $toImport, $user)->count();
+        }
+
+        return [
+            'own_domain' => $ownDomain,
+            'competitor_domain' => $competitorDomain,
+            'gap_count' => $gap->count(),
+            'imported' => $imported,
+            'cost_cents' => $actualCost,
+            'gap' => $gap->take(50)->map(fn ($r) => [
+                'keyword' => $r->keyword,
+                'search_volume' => $r->searchVolume,
+                'keyword_difficulty' => $r->keywordDifficulty,
+                'competitor_position' => $r->firstPosition,
+                'competitor_url' => $r->firstUrl,
+            ])->all(),
+        ];
+    }
+
+    /**
      * Wettbewerber first-class: holt die ranked keywords einer Wettbewerber-Domain
      * (1 API-Call, dieselbe getRankedKeywords-Quelle wie das Rankings-Tracking) und
      * verknüpft sie MIT Position an die Wettbewerber-URL — inkl. Pool-Upsert und
