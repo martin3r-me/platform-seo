@@ -17,6 +17,7 @@ class SeoTeamSettings extends Model
         'budget_spent_cents',
         'refresh_interval_hours',
         'next_refresh_at',
+        'default_data_profile',
         'dataforseo_connection_id',
         'location_code',
         'language_code',

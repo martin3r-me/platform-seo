@@ -39,6 +39,8 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\DispatchSignals::class,
                 \Platform\Seo\Console\Commands\ReconcileContentBriefs::class,
                 \Platform\Seo\Console\Commands\ClassifyIntent::class,
+                \Platform\Seo\Console\Commands\MigrateDataProfiles::class,
+                \Platform\Seo\Console\Commands\RefreshCompetitorFootprints::class,
                 \Platform\Seo\Console\Commands\ArchiveLegacySignals::class,
                 \Platform\Seo\Console\Commands\RefreshCompetitors::class,
                 \Platform\Seo\Console\Commands\ResetBudgets::class,
@@ -211,6 +213,13 @@ class SeoServiceProvider extends ServiceProvider
             ->weeklyOn(1, '05:30')
             ->withoutOverlapping()
             ->runInBackground();
+
+        // Täglich 02:30 — Wettbewerber-Footprints; die Profil-Kadenz (Standard
+        // monatlich) gated, welche URL wirklich fällig ist. Günstig.
+        Schedule::command('seo:refresh-footprints')
+            ->dailyAt('02:30')
+            ->withoutOverlapping()
+            ->runInBackground();
     }
 
     protected function registerTools(): void
@@ -221,6 +230,7 @@ class SeoServiceProvider extends ServiceProvider
             // Dashboard & Analyse
             $registry->register(new \Platform\Seo\Tools\DashboardTool());
             $registry->register(new \Platform\Seo\Tools\AnalysisTool());
+            $registry->register(new \Platform\Seo\Tools\DataCostsTool());
             $registry->register(new \Platform\Seo\Tools\CannibalizationTool());
 
             // URLs

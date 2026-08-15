@@ -17,6 +17,7 @@ class SeoUrlList extends Model
         'slug',
         'description',
         'created_by',
+        'default_data_profile',
     ];
 
     protected $casts = [

@@ -26,6 +26,8 @@ class SeoUrl extends Model
         'status',
         'http_status',
         'priority',
+        'data_profile',
+        'boost_until',
         'last_crawled_at',
         'next_crawl_at',
         'keyword_count',
@@ -76,6 +78,7 @@ class SeoUrl extends Model
         'visitors_30d' => 'integer',
         'organic_visitors_30d' => 'integer',
         'organic_pageviews_30d' => 'integer',
+        'boost_until' => 'datetime',
         'pageviews_30d' => 'integer',
         'traffic_fetched_at' => 'datetime',
         'plausible_enabled' => 'boolean',
@@ -218,19 +221,39 @@ class SeoUrl extends Model
         return $this->last_crawled_at->addHours($effectiveInterval)->isPast();
     }
 
+    public function isBoostActive(): bool
+    {
+        return $this->boost_until !== null && $this->boost_until->isFuture();
+    }
+
     /**
-     * Check if a specific collector is due, using per-collector timestamps in meta.
+     * Ist ein Collector fällig? Profil-gesteuert: das Daten-Profil der URL
+     * bestimmt, OB und WIE OFT ein Collector läuft. Nicht-Profil-Collectoren
+     * (z.B. keyword_metrics, team-weit) behalten das globale Intervall.
+     * Boost übersteuert SERP auf tägliche Kadenz, solange aktiv.
      */
     public function isDueForCollector(string $collectorKey, int $baseIntervalHours): bool
     {
+        $profiles = app(\Platform\Seo\Services\SeoDataProfileService::class);
+
+        if ($profiles->isProfileGoverned($collectorKey)) {
+            $cadence = $profiles->collectorCadenceHours($this, $collectorKey);
+            if ($cadence === null) {
+                return false; // Collector nicht im Profil dieser URL → nicht holen (Kosten 0)
+            }
+            if ($collectorKey === 'serp_ranking' && $this->isBoostActive()) {
+                $cadence = (int) config('seo.boost.serp_hours', 24);
+            }
+        } else {
+            $cadence = $baseIntervalHours;
+        }
+
         $lastRan = $this->getCollectorTimestamp($collectorKey);
         if (! $lastRan) {
             return true;
         }
 
-        $effectiveInterval = $this->getEffectiveRefreshInterval($baseIntervalHours);
-
-        return $lastRan->addHours($effectiveInterval)->isPast();
+        return $lastRan->copy()->addHours($cadence)->isPast();
     }
 
     public function getCollectorTimestamp(string $collectorKey): ?\Carbon\Carbon

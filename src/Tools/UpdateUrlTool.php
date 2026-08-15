@@ -49,6 +49,14 @@ class UpdateUrlTool implements ToolContract
                     'type' => 'integer',
                     'description' => 'Priorität (0-100)',
                 ],
+                'data_profile' => [
+                    'type' => 'string',
+                    'description' => 'Daten-Profil. Eigene URLs: aus/basis/standard/tief. Wettbewerber: aus/beobachten/analyse. Wird je URL gegen die passende Leiter validiert.',
+                ],
+                'boost_days' => [
+                    'type' => 'integer',
+                    'description' => 'Boost: N Tage täglich SERP (0 = Boost beenden).',
+                ],
             ],
         ];
     }
@@ -90,20 +98,47 @@ class UpdateUrlTool implements ToolContract
                 $updates['priority'] = max(0, min(100, (int) $arguments['priority']));
             }
 
-            if (empty($updates)) {
-                return ToolResult::error('Keine Änderungen angegeben. Mindestens is_own, status oder priority setzen.', 'VALIDATION_ERROR');
+            // Boost: N Tage täglich SERP (0 = beenden).
+            if (array_key_exists('boost_days', $arguments)) {
+                $days = (int) $arguments['boost_days'];
+                $updates['boost_until'] = $days > 0 ? now()->addDays($days) : null;
+            }
+
+            $wantsProfile = array_key_exists('data_profile', $arguments);
+            $profileSvc = $wantsProfile ? app(\Platform\Seo\Services\SeoDataProfileService::class) : null;
+            $profileSkipped = [];
+
+            if (empty($updates) && !$wantsProfile) {
+                return ToolResult::error('Keine Änderungen angegeben.', 'VALIDATION_ERROR');
             }
 
             foreach ($urls as $url) {
-                $url->update($updates);
+                $perUrl = $updates;
+
+                // data_profile je URL gegen die passende Leiter (is_own) validieren.
+                if ($wantsProfile) {
+                    $isOwn = $perUrl['is_own'] ?? (bool) $url->is_own;
+                    if ($profileSvc->isValidProfile($isOwn, $arguments['data_profile'])) {
+                        $perUrl['data_profile'] = $arguments['data_profile'];
+                    } else {
+                        $profileSkipped[] = $url->id;
+                    }
+                }
+
+                if (!empty($perUrl)) {
+                    $url->update($perUrl);
+                }
             }
 
-            return ToolResult::success([
+            return ToolResult::success(array_filter([
                 'updated' => $urls->count(),
                 'url_ids' => $urls->pluck('id')->all(),
                 'changes' => $updates,
-                'message' => $urls->count() . ' URL(s) aktualisiert.',
-            ]);
+                'data_profile' => $wantsProfile ? $arguments['data_profile'] : null,
+                'profile_skipped_invalid_ladder' => $profileSkipped ?: null,
+                'message' => $urls->count() . ' URL(s) aktualisiert.'
+                    . ($profileSkipped ? ' (' . count($profileSkipped) . ' Profil-Zuweisung(en) übersprungen: falsche Leiter für is_own.)' : ''),
+            ], fn ($v) => $v !== null && $v !== []));
         } catch (\Throwable $e) {
             return ToolResult::error('Fehler: ' . $e->getMessage(), 'EXECUTION_ERROR');
         }

@@ -275,6 +275,53 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Daten-Profile — EIN Knopf pro URL. Jedes Profil = {Collector => Kadenz(h)}.
+    | Getrennte Leitern für eigene URLs und Wettbewerber (is_own entscheidet).
+    | Nur diese Collectoren sind profil-gesteuert; keyword_metrics läuft
+    | team-weit weiter (nicht pro URL) und ist NICHT hier gelistet.
+    |--------------------------------------------------------------------------
+    */
+    'profile_collectors' => ['gsc', 'plausible', 'serp_ranking', 'on_page', 'backlinks', 'llm_mentions', 'competitor_footprint'],
+
+    // Collector => cost_estimates-Schlüssel (für die Monatskosten-Projektion).
+    'profile_cost_map' => [
+        'gsc' => null,                    // gratis
+        'plausible' => null,              // gratis
+        'serp_ranking' => 'labs_ranked',  // getRankedKeywords je Domain
+        'on_page' => 'on_page',
+        'backlinks' => 'backlinks',
+        'llm_mentions' => 'llm_mentions',
+        'competitor_footprint' => 'labs_ranked',
+    ],
+
+    'data_profiles' => [
+        'own' => [
+            'aus'      => [],
+            'basis'    => ['gsc' => 24, 'plausible' => 24],
+            'standard' => ['gsc' => 24, 'plausible' => 24, 'serp_ranking' => 168, 'on_page' => 336],
+            'tief'     => ['gsc' => 24, 'plausible' => 24, 'serp_ranking' => 168, 'on_page' => 336, 'backlinks' => 720, 'llm_mentions' => 720],
+        ],
+        'competitor' => [
+            'aus'        => [],
+            'beobachten' => ['competitor_footprint' => 720],
+            'analyse'    => ['competitor_footprint' => 720, 'on_page' => 336, 'backlinks' => 720],
+        ],
+    ],
+
+    // Baseline-Profil, wenn nichts gesetzt (greift auch vor der Migration).
+    'data_profile_defaults' => [
+        'own' => 'standard',
+        'competitor' => 'beobachten',
+    ],
+
+    // Boost: SERP-Kadenz (h) und Standard-Dauer (Tage), solange boost_until aktiv.
+    'boost' => [
+        'serp_hours' => 24,
+        'default_days' => 14,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Priority — default priority values for auto-created URLs
     |--------------------------------------------------------------------------
     */
