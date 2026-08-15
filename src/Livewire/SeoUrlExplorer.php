@@ -170,7 +170,12 @@ class SeoUrlExplorer extends Component
             $url->agg_keyword_count = $url->keyword_count + $children->sum('keyword_count');
             $url->agg_search_volume = $url->total_search_volume + $children->sum('total_search_volume');
             $url->agg_visibility = (float) $url->visibility_score + (float) $children->sum('visibility_score');
-            $url->agg_backlinks = $url->backlink_count + $children->sum('backlink_count');
+
+            // Backlinks nur summieren, wo sie auch erhoben wurden (backlinks_fetched_at).
+            // Sonst bleibt der Aggregat null → UI zeigt „—" statt einer irreführenden 0.
+            $backlinkUrls = collect([$url])->merge($children)
+                ->filter(fn ($u) => $u->backlinks_fetched_at !== null);
+            $url->agg_backlinks = $backlinkUrls->isEmpty() ? null : (int) $backlinkUrls->sum('backlink_count');
 
             return $url;
         });

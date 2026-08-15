@@ -76,7 +76,7 @@
                 </div>
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
                     <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Backlinks</div>
-                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $aggBacklinks }}</div>
+                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $aggBacklinks === null ? '—' : number_format($aggBacklinks) }}</div>
                 </div>
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
                     <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">On-Page</div>
@@ -84,7 +84,7 @@
                 </div>
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
                     <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Traffic (30T)</div>
-                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggVisitors) }}</div>
+                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $aggVisitors === null ? '—' : number_format($aggVisitors) }}</div>
                     @if($seoUrl->traffic_fetched_at)
                         <div class="text-[10px] text-gray-400 mt-1">Plausible · {{ $seoUrl->traffic_fetched_at->format('d.m.Y') }}</div>
                     @endif
@@ -677,7 +677,7 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div class="bg-white rounded-lg border border-gray-200 p-4">
                                 <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Visitors (30T)</div>
-                                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($aggVisitors) }}</div>
+                                <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $aggVisitors === null ? '—' : number_format($aggVisitors) }}</div>
                             </div>
                             <div class="bg-white rounded-lg border border-gray-200 p-4">
                                 <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Pageviews (30T)</div>

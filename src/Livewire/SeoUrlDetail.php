@@ -237,10 +237,16 @@ class SeoUrlDetail extends Component
         $aggKeywordCount = $this->seoUrl->keyword_count + $childUrls->sum('keyword_count');
         $aggSearchVolume = $this->seoUrl->total_search_volume + $childUrls->sum('total_search_volume');
         $aggVisibility = (float) $this->seoUrl->visibility_score + (float) $childUrls->sum('visibility_score');
-        $aggBacklinks = $this->seoUrl->backlink_count + $childUrls->sum('backlink_count');
+        // Backlinks/Traffic nur summieren, wo sie im Daten-Profil erhoben wurden
+        // (fetched_at gesetzt). Sonst null → UI zeigt „—" statt falscher 0.
+        $backlinkUrls = collect([$this->seoUrl])->merge($childUrls)
+            ->filter(fn ($u) => $u->backlinks_fetched_at !== null);
+        $aggBacklinks = $backlinkUrls->isEmpty() ? null : (int) $backlinkUrls->sum('backlink_count');
 
         // Traffic rollt auf: Parent-Zeile + Summe der Kind-Pfade (30 Tage).
-        $aggVisitors = $this->seoUrl->visitors_30d + $childUrls->sum('visitors_30d');
+        $trafficUrls = collect([$this->seoUrl])->merge($childUrls)
+            ->filter(fn ($u) => $u->traffic_fetched_at !== null);
+        $aggVisitors = $trafficUrls->isEmpty() ? null : (int) $trafficUrls->sum('visitors_30d');
         $aggPageviews = $this->seoUrl->pageviews_30d + $childUrls->sum('pageviews_30d');
 
         // Always: on-page score for stats bar (just the score, not full data)

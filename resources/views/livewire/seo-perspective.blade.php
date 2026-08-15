@@ -41,8 +41,8 @@
             <x-nx-stat label="Sichtbarkeit" :value="number_format($kpis['visibility'])" :hint="$visHint" />
             <x-nx-stat label="Keywords" :value="number_format($kpis['keywords'])" />
             <x-nx-stat label="Suchvolumen" :value="number_format($kpis['search_volume'])" />
-            <x-nx-stat label="Backlinks" :value="number_format($kpis['backlinks'])" />
-            <x-nx-stat label="Traffic (30T)" :value="number_format($kpis['visitors'])" />
+            <x-nx-stat label="Backlinks" :value="$kpis['backlinks'] === null ? '—' : number_format($kpis['backlinks'])" :hint="$kpis['backlinks'] === null ? 'nicht im Profil' : null" />
+            <x-nx-stat label="Traffic (30T)" :value="$kpis['visitors'] === null ? '—' : number_format($kpis['visitors'])" :hint="$kpis['visitors'] === null ? 'nicht im Profil' : null" />
         </div>
 
         {{-- Daten-Profil dieses Kunden: setzt die Tiefe (und Kosten) für alle eigenen Arbeits-URLs --}}

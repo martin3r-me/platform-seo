@@ -38,7 +38,13 @@
     <td class="px-4 py-2.5 text-right">
         <span class="font-semibold text-gray-900 tabular-nums">{{ number_format($url->agg_visibility, 1) }}</span>
     </td>
-    <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ $url->agg_backlinks }}</td>
+    <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">
+        @if($url->agg_backlinks === null)
+            <span class="text-gray-300" title="Nicht im Daten-Profil erhoben">—</span>
+        @else
+            {{ $url->agg_backlinks }}
+        @endif
+    </td>
     <td class="px-4 py-2.5 text-right">
         @if($url->onPage && $url->onPage->overall_score !== null)
             @include('seo::partials.score-gauge', ['value' => $url->onPage->overall_score, 'label' => '', 'size' => 'sm'])

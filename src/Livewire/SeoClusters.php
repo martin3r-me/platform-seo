@@ -22,7 +22,7 @@ class SeoClusters extends Component
         'health' => 'health_score',
         'coverage' => 'coverage_pct',
         'visibility' => 'visibility',
-        'keywords' => 'keyword_count',
+        'keywords' => 'keywords_count',
     ];
 
     public function mount(): void
@@ -48,6 +48,7 @@ class SeoClusters extends Component
 
         $all = SeoKeywordCluster::where('team_id', $teamId)
             ->withCount([
+                'keywords',
                 'contentBriefs',
                 'contentBriefs as published_briefs_count' => fn ($q) => $q->where('status', 'published'),
             ])

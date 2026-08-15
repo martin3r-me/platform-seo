@@ -286,6 +286,12 @@ class SeoPerspective extends Component
         }
 
         $own = $urls->where('is_own', true);
+
+        // Backlinks/Traffic nur zählen, wo sie im Daten-Profil erhoben wurden.
+        // Ohne Erhebung bleibt der Wert null → UI zeigt „—" statt einer falschen 0.
+        $backlinkUrls = $own->filter(fn ($u) => $u->backlinks_fetched_at !== null);
+        $trafficUrls = $own->filter(fn ($u) => $u->traffic_fetched_at !== null);
+
         $kpis = [
             'urls' => $urls->count(),
             'own' => $own->count(),
@@ -294,8 +300,8 @@ class SeoPerspective extends Component
             'visibility' => round((float) $own->sum('visibility_score'), 0),
             'keywords' => (int) $own->sum('keyword_count'),
             'search_volume' => (int) $own->sum('total_search_volume'),
-            'backlinks' => (int) $own->sum('backlink_count'),
-            'visitors' => (int) $own->sum('visitors_30d'),
+            'backlinks' => $backlinkUrls->isEmpty() ? null : (int) $backlinkUrls->sum('backlink_count'),
+            'visitors' => $trafficUrls->isEmpty() ? null : (int) $trafficUrls->sum('visitors_30d'),
         ];
 
         // Kontext-gebundene Tab-Daten: die „Linsen" gehören zu genau dieser Perspektive.
