@@ -115,6 +115,23 @@ class SeoUrlDetail extends Component
         ]);
     }
 
+    public function setProfile(string $profile): void
+    {
+        $svc = app(\Platform\Seo\Services\SeoDataProfileService::class);
+        if ($svc->isValidProfile((bool) $this->seoUrl->is_own, $profile)) {
+            $this->seoUrl->update(['data_profile' => $profile]);
+            $this->seoUrl->refresh();
+        }
+    }
+
+    public function setBoost(int $days): void
+    {
+        $this->seoUrl->update([
+            'boost_until' => $days > 0 ? now()->addDays($days) : null,
+        ]);
+        $this->seoUrl->refresh();
+    }
+
     public function loadMore(): void
     {
         match ($this->activeTab) {
@@ -404,9 +421,16 @@ class SeoUrlDetail extends Component
         $clustering = $freshMeta['clustering'] ?? null;
         $clusteringUpdatedAt = isset($clustering['at']) ? \Illuminate\Support\Carbon::parse($clustering['at']) : null;
 
+        $profileSvc = app(\Platform\Seo\Services\SeoDataProfileService::class);
+        $costSvc = app(\Platform\Seo\Services\SeoCostProjectionService::class);
+
         return view('seo::livewire.seo-url-detail', [
             'contextNodes' => $contextNodes,
             'availableNodes' => $availableNodes,
+            'effectiveProfile' => $profileSvc->effectiveProfile($this->seoUrl),
+            'availableProfiles' => $profileSvc->availableProfiles((bool) $this->seoUrl->is_own),
+            'profileCostBreakdown' => $costSvc->urlBreakdown($this->seoUrl),
+            'profileMonthlyCents' => $costSvc->urlMonthlyCents($this->seoUrl),
             'clusteringStatus' => $clustering['status'] ?? null,
             'clusteringResult' => $clustering['result'] ?? null,
             'clusteringUpdatedAt' => $clusteringUpdatedAt,

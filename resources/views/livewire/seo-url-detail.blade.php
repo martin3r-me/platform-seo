@@ -91,6 +91,52 @@
                 </div>
             </div>
 
+            {{-- Daten-Profil & Kosten --}}
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <h2 class="text-[13px] font-semibold text-gray-700">Daten-Profil</h2>
+                    <div class="text-[12px] text-gray-500">
+                        <span class="text-gray-400 uppercase tracking-wide text-[10px]">Kosten</span>
+                        <span class="font-semibold text-gray-800 tabular-nums ml-1">{{ number_format($profileMonthlyCents / 100, 2, ',', '.') }} € / Monat</span>
+                    </div>
+                </div>
+
+                {{-- Profil-Wahl (Leiter je is_own) --}}
+                <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
+                    @foreach($availableProfiles as $p)
+                        <button wire:click="setProfile('{{ $p }}')"
+                                class="px-3 py-1.5 text-[12px] rounded-md transition-colors {{ $effectiveProfile === $p ? 'bg-white text-gray-900 font-medium shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
+                            {{ ucfirst($p) }}
+                        </button>
+                    @endforeach
+                </div>
+
+                {{-- Kosten-Aufschlüsselung + Boost --}}
+                <div class="flex items-start justify-between gap-4 mt-3 flex-wrap">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        @forelse($profileCostBreakdown as $line)
+                            <span class="text-[11px] px-2 py-0.5 bg-gray-50 text-gray-600 border border-gray-200 rounded">
+                                {{ $line['collector'] }} · {{ $line['monthly_cents'] > 0 ? number_format($line['monthly_cents']/100, 2, ',', '.').' €' : 'gratis' }}
+                            </span>
+                        @empty
+                            <span class="text-[11px] text-gray-400">Profil „Aus" — es werden keine Daten geholt.</span>
+                        @endforelse
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        @if($seoUrl->isBoostActive())
+                            <span class="text-[11px] px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded">Boost bis {{ $seoUrl->boost_until->format('d.m.') }}</span>
+                            <button wire:click="setBoost(0)" class="text-[11px] text-gray-500 hover:text-gray-700">beenden</button>
+                        @else
+                            <button wire:click="setBoost({{ (int) config('seo.boost.default_days', 14) }})"
+                                    class="text-[11px] px-2 py-1 rounded border border-gray-200 text-gray-600 hover:border-gray-300">
+                                ⚡ Boost ({{ (int) config('seo.boost.default_days', 14) }} T täglich SERP)
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
             {{-- Datenaktualität pro Collector --}}
             @include('seo::partials.data-freshness-panel', ['url' => $seoUrl])
 

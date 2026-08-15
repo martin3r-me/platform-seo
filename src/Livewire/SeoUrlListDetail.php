@@ -63,6 +63,27 @@ class SeoUrlListDetail extends Component
         }
     }
 
+    public function setDefaultProfile(string $profile): void
+    {
+        $this->seoUrlList->update(['default_data_profile' => $profile]);
+        $this->seoUrlList->refresh();
+    }
+
+    /** Wendet das Listen-Default-Profil auf alle Mitglieds-URLs an (nur passende Leiter). */
+    public function applyProfileToUrls(): void
+    {
+        $profile = $this->seoUrlList->default_data_profile;
+        if (! $profile) {
+            return;
+        }
+        $svc = app(\Platform\Seo\Services\SeoDataProfileService::class);
+        foreach ($this->seoUrlList->urls()->get() as $url) {
+            if ($svc->isValidProfile((bool) $url->is_own, $profile)) {
+                $url->update(['data_profile' => $profile]);
+            }
+        }
+    }
+
     private function getUrlWithChildIds(int $urlId): array
     {
         $childIds = SeoUrlRelationship::where('type', 'parent_child')
@@ -170,6 +191,8 @@ class SeoUrlListDetail extends Component
             'listUrls' => $listUrls,
             'availableUrls' => $availableUrls,
             'aggregated' => $aggregated,
+            'listMonthlyCents' => app(\Platform\Seo\Services\SeoCostProjectionService::class)->listMonthlyCents($this->seoUrlList),
+            'ownProfiles' => app(\Platform\Seo\Services\SeoDataProfileService::class)->availableProfiles(true),
         ])->layout('platform::layouts.app');
     }
 }

@@ -66,6 +66,34 @@
             </div>
         </div>
 
+        {{-- Daten-Profil (Listen-Default) & Kosten --}}
+        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <h2 class="text-[13px] font-semibold text-gray-700">Daten-Profil (Default)</h2>
+                    <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
+                        @foreach($ownProfiles as $p)
+                            <button wire:click="setDefaultProfile('{{ $p }}')"
+                                    class="px-3 py-1.5 text-[12px] rounded-md transition-colors {{ $seoUrlList->default_data_profile === $p ? 'bg-white text-gray-900 font-medium shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
+                                {{ ucfirst($p) }}
+                            </button>
+                        @endforeach
+                    </div>
+                    @if($seoUrlList->default_data_profile)
+                        <button wire:click="applyProfileToUrls"
+                                wire:confirm="Profil „{{ $seoUrlList->default_data_profile }}" auf alle eigenen URLs dieser Liste anwenden?"
+                                class="text-[12px] px-2.5 py-1 rounded border border-gray-200 text-gray-600 hover:border-gray-300">
+                            auf alle URLs anwenden
+                        </button>
+                    @endif
+                </div>
+                <div class="text-[12px] text-gray-500">
+                    <span class="text-gray-400 uppercase tracking-wide text-[10px]">Kosten</span>
+                    <span class="font-semibold text-gray-800 tabular-nums ml-1">{{ number_format($listMonthlyCents / 100, 2, ',', '.') }} € / Monat</span>
+                </div>
+            </div>
+        </div>
+
         {{-- URLs Table + Detail Panel --}}
         <div class="flex gap-0 items-start">
             {{-- Left: URL List --}}
