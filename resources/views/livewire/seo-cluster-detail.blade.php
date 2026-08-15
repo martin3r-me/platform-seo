@@ -95,8 +95,22 @@
 
             {{-- Content-Briefs --}}
             @if($contentBriefs->isNotEmpty())
+                @php
+                    $briefTotal = $contentBriefs->count();
+                    $briefPublished = $contentBriefs->where('status', 'published')->count();
+                    $briefPct = $briefTotal > 0 ? round($briefPublished / $briefTotal * 100) : 0;
+                @endphp
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
-                    <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Content-Briefs</h2>
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-[13px] font-semibold text-gray-700">Content-Briefs</h2>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] text-gray-400 uppercase tracking-wide">Umsetzung</span>
+                            <span class="text-[12px] font-medium text-gray-700 tabular-nums">{{ $briefPublished }}/{{ $briefTotal }} live · {{ $briefPct }}%</span>
+                            <div class="w-[80px] h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                <div class="h-full rounded-full" style="width: {{ $briefPct }}%; background: {{ $cluster->color ?: '#94a3b8' }}"></div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="space-y-1.5">
                         @foreach($contentBriefs as $brief)
                             <a href="{{ route('seo.briefs.show', $brief->id) }}" wire:navigate

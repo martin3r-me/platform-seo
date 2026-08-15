@@ -1,61 +1,48 @@
-# Content-Brief-Tracking (SEO ↔ Flynk-Loop)
+# Content-Brief-Tracking (schlankes Modell)
 
-Ziel: einen Content-Brief von der Strategie (SEO) über die Produktion (Flynk/Kunde)
-bis zur veröffentlichten, getrackten Seite lückenlos verfolgen — ohne enge Kopplung.
+Ziel: verfolgen, **ob** ein geplanter Brief live ist — nicht, was in der Produktion
+(Flynk/Kunde) passiert. Zwei Ebenen, sauber getrennt:
 
-Zwei Referenzen sichern sich gegenseitig ab:
+- **Umsetzung** — ist die Seite gebaut? (Marker im `<head>`)
+- **Erfolg** — wirkt sie? (Ranking, misst das Modul ohnehin)
 
-## A) Vorwärts-Referenz — Flynk-IDs am Brief
+## Der einzige Vertrag: der Marker
 
-Bei der Übergabe an Flynk (Task-Erzeugung über den Flynk-Connector — *SEO ruft Flynk
-nie selbst*) werden die zurückgegebenen IDs am Brief gespeichert:
-
-| Feld (seo_content_briefs) | Bedeutung |
-|---|---|
-| `external_project_ref`  | Flynk-Projekt |
-| `external_task_ref`     | Flynk-Aufgabe (Typ new_page/page_edit) |
-| `external_document_ref` | Flynk-Dokument |
-
-Setzen via `seo.content_briefs.PUT` und Status auf `queued`.
-
-## B) Rückwärts-Verifikation — Provenance-Marker im `<head>`
-
-Die veröffentlichte Seite trägt einen opaken Marker (kein PII, keine Strategie):
+Die veröffentlichte Seite trägt im `<head>` einen opaken Marker mit der Brief-UUID
+(kein PII, keine Strategie):
 
 ```html
 <meta name="x-content-brief" content="{brief-uuid}">
-<meta name="x-flynk-document" content="{document-uuid}">   <!-- optional -->
 ```
 
-Die brief-uuid steht am Brief (`SeoContentBrief::uuid`, im UI/GET als `marker_meta`
-fertig ausgegeben). **Das ist der einzige Teil, den die Flynk-/CMS-Seite umsetzen
-muss:** den Marker beim Rendern der Seite in den `<head>` schreiben.
+Die UUID steht am Brief (`SeoContentBrief::uuid`, im UI/GET als `marker_meta`
+fertig ausgegeben) — **und ist identisch mit dem `ref`, den der Flynk-Connector
+beim Kontext-Push je Content-Brief mitschickt.** Mehr braucht es von der
+Flynk-/CMS-Seite nicht: keine Feedback-API, keine Task-/Page-IDs.
 
-## Status-Kette
-
-```
-briefed → queued (an Flynk übergeben) → in_production → published
-```
-
-## Der Loop schließt sich
+## Der Loop (crawl-basiert)
 
 `seo:reconcile-briefs` (bzw. `seo.content_briefs.reconcile.POST`) holt für jeden
-offenen Brief die erwartete Seite (`published_url` sonst `target_url`) per leichtem
-HTTP-Fetch — **kein DataForSeo-Cost** — und liest den Marker. Stimmt die UUID:
+offenen Brief die `target_url` per leichtem HTTP-Fetch — **kein DataForSeo-Cost** —
+und liest den Marker. Stimmt die UUID:
 
 1. Brief → Status `published`, `published_url` + `published_at` gesetzt,
-2. die Seite wird als eigene, getrackte `seo_url` registriert (`is_own=true`),
-3. das Ranking-/OnPage-Tracking läuft ab jetzt auf der Live-Seite.
+2. die Seite wird als eigene, getrackte `seo_url` registriert → Ranking-Tracking
+   läuft ab jetzt auf der Live-Seite.
 
-Weil der Abgleich **marker-basiert** ist, übersteht er Slug-/URL-Änderungen und
-braucht keine aktive Rückmeldung von Flynk. Empfehlung: `seo:reconcile-briefs`
-täglich schedulen.
+Marker-basiert → übersteht Slug-Änderungen, braucht keine aktive Rückmeldung.
+Empfehlung: täglich schedulen.
 
-## Offene Erweiterungen
+## Die Quote im Cluster
 
-- Keyword-Re-Attribution: beim Publish die Cluster-Keywords von der Sammel-URL
-  (z. B. nodera.health) auf die neue Unterseite umhängen.
-- Org-Link: die neue `seo_url` automatisch an denselben Org-Knoten wie die
-  Ziel-Domain hängen.
-- URL-Discovery: Marker auch bei geänderter URL über einen Sitemap-/Site-Crawl
-  wiederfinden (heute wird `target_url`/`published_url` geprüft).
+Aus den `published`-Briefs ergibt sich pro Cluster die **Umsetzungs-Quote**
+(veröffentlichte Briefs / Briefs gesamt) — sichtbar in Cluster-Liste und -Detail.
+Das ist der Produktions-Fortschritt; der eigentliche Erfolg folgt übers Ranking
+(coverage_pct, Sichtbarkeit, Top-10 je Cluster).
+
+## Bewusst NICHT gebaut
+
+Kein Reverse-Feedback-Kanal, keine `external_task_ref`/`external_document_ref`-
+Pflege. Der Prozess in Flynk ist eine Blackbox — uns interessiert nur das Ergebnis
+im `<head>`. (Die Felder existieren nullable aus einer früheren Ausbaustufe und
+sind ungenutzt; können bei Bedarf entfernt werden.)

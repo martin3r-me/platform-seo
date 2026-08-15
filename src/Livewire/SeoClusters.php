@@ -47,6 +47,10 @@ class SeoClusters extends Component
         $column = self::SORT_COLUMNS[$this->sort] ?? 'health_score';
 
         $all = SeoKeywordCluster::where('team_id', $teamId)
+            ->withCount([
+                'contentBriefs',
+                'contentBriefs as published_briefs_count' => fn ($q) => $q->where('status', 'published'),
+            ])
             ->orderByDesc($column)
             ->orderBy('name')
             ->take($this->limit + 1)

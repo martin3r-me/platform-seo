@@ -78,6 +78,22 @@
                             <div class="text-[13px] font-medium text-gray-700 tabular-nums">{{ $cluster->top3_count }}/{{ $cluster->top10_count }}</div>
                         </div>
 
+                        {{-- Umsetzung (veröffentlichte Briefs / gesamt) --}}
+                        @php
+                            $briefTotal = $cluster->content_briefs_count ?? 0;
+                            $briefPublished = $cluster->published_briefs_count ?? 0;
+                            $briefPct = $briefTotal > 0 ? round($briefPublished / $briefTotal * 100) : 0;
+                        @endphp
+                        <div class="w-[110px]">
+                            <div class="flex items-center justify-between text-[11px] mb-1">
+                                <span class="text-gray-400 uppercase tracking-wide">Umsetzung</span>
+                                <span class="font-medium text-gray-700 tabular-nums">{{ $briefTotal > 0 ? $briefPublished.'/'.$briefTotal : '—' }}</span>
+                            </div>
+                            <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                <div class="h-full rounded-full" style="width: {{ $briefPct }}%; background: {{ $cluster->color ?: '#94a3b8' }}"></div>
+                            </div>
+                        </div>
+
                         {{-- Visibility --}}
                         <div class="text-center w-[80px]">
                             <div class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5">Sichtbarkeit</div>
