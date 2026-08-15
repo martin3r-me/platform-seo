@@ -162,6 +162,91 @@
                     </div>
                 </div>
             @endif
+
+            {{-- Ranking-Feedback: rankt die Ziel-URL wirklich für die Cluster-Keywords? (Loop-Closer) --}}
+            @if($ranking['rows']->isNotEmpty())
+                <div>
+                    <div class="flex items-baseline justify-between mb-3">
+                        <h2 class="text-[13px] font-semibold text-gray-700">Ranking-Feedback</h2>
+                        <span class="text-[11px] text-gray-400">{{ $ranking['ranking'] }}/{{ $ranking['rows']->count() }} ranken · {{ $ranking['target_hits'] }} auf der Ziel-Seite</span>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                        <table class="w-full text-[12px]" style="min-width: 560px">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                    <th class="text-left px-4 py-2">Keyword</th>
+                                    <th class="text-right px-4 py-2">Vol.</th>
+                                    <th class="text-right px-4 py-2">Position</th>
+                                    <th class="text-left px-4 py-2">Rankende Seite</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($ranking['rows'] as $r)
+                                    <tr class="border-b border-gray-50 last:border-0">
+                                        <td class="px-4 py-2 text-gray-700">{{ $r['keyword'] }}</td>
+                                        <td class="px-4 py-2 text-right text-gray-500 tabular-nums">{{ number_format($r['volume']) }}</td>
+                                        <td class="px-4 py-2 text-right tabular-nums">
+                                            @if($r['position'])
+                                                <span class="font-medium text-gray-800">{{ $r['position'] }}</span>
+                                            @else
+                                                <span class="text-gray-300">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-2">
+                                            @if($r['target_match'])
+                                                <span class="text-[11px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">Ziel-Seite ✓</span>
+                                            @elseif($r['ranked_url'])
+                                                <span class="text-[11px] text-gray-400 truncate block" style="max-width: 240px" title="{{ $r['ranked_url'] }}">{{ parse_url($r['ranked_url'], PHP_URL_HOST) }}</span>
+                                            @else
+                                                <span class="text-gray-300">—</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Interne Verlinkung (Hub-and-Spoke) --}}
+            @if($outgoingLinks->isNotEmpty() || $incomingLinks->isNotEmpty())
+                <div>
+                    <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Interne Verlinkung</h2>
+                    <div class="bg-white rounded-lg border border-gray-200 divide-y divide-gray-50">
+                        @foreach($outgoingLinks as $link)
+                            @continue(! $link->target)
+                            <a href="{{ route('seo.briefs.show', $link->target->id) }}" wire:navigate class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+                                <span class="text-[12px] text-gray-700">→ {{ $link->target->name }}</span>
+                                <span class="text-[10px] uppercase tracking-wide text-gray-400">{{ str_replace('_', ' ', $link->link_type) }}</span>
+                            </a>
+                        @endforeach
+                        @foreach($incomingLinks as $link)
+                            @continue(! $link->source)
+                            <a href="{{ route('seo.briefs.show', $link->source->id) }}" wire:navigate class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+                                <span class="text-[12px] text-gray-500">← {{ $link->source->name }}</span>
+                                <span class="text-[10px] uppercase tracking-wide text-gray-400">{{ str_replace('_', ' ', $link->link_type) }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            {{-- Revisions-Verlauf --}}
+            @if($revisions->isNotEmpty())
+                <div>
+                    <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Verlauf</h2>
+                    <div class="space-y-1.5">
+                        @foreach($revisions as $rev)
+                            <div class="flex items-baseline gap-3 text-[12px]">
+                                <span class="text-[10px] text-gray-400 tabular-nums whitespace-nowrap">{{ $rev->revised_at?->format('d.m.Y H:i') }}</span>
+                                <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{{ str_replace('_', ' ', $rev->revision_type) }}</span>
+                                <span class="text-gray-600">{{ $rev->summary }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     </x-ui-page-container>
 </x-ui-page>

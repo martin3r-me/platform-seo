@@ -7,6 +7,7 @@ use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Seo\Models\SeoContentBrief;
 use Platform\Seo\Models\SeoContentBriefNote;
+use Platform\Seo\Models\SeoContentBriefRevision;
 use Platform\Seo\Models\SeoContentBriefSection;
 
 /**
@@ -107,7 +108,21 @@ class UpdateContentBriefTool implements ToolContract
                 }
             }
 
+            // Original-Werte VOR dem Update für das Revisions-Audit festhalten.
+            $original = $brief->getOriginal();
             $brief->update($data);
+
+            // Feld-Diffs sammeln (für die Revision).
+            $changes = [];
+            foreach ($data as $key => $newVal) {
+                $oldVal = $original[$key] ?? null;
+                if ($oldVal instanceof \DateTimeInterface) {
+                    $oldVal = $oldVal->format('c');
+                }
+                if ((string) $oldVal !== (string) $newVal) {
+                    $changes[$key] = ['from' => $oldVal, 'to' => $newVal];
+                }
+            }
 
             // Abschnitte ersetzen (nur wenn der Key übergeben wurde).
             $sectionCount = null;
@@ -154,6 +169,33 @@ class UpdateContentBriefTool implements ToolContract
                     ]);
                     $noteCount++;
                 }
+            }
+
+            // Revision protokollieren, wenn sich etwas Nennenswertes geändert hat.
+            $summaryParts = [];
+            if (isset($changes['status'])) {
+                $summaryParts[] = 'Status: ' . ($changes['status']['from'] ?: '—') . ' → ' . $changes['status']['to'];
+            }
+            $otherFields = array_diff(array_keys($changes), ['status', 'published_at']);
+            if ($otherFields) {
+                $summaryParts[] = count($otherFields) . ' Feld(er): ' . implode(', ', $otherFields);
+            }
+            if ($sectionCount !== null) {
+                $summaryParts[] = $sectionCount . ' Abschnitte ersetzt';
+            }
+            if ($noteCount !== null) {
+                $summaryParts[] = $noteCount . ' Notizen ersetzt';
+            }
+
+            if (!empty($summaryParts)) {
+                SeoContentBriefRevision::create([
+                    'content_brief_id' => $brief->id,
+                    'revision_type' => (isset($changes['status']) && count($summaryParts) === 1) ? 'status_change' : 'edit',
+                    'summary' => implode(' · ', $summaryParts),
+                    'changes' => $changes ?: null,
+                    'user_id' => $context->user?->id,
+                    'revised_at' => now(),
+                ]);
             }
 
             return ToolResult::success(array_filter([

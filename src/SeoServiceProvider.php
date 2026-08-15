@@ -294,6 +294,7 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\ListContentBriefsTool());
             $registry->register(new \Platform\Seo\Tools\CreateContentBriefTool());
             $registry->register(new \Platform\Seo\Tools\UpdateContentBriefTool());
+            $registry->register(new \Platform\Seo\Tools\LinkContentBriefsTool());
             $registry->register(new \Platform\Seo\Tools\ReconcileContentBriefsTool());
 
             // Signale
