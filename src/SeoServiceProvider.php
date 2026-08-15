@@ -113,6 +113,7 @@ class SeoServiceProvider extends ServiceProvider
             'seo_cluster' => \Platform\Seo\Models\SeoKeywordCluster::class,
             'seo_content_brief' => \Platform\Seo\Models\SeoContentBrief::class,
             'seo_signal' => \Platform\Seo\Models\SeoSignal::class,
+            'seo_wirkungsraum' => \Platform\Seo\Models\SeoWirkungsraum::class,
         ]);
 
         if (
@@ -296,6 +297,11 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\UpdateContentBriefTool());
             $registry->register(new \Platform\Seo\Tools\LinkContentBriefsTool());
             $registry->register(new \Platform\Seo\Tools\ReconcileContentBriefsTool());
+
+            // Wirkungsräume (Steuer-Scopes)
+            $registry->register(new \Platform\Seo\Tools\CreateWirkungsraumTool());
+            $registry->register(new \Platform\Seo\Tools\WirkungsraumUrlsTool());
+            $registry->register(new \Platform\Seo\Tools\ListWirkungsraeumeTool());
 
             // Signale
             $registry->register(new \Platform\Seo\Tools\ListSignalsTool());
