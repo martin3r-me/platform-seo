@@ -123,6 +123,7 @@ class SeoServiceProvider extends ServiceProvider
             PlatformCore::registerModule([
                 'key'        => 'seo',
                 'title'      => 'SEO',
+                'group'      => 'digital',
                 'routing'    => config('seo.routing'),
                 'guard'      => config('seo.guard'),
                 'navigation' => config('seo.navigation'),
