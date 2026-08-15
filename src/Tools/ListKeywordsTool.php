@@ -231,7 +231,7 @@ class ListKeywordsTool implements ToolContract
 
     private function getDetail(int $keywordId, int $teamId): ToolResult
     {
-        $kw = SeoKeyword::with(['cluster', 'urls', 'positions' => fn ($q) => $q->limit(30)])
+        $kw = SeoKeyword::with(['cluster', 'urls', 'positions' => fn ($q) => $q->limit(30), 'serp'])
             ->where('team_id', $teamId)
             ->find($keywordId);
 
@@ -240,6 +240,15 @@ class ListKeywordsTool implements ToolContract
         }
 
         return ToolResult::success([
+            'serp_features' => $kw->serp ? [
+                'item_types' => $kw->serp->item_types,
+                'people_also_ask' => $kw->serp->people_also_ask,
+                'related_searches' => $kw->serp->related_searches,
+                'featured_snippet' => $kw->serp->featured_snippet,
+                'has_ai_overview' => $kw->serp->has_ai_overview,
+                'ai_overview_references' => $kw->serp->ai_overview_references,
+                'fetched_at' => $kw->serp->fetched_at?->toIso8601String(),
+            ] : null,
             'keyword' => [
                 'id' => $kw->id,
                 'uuid' => $kw->uuid,

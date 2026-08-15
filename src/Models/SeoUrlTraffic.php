@@ -15,6 +15,8 @@ class SeoUrlTraffic extends Model
         'source',
         'visitors',
         'pageviews',
+        'organic_visitors',
+        'organic_pageviews',
         'bounce_rate',
         'visit_duration',
     ];
@@ -23,6 +25,8 @@ class SeoUrlTraffic extends Model
         'date' => 'date',
         'visitors' => 'integer',
         'pageviews' => 'integer',
+        'organic_visitors' => 'integer',
+        'organic_pageviews' => 'integer',
         'bounce_rate' => 'decimal:2',
         'visit_duration' => 'integer',
     ];

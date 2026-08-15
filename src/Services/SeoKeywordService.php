@@ -14,6 +14,7 @@ use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
 use Platform\Seo\Models\SeoKeywordCompetitor;
+use Platform\Seo\Models\SeoKeywordSerp;
 use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
@@ -199,7 +200,27 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         $competitorEntries = [];
 
         foreach ($keywords as $keyword) {
-            $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
+            $serp = $api->getSerpWithFeatures($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
+            $serpResults = $serp['organic'] ?? [];
+            $serpFeaturesResult = $serp['features'] ?? null;
+
+            // SERP-Features aus demselben (bezahlten) Call persistieren — auch wenn
+            // wir organisch nicht ranken (dann bleibt die Features-Zeile trotzdem wertvoll).
+            if ($serpFeaturesResult) {
+                SeoKeywordSerp::updateOrCreate(
+                    ['keyword_id' => $keyword->id],
+                    [
+                        'team_id' => $teamId,
+                        'item_types' => $serpFeaturesResult->itemTypes,
+                        'people_also_ask' => $serpFeaturesResult->peopleAlsoAsk,
+                        'related_searches' => $serpFeaturesResult->relatedSearches,
+                        'featured_snippet' => $serpFeaturesResult->featuredSnippet,
+                        'has_ai_overview' => $serpFeaturesResult->hasAiOverview,
+                        'ai_overview_references' => $serpFeaturesResult->aiOverviewReferences,
+                        'fetched_at' => now(),
+                    ],
+                );
+            }
 
             if (empty($serpResults)) {
                 continue;

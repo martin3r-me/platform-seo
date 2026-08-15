@@ -131,6 +131,33 @@ class PlausibleCollector implements SeoCollectorInterface
                 continue;
             }
 
+            // Organischen Anteil separat holen (Channel-Filter) — DAS ist die
+            // SEO-relevante Zahl. Fällt der gefilterte Call (ältere Plausible-
+            // Version o.ä.), bleibt Organic leer; der Gesamt-Traffic bleibt intakt.
+            $organicByPath = [];
+            try {
+                $organicBreakdown = $api->getBreakdown(null, [
+                    'site_id' => $siteId,
+                    'property' => 'event:page',
+                    'period' => 'day',
+                    'date' => $date,
+                    'metrics' => 'visitors,pageviews',
+                    'filters' => config('seo.plausible.organic_filter', 'visit:channel==Organic Search'),
+                    'limit' => 1000,
+                ]);
+                foreach ($organicBreakdown['results'] ?? [] as $orow) {
+                    $opath = $this->normalizePath($orow['page'] ?? null);
+                    if ($opath !== null) {
+                        $organicByPath[$opath] = [
+                            'visitors' => (int) ($orow['visitors'] ?? 0),
+                            'pageviews' => (int) ($orow['pageviews'] ?? 0),
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                $errors[] = "organic breakdown {$domain}: ".$e->getMessage();
+            }
+
             foreach ($breakdown['results'] ?? [] as $row) {
                 $path = $this->normalizePath($row['page'] ?? null);
                 if ($path === null) {
@@ -151,6 +178,8 @@ class PlausibleCollector implements SeoCollectorInterface
                     [
                         'visitors' => (int) ($row['visitors'] ?? 0),
                         'pageviews' => (int) ($row['pageviews'] ?? 0),
+                        'organic_visitors' => (int) ($organicByPath[$path]['visitors'] ?? 0),
+                        'organic_pageviews' => (int) ($organicByPath[$path]['pageviews'] ?? 0),
                         'bounce_rate' => (float) ($row['bounce_rate'] ?? 0),
                         'visit_duration' => (int) round((float) ($row['visit_duration'] ?? 0)),
                     ]
@@ -190,12 +219,14 @@ class PlausibleCollector implements SeoCollectorInterface
             ->where('url_id', $url->id)
             ->where('source', 'plausible')
             ->where('date', '>=', $since)
-            ->selectRaw('COALESCE(SUM(visitors), 0) as v, COALESCE(SUM(pageviews), 0) as p')
+            ->selectRaw('COALESCE(SUM(visitors), 0) as v, COALESCE(SUM(pageviews), 0) as p, COALESCE(SUM(organic_visitors), 0) as ov, COALESCE(SUM(organic_pageviews), 0) as op')
             ->first();
 
         $url->update([
             'visitors_30d' => (int) ($agg->v ?? 0),
             'pageviews_30d' => (int) ($agg->p ?? 0),
+            'organic_visitors_30d' => (int) ($agg->ov ?? 0),
+            'organic_pageviews_30d' => (int) ($agg->op ?? 0),
             'traffic_fetched_at' => now(),
         ]);
     }

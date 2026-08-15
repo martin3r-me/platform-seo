@@ -78,6 +78,11 @@ class SeoKeyword extends Model implements HasDisplayName
         return $this->hasMany(SeoKeywordCompetitor::class, 'keyword_id')->orderByDesc('tracked_at');
     }
 
+    public function serp(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(SeoKeywordSerp::class, 'keyword_id');
+    }
+
     /** @deprecated Use SeoUrlRegistration instead */
     public function contexts(): HasMany
     {
