@@ -31,6 +31,10 @@
             @svg('heroicon-o-document-text', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Content-Briefs</span>
         </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('seo.wirkungsraeume')" :active="request()->routeIs('seo.wirkungsraeume') || request()->routeIs('seo.wirkungsraeume.show')">
+            @svg('heroicon-o-rocket-launch', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Wirkungsräume</span>
+        </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
     {{-- Der Baum = der Perspektiv-Wähler. Jeder Knoten/Typ ist eine Perspektive. --}}

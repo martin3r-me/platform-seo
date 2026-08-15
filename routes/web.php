@@ -20,6 +20,8 @@ use Platform\Seo\Livewire\SeoUrlDetail;
 use Platform\Seo\Livewire\SeoUrlExplorer;
 use Platform\Seo\Livewire\SeoUrlListDetail;
 use Platform\Seo\Livewire\SeoUrlListManager;
+use Platform\Seo\Livewire\SeoWirkungsraumDetail;
+use Platform\Seo\Livewire\SeoWirkungsraumManager;
 
 // Top-Level
 Route::get('/', SeoCockpit::class)->name('seo.dashboard');
@@ -46,6 +48,10 @@ Route::get('/lists/{seoUrlList}', SeoUrlListDetail::class)->name('seo.lists.show
 Route::get('/lists/{seoUrlList}/competitors', SeoCompetitorAnalysis::class)->name('seo.lists.competitors');
 Route::get('/lists/{seoUrlList}/cannibalization', SeoCannibalization::class)->name('seo.lists.cannibalization');
 Route::get('/lists/{seoUrlList}/signals', SeoSignalIndex::class)->name('seo.lists.signals');
+
+// Wirkungsräume (Steuer-Scopes)
+Route::get('/wirkungsraeume', SeoWirkungsraumManager::class)->name('seo.wirkungsraeume');
+Route::get('/wirkungsraeume/{seoWirkungsraum}', SeoWirkungsraumDetail::class)->name('seo.wirkungsraeume.show');
 
 // URL-Kontext
 Route::get('/urls/{seoUrl}/keywords', SeoKeywordExplorer::class)->name('seo.urls.keywords');
