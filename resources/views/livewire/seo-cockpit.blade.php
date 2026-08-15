@@ -55,7 +55,8 @@
                                         </span>
                                     @endif
                                 </div>
-                                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" style="background: {{ $card['urls'] > 0 ? 'var(--nx-success)' : 'var(--nx-faint)' }}"></span>
+                                @php($__dot = ['live' => 'var(--nx-success)', 'building' => 'var(--nx-info)', 'untracked' => 'var(--nx-faint)'][$card['state'] ?? 'untracked'] ?? 'var(--nx-faint)')
+                                <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full" style="background: {{ $__dot }}" title="{{ ['live' => 'Rankt', 'building' => 'Im Aufbau — noch keine Sichtbarkeit', 'untracked' => 'Nicht getrackt'][$card['state'] ?? 'untracked'] ?? '' }}"></span>
                             </div>
 
                             @if($card['urls'] > 0)

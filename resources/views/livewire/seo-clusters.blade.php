@@ -37,7 +37,13 @@
                 @php
                     $health = $cluster->health_score;
                     $coverage = (float) $cluster->coverage_pct;
+                    // „Im Aufbau": hat Keywords, aber noch keine Sichtbarkeit/Abdeckung
+                    // (rankt noch nicht) → NICHT rot „ungesund", sondern neutral „Aufbau".
+                    $building = ($cluster->keywords_count ?? 0) > 0
+                        && (float) $cluster->visibility <= 0
+                        && $coverage <= 0;
                     $healthColor = match(true) {
+                        $building => 'bg-blue-100 text-blue-700',
                         $health === null => 'bg-gray-100 text-gray-400',
                         $health >= 70 => 'bg-green-100 text-green-700',
                         $health >= 40 => 'bg-amber-100 text-amber-700',
@@ -118,7 +124,7 @@
                         {{-- Health --}}
                         <div class="text-center w-[70px]">
                             <div class="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5">Health</div>
-                            <span class="inline-block text-[13px] font-semibold px-2 py-0.5 rounded {{ $healthColor }} tabular-nums">{{ $health ?? '—' }}</span>
+                            <span class="inline-block text-[13px] font-semibold px-2 py-0.5 rounded {{ $healthColor }} {{ $building ? '' : 'tabular-nums' }}" @if($building) title="Hat Keywords, rankt aber noch nicht" @endif>{{ $building ? 'Aufbau' : ($health ?? '—') }}</span>
                         </div>
                     </div>
                 </div>

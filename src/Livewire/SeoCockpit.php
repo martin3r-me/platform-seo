@@ -143,17 +143,26 @@ class SeoCockpit extends Component
             }
             $totalOpenRecs += $openRecs;
 
+            $urlCount = $urls->count();
+            $visibility = round((float) $urls->sum('visibility_score'), 0);
+
+            // Echter Zustand statt „hat URLs = grün": untracked (keine URLs) /
+            // building (URLs, aber noch keine Sichtbarkeit = im Aufbau/geparkt) /
+            // live (rankt). So wird 0 Sichtbarkeit nicht als „gesund" gezeigt.
+            $state = $urlCount === 0 ? 'untracked' : ($visibility > 0 ? 'live' : 'building');
+
             $cards[] = [
                 'id' => (int) $cid,
                 'name' => $names[(int) $cid] ?? ('Kunde #'.$cid),
-                'urls' => $urls->count(),
-                'visibility' => round((float) $urls->sum('visibility_score'), 0),
+                'urls' => $urlCount,
+                'visibility' => $visibility,
                 'keywords' => (int) $urls->sum('keyword_count'),
                 'search_volume' => (int) $urls->sum('total_search_volume'),
                 'open_recs' => $openRecs,
                 'vis_delta' => $visDelta,
                 'brands' => $brandCounts[(int) $cid] ?? 0,
-                'insight' => $this->customerInsight($urls->count(), $openRecs, $topRec, $visDelta),
+                'state' => $state,
+                'insight' => $this->customerInsight($urlCount, $openRecs, $topRec, $visDelta, $visibility),
             ];
         }
 
@@ -179,7 +188,7 @@ class SeoCockpit extends Component
      *
      * @return array{text: string, tone: string}|null
      */
-    protected function customerInsight(int $urlCount, int $openRecs, ?SeoSignal $topRec, ?int $visDelta): ?array
+    protected function customerInsight(int $urlCount, int $openRecs, ?SeoSignal $topRec, ?int $visDelta, ?float $visibility = null): ?array
     {
         if ($urlCount === 0) {
             return null; // untracked — die Kachel zeigt dafür den „URLs aufhängen"-Hinweis
@@ -202,6 +211,11 @@ class SeoCockpit extends Component
 
         if ($visDelta !== null && $visDelta >= 5) {
             return ['text' => 'Im Aufwind (+'.$visDelta.')', 'tone' => 'success'];
+        }
+
+        // Noch keine Sichtbarkeit = im Aufbau/geparkt, NICHT „stabil/gesund".
+        if (($visibility ?? 0) <= 0) {
+            return ['text' => 'Im Aufbau — noch keine Sichtbarkeit', 'tone' => 'info'];
         }
 
         return ['text' => 'Stabil — kein akuter Handlungsbedarf', 'tone' => 'muted'];
