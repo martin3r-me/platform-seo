@@ -49,6 +49,43 @@ Owner-Cluster  →  Wirkungsraum  →  Verbund (gruppierte Wirkungsräume)
    Komplement = Koordination → verlinken
 ```
 
+## Rollen-Modell (wer macht was)
+
+```
+URL          = Basis        → Rohdaten + atomarer Plan (welche Cluster besitzt diese Seite)
+Liste        = Beobachten   → Lupe, nur Info-Signale (kein Handlungs-Anspruch)
+Wirkungsraum = Handeln       → bewerten, Signale → Aktion, Handlung triggern (= der Arbeitsraum)
+Org-Baum     = Berichten     → Rollup / Identität (wohin melden)
+```
+
+- **Der Wirkungsraum IST der Arbeitsraum.** Ein Kunde ist im einfachsten Fall
+  EIN Wirkungsraum. Skaliert von *einer* URL (Solo-Property, Verbund von eins —
+  interne Seiten/Verlinkung gelten trotzdem) bis *ganzer Konzern-Verbund*. Der
+  firmenübergreifende Layer ist optional.
+- **Signale entstehen aus den Daten (URL/Cluster), werden aber nur im
+  Wirkungsraum zur Handlung** (Kontrolle × Ziel). Auf einer Liste bleibt dasselbe
+  Signal bloße Beobachtung.
+- **Planung ist zweistufig:** atomar an der URL (Seite → Cluster), strategisch
+  im Wirkungsraum (wer besetzt was, kein Overlap).
+
+## Zustandsmodell (die 5 Facetten eines Wirkungsraums)
+
+Die KI liest genau diese fünf, um die Verteilung zu triggern:
+
+| Facette | Was | Ableitung |
+|---|---|---|
+| **Mitglieder** | eigene/kontrollierte URLs | Membership (steuern) |
+| **Cluster** | die Themen des Verbunds | Aggregat der Mitglieds-Cluster |
+| **Durchdringung** | wie *tief* besetzen wir jeden Cluster (Abdeckung × Position) | `coverage_pct` je Cluster, aggregiert |
+| **Wettbewerber** | der Benchmark | Vereinigung der Wettbewerber der Mitglieder (abgeleitet, nicht Mitglied) |
+| **Ungeclusterter Rest** | loser Fußabdruck / Backlog (mit Volumen-Filter) | `cluster_id IS NULL` |
+
+Steuer-Logik daraus: hoch durchdrungen + kein Overlap → verteidigen · dünn +
+Potenzial → Chance · zwei Mitglieder im selben Cluster → Kannibalisierung ·
+Wettbewerber durchdringt tiefer → Lücke schließen · ungeclustert mit Volumen →
+clustern → neues Thema. **Zeitlich:** steigende Durchdringung bei fallenden
+Wettbewerbern = die kollektive Entwicklung, sichtbar gemacht.
+
 ## Bausteine
 
 **Vorhanden:** `clusters.auto.POST` (Bestand ordnen) · `pillar_url_id` (Owner-Seite) ·
@@ -58,10 +95,24 @@ Kannibalisierungs-Analyse (Listen) · Brief-Links (Verlinkung).
 Kannibalisierung) die **Verteilung** vorschlagen: „splitte dieses Thema so,
 verlinke so → der Verbund holt das Maximum."
 
-## Umsetzungsstand (Slices)
+## Roadmap (Slices)
 
-- **Slice 1 (gebaut):** Entität `seo_wirkungsraeume` (+ URL-Pivot, `parent_id`
-  Verschachtelung, `goal`), Org-Alias `seo_wirkungsraum`, Tools
-  `seo.wirkungsraeume.POST/GET` + `seo.wirkungsraum_urls.POST` (nur eigene URLs).
-- **Nächste Slices:** UI (Index/Detail) · Ziel = Cluster-Zuordnung (target themes)
-  · Verbund-Sichtbarkeit über Zeit · WR↔WR-Analyse · **KI-Verteilungs-Empfehlung**.
+Leitprinzip: die Analyse (Aggregat-KPIs, Wettbewerber, Kannibalisierung) ist
+URL-Set-abgeleitet — **Liste und Wirkungsraum teilen diesen Kern**, unterscheiden
+sich in Haltung (beobachten/steuern) + den Steuer-Facetten. Also **teilen, nicht
+duplizieren**. Listen zuletzt abwandeln, damit der laufende Betrieb nicht bricht.
+
+- **Slice 1 (gebaut):** Entität `seo_wirkungsraeume` (+ URL-Pivot, `parent_id`,
+  `goal`), Org-Alias, Tools `seo.wirkungsraeume.POST/GET` +
+  `seo.wirkungsraum_urls.POST` (nur eigene URLs). Bootstrap 1:1 aus Liste.
+- **Slice 2 — auf Listen-Niveau + UI:** Index/Detail (Aggregat-KPIs, Mitglieder,
+  Wettbewerber-Tab, Kannibalisierung — Listen-Logik wiederverwenden). PLUS das,
+  was der Listen-UI fehlt: **Mitglieder-Management in der UI** (URLs zufügen/lösen).
+- **Slice 3 — die Steuer-Facetten:** Durchdringung (coverage-Aggregat + vs.
+  Wettbewerber) · ungeclusterter Rest (Volumen-Filter) · Cluster-Owner
+  (`pillar_url_id` sauber setzen) · Verbund-Sichtbarkeit über Zeit.
+- **Slice 4 — die KI-Klammer:** aus den 5 Facetten die Verteilung vorschlagen
+  (Themen splitten, Owner zuweisen, cross-linken, entkannibalisieren). Plus
+  WR↔WR-Analyse (Verbund-Ebene).
+- **Slice 5 — Listen abwandeln:** auf reine Beobachtung reduzieren (keine
+  Handlungs-Affordances/Fix-Signale; nur Datenfluss + Trends + Wettbewerber).
