@@ -8,10 +8,12 @@ use Platform\Seo\Models\SeoUrl;
 /**
  * Einmalige Bestands-Migration auf Daten-Profile (vereinbarte Regel):
  *  - eigene, aktiv, mit Backlink-/LLM-Daten → tief (Tiefe erhalten)
- *  - eigene, aktiv, sonst                    → standard
+ *  - eigene, aktiv, sonst                    → basis (cheap-by-default)
  *  - eigene, inaktiv/archiviert              → aus
  *  - Wettbewerber, aktiv                     → beobachten
  *  - Wettbewerber, inaktiv                   → aus
+ *
+ * Arbeits-URLs auf Standard/Tief hebt man gezielt an (URL-Detail / Listen-Default).
  *
  * Idempotent; --dry-run zeigt nur die Verteilung. --force überschreibt bereits
  * gesetzte Profile (sonst werden nur leere befüllt).
@@ -66,9 +68,12 @@ class MigrateDataProfiles extends Command
             if (! $active) {
                 return 'aus';
             }
+            // Cheap-by-default: aktive eigene URLs auf "basis" (gratis). Nur URLs,
+            // die schon tief gesammelt wurden (Backlinks/LLM), bleiben auf "tief".
+            // Standard/Tief für Arbeits-URLs setzt man gezielt (URL/Liste).
             $deep = $url->backlink_count !== null || $url->llm_mentions_fetched_at !== null;
 
-            return $deep ? 'tief' : 'standard';
+            return $deep ? 'tief' : 'basis';
         }
 
         return $active ? 'beobachten' : 'aus';

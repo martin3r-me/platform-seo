@@ -511,7 +511,8 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         if ($onlyMissing) {
             $query->whereNull('search_intent');
         }
-        $keywords = $query->limit($limit)->get();
+        // Wertvollste zuerst — so bekommen hochvolumige Keywords ihren Intent zuerst.
+        $keywords = $query->orderByDesc('search_volume')->limit($limit)->get();
 
         if ($keywords->isEmpty()) {
             return ['classified' => 0, 'candidates' => 0, 'cost_cents' => 0];

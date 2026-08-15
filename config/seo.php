@@ -309,8 +309,10 @@ return [
     ],
 
     // Baseline-Profil, wenn nichts gesetzt (greift auch vor der Migration).
+    // Eigene URLs bewusst auf "basis" (gratis): SERP/OnPage sind bewusste
+    // Aufwertung je URL/Liste, nicht Default — sonst explodieren die Kosten.
     'data_profile_defaults' => [
-        'own' => 'standard',
+        'own' => 'basis',
         'competitor' => 'beobachten',
     ],
 
