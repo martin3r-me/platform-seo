@@ -46,29 +46,37 @@ class SeoContentBriefDetail extends Component
             return $empty;
         }
 
+        // Ranking liegt auf dem urls-Pivot (seo_url_keywords): best-rankende URL
+        // = niedrigste Position. ranked_url = deren URL. Keine denormalisierten
+        // position/ranked_url-Spalten auf seo_keywords.
         $keywords = SeoKeyword::whereIn('cluster_id', $clusterIds)
             ->where('team_id', $this->seoSettings->team_id)
+            ->with('urls')
             ->orderByDesc('search_volume')
             ->limit(50)
-            ->get(['id', 'keyword', 'search_volume', 'position', 'ranked_url']);
+            ->get(['id', 'keyword', 'search_volume', 'cluster_id']);
 
         $targetHost = $target ? parse_url($target, PHP_URL_HOST) : null;
         $targetPath = $target ? rtrim((string) parse_url($target, PHP_URL_PATH), '/') : null;
 
         $rows = $keywords->map(function ($kw) use ($targetHost, $targetPath) {
-            $ranks = $kw->position !== null && (int) $kw->position > 0;
+            $best = $kw->urls->sortBy(fn ($u) => $u->pivot?->position ?? PHP_INT_MAX)->first();
+            $position = $best?->pivot?->position;
+            $rankedUrl = $best?->url;
+            $ranks = $position !== null && (int) $position > 0;
+
             $match = false;
-            if ($ranks && $kw->ranked_url && $targetHost) {
-                $rHost = parse_url($kw->ranked_url, PHP_URL_HOST);
-                $rPath = rtrim((string) parse_url($kw->ranked_url, PHP_URL_PATH), '/');
+            if ($ranks && $rankedUrl && $targetHost) {
+                $rHost = parse_url($rankedUrl, PHP_URL_HOST);
+                $rPath = rtrim((string) parse_url($rankedUrl, PHP_URL_PATH), '/');
                 $match = $rHost === $targetHost && ($targetPath === '' || $rPath === $targetPath);
             }
 
             return [
                 'keyword' => $kw->keyword,
                 'volume' => (int) $kw->search_volume,
-                'position' => $ranks ? (int) $kw->position : null,
-                'ranked_url' => $kw->ranked_url,
+                'position' => $ranks ? (int) $position : null,
+                'ranked_url' => $rankedUrl,
                 'target_match' => $match,
             ];
         });
