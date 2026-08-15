@@ -71,18 +71,32 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         return $attached;
     }
 
-    public function fetchMetrics(int $teamId, ?int $projectId = null, ?User $user = null): array
+    public function fetchMetrics(int $teamId, ?int $projectId = null, ?User $user = null, array $options = []): array
     {
         $settings = SeoTeamSettings::where('team_id', $teamId)->first();
 
-        $keywords = SeoKeyword::where('team_id', $teamId)->get();
+        // Optionaler Ziel-Filter: statt des gesamten Team-Pools nur eine URL,
+        // ein Cluster oder eine explizite Keyword-Liste auffrischen. So lässt
+        // sich gezielt messen, ohne den ganzen Pool (und dessen Budget) anzufassen.
+        $query = SeoKeyword::where('team_id', $teamId);
+        if (!empty($options['url_id'])) {
+            $query->whereHas('urls', fn ($q) => $q->where('seo_urls.id', (int) $options['url_id']));
+        }
+        if (!empty($options['cluster_id'])) {
+            $query->where('cluster_id', (int) $options['cluster_id']);
+        }
+        if (!empty($options['keywords'])) {
+            $query->whereIn('keyword', array_map('strval', (array) $options['keywords']));
+        }
+        $keywords = $query->get();
 
         if ($keywords->isEmpty()) {
             return ['fetched' => 0, 'cost_cents' => 0];
         }
 
-        // Filter to keywords that need refreshing
-        $staleKeywords = $keywords->filter(function ($kw) {
+        // Filter to keywords that need refreshing (force = auch frische neu holen)
+        $force = !empty($options['force']);
+        $staleKeywords = $force ? $keywords : $keywords->filter(function ($kw) {
             return !$kw->last_fetched_at || $kw->last_fetched_at->lt(now()->subDays(7));
         });
 
@@ -1173,6 +1187,15 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     protected function estimateCost(string $action, int $count): int
     {
         $costPerUnit = config("seo.cost_estimates.{$action}", 5);
+
+        // Bulk-Endpoints (z.B. getSearchVolume, bis 1000 Keywords/Call): der
+        // cost_estimates-Wert gilt PRO CALL, nicht pro Keyword. Sonst würde ein
+        // großer Pool eine absurd hohe Phantom-Schätzung erzeugen und der
+        // Budget-Guard blockte, obwohl der echte Bulk-Call Cent-Bruchteile kostet.
+        $batch = (int) config("seo.cost_bulk_batch.{$action}", 0);
+        if ($batch > 0) {
+            return (int) (ceil($count / $batch) * $costPerUnit);
+        }
 
         return (int) ceil($count * $costPerUnit);
     }

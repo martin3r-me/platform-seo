@@ -16,7 +16,10 @@ class FetchMetricsTool implements ToolContract
 
     public function getDescription(): string
     {
-        return 'POST /seo/keywords/metrics - Holt Suchvolumen, CPC und Wettbewerbsdaten von DataForSEO für alle Keywords des Teams. Aktualisiert seo_keywords Tabelle. Nur veraltete Keywords (>7 Tage) werden abgefragt. Verbraucht API-Budget!';
+        return 'POST /seo/keywords/metrics - Holt Suchvolumen & CPC (Bulk, bis 1000 Keywords/Call) von DataForSEO und '
+            . 'aktualisiert die seo_keywords Tabelle. Standard: gesamter Team-Pool, nur veraltete Keywords (>7 Tage). '
+            . 'Gezielt messen: url_id ODER cluster_id ODER keywords (Array exakter Keyword-Strings) einschränken. '
+            . 'force=true frischt auch nicht-veraltete auf. Verbraucht API-Budget (Bulk = günstig).';
     }
 
     public function getSchema(): array
@@ -24,6 +27,19 @@ class FetchMetricsTool implements ToolContract
         return [
             'type' => 'object',
             'properties' => [
+                'url_id' => [
+                    'type' => 'integer',
+                    'description' => 'Nur Keywords dieser URL auffrischen',
+                ],
+                'cluster_id' => [
+                    'type' => 'integer',
+                    'description' => 'Nur Keywords dieses Clusters auffrischen',
+                ],
+                'keywords' => [
+                    'type' => 'array',
+                    'items' => ['type' => 'string'],
+                    'description' => 'Nur diese exakten Keywords auffrischen (müssen bereits im Pool sein)',
+                ],
                 'force' => [
                     'type' => 'boolean',
                     'description' => 'Alle Keywords aktualisieren, auch wenn noch nicht veraltet',
@@ -40,8 +56,15 @@ class FetchMetricsTool implements ToolContract
                 return ToolResult::error('Kein Team im Kontext.', 'MISSING_TEAM');
             }
 
+            $options = array_filter([
+                'url_id' => $arguments['url_id'] ?? null,
+                'cluster_id' => $arguments['cluster_id'] ?? null,
+                'keywords' => $arguments['keywords'] ?? null,
+                'force' => $arguments['force'] ?? null,
+            ], fn ($v) => $v !== null);
+
             $service = app(SeoKeywordService::class);
-            $result = $service->fetchMetrics($team->id, null, $context->user);
+            $result = $service->fetchMetrics($team->id, null, $context->user, $options);
 
             if (!empty($result['error'])) {
                 return ToolResult::error($result['error'], 'FETCH_ERROR');

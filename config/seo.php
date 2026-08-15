@@ -233,6 +233,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Bulk-Endpoints — Batchgröße für Kostenschätzung
+    |--------------------------------------------------------------------------
+    | Manche DataForSEO-Endpoints verarbeiten viele Keywords in EINEM Call
+    | (z.B. getSearchVolume: bis 1000 Keywords/Call). Für die hier gelisteten
+    | Actions wird der cost_estimates-Wert als Kosten PRO CALL interpretiert
+    | (= ceil(count / batch) Calls), nicht pro Keyword. Ohne Eintrag gilt
+    | weiterhin die Pro-Keyword-Schätzung.
+    */
+    'cost_bulk_batch' => [
+        'search_volume' => 1000,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Collectors — registered data collectors for the URL pipeline
     |--------------------------------------------------------------------------
     */
