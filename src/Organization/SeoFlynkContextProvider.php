@@ -237,6 +237,15 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
         return $briefs
             ->map(fn (SeoContentBrief $b) => array_filter([
                 'ref'               => $b->uuid,
+                // Provenance-Marker: MUSS von FLYNK unverändert in den <head> der erzeugten
+                // Seite. Daran erkennt der SeoContentBriefReconciler die Umsetzung automatisch
+                // (leichter HTTP-Fetch, kein API-Cost) und schaltet den Brief auf published.
+                'provenance'        => [
+                    'meta_tag'    => $b->markerMeta(),
+                    'instruction' => 'Diese Zeile unverändert in den <head> der zu dieser Seite gehörenden '
+                        .'URL einbauen. Sie ist der Umsetzungs-Nachweis: das SEO-System liest den Marker '
+                        .'zurück und markiert den Brief automatisch als veröffentlicht. Überlebt Slug-Änderungen.',
+                ],
                 'name'              => $b->name,
                 'description'       => $b->description,
                 'content_type'      => $b->content_type,
