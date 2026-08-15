@@ -9,6 +9,7 @@ use Platform\Seo\Models\SeoContentBrief;
 use Platform\Seo\Models\SeoContentBriefNote;
 use Platform\Seo\Models\SeoContentBriefRevision;
 use Platform\Seo\Models\SeoContentBriefSection;
+use Platform\Seo\Models\SeoKeywordCluster;
 
 /**
  * Aktualisiert einen Content-Brief — Status-Workflow und die Flynk-Referenzen
@@ -27,8 +28,9 @@ class UpdateContentBriefTool implements ToolContract
         return 'PUT /seo/content-briefs/{id} - Aktualisiert einen Content-Brief. Parameter: brief_id (required). '
             . 'Optional: name, description, content_type, search_intent, status (briefed/queued/in_production/published), '
             . 'target_url, target_slug, target_word_count, external_project_ref, external_task_ref, external_document_ref, '
-            . 'published_url. Setzt beim Status "published" published_at automatisch. Für die Flynk-Übergabe: '
-            . 'external_task_ref/-document_ref/-project_ref speichern und status auf "queued" setzen.';
+            . 'published_url, cluster_id (+ cluster_role, hängt den Brief an dieses Cluster um / ersetzt die Zuordnung; '
+            . 'cluster_id null = alle Cluster lösen). Setzt beim Status "published" published_at automatisch. '
+            . 'Für die Flynk-Übergabe: external_task_ref/-document_ref/-project_ref speichern und status auf "queued" setzen.';
     }
 
     public function getSchema(): array
@@ -49,6 +51,8 @@ class UpdateContentBriefTool implements ToolContract
                 'external_task_ref' => ['type' => ['string', 'null'], 'description' => 'Flynk-Aufgaben-ID'],
                 'external_document_ref' => ['type' => ['string', 'null'], 'description' => 'Flynk-Dokument-ID'],
                 'published_url' => ['type' => ['string', 'null']],
+                'cluster_id' => ['type' => ['integer', 'null'], 'description' => 'Cluster, an das der Brief umgehängt wird (ersetzt die Zuordnung); null = alle lösen'],
+                'cluster_role' => ['type' => 'string', 'description' => 'Rolle im Cluster (Standard: primary)'],
                 'sections' => [
                     'type' => 'array',
                     'description' => 'Ersetzt ALLE Abschnitte (gleiche Struktur wie beim POST: {heading, heading_level?, description?, target_keywords?[], notes?}). Weglassen = unverändert; leeres Array = alle entfernen.',
@@ -124,6 +128,28 @@ class UpdateContentBriefTool implements ToolContract
                 }
             }
 
+            // Cluster umhängen (nur wenn der Key übergeben wurde).
+            $clusterChanged = null;
+            if (array_key_exists('cluster_id', $arguments)) {
+                $oldClusterIds = $brief->clusters()->pluck('seo_keyword_clusters.id')->sort()->values()->all();
+                $newClusterId = $arguments['cluster_id'];
+                if ($newClusterId === null || (int) $newClusterId === 0) {
+                    if (!empty($oldClusterIds)) {
+                        $brief->clusters()->detach();
+                        $clusterChanged = 'Cluster gelöst';
+                    }
+                } else {
+                    $cluster = SeoKeywordCluster::where('team_id', $team->id)->find((int) $newClusterId);
+                    if (!$cluster) {
+                        return ToolResult::error('Cluster nicht gefunden.', 'NOT_FOUND');
+                    }
+                    $brief->clusters()->sync([$cluster->id => ['role' => $arguments['cluster_role'] ?? 'primary']]);
+                    if ($oldClusterIds !== [$cluster->id]) {
+                        $clusterChanged = 'Cluster → ' . $cluster->name;
+                    }
+                }
+            }
+
             // Abschnitte ersetzen (nur wenn der Key übergeben wurde).
             $sectionCount = null;
             if (array_key_exists('sections', $arguments) && is_array($arguments['sections'])) {
@@ -185,6 +211,9 @@ class UpdateContentBriefTool implements ToolContract
             }
             if ($noteCount !== null) {
                 $summaryParts[] = $noteCount . ' Notizen ersetzt';
+            }
+            if ($clusterChanged) {
+                $summaryParts[] = $clusterChanged;
             }
 
             if (!empty($summaryParts)) {
