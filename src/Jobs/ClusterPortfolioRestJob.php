@@ -22,7 +22,7 @@ class ClusterPortfolioRestJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $timeout = 900;
+    public int $timeout = 1200;
 
     public int $tries = 1;
 
@@ -34,7 +34,20 @@ class ClusterPortfolioRestJob implements ShouldQueue
 
     public function handle(SeoClusteringService $service): void
     {
-        $service->autoClusterForPortfolio($this->portfolioId, $this->minOverlap, $this->minVolume);
+        // Soft-Deadline weit unter dem harten $timeout: bis dahin SERP holen
+        // (persistent gecacht), dann sauber aufhören. Bleibt was offen, setzt
+        // sich der Job selbst fort — so kann kein einzelner Lauf im Timeout
+        // hängen bleiben und dabei Geld verbrennen.
+        $deadlineTs = time() + 600;
+
+        $result = $service->autoClusterForPortfolio(
+            $this->portfolioId, $this->minOverlap, $this->minVolume, $deadlineTs
+        );
+
+        // Noch nicht fertig (und kein Fehler) → Rest in einem Folgelauf holen.
+        if (($result['complete'] ?? true) === false && empty($result['error'])) {
+            self::dispatch($this->portfolioId, $this->minOverlap, $this->minVolume);
+        }
     }
 
     public function failed(\Throwable $e): void

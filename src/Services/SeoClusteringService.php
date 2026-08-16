@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Log;
 use Platform\Core\Models\User;
 use Platform\Integrations\Services\DataForSeoApiService;
 use Platform\Seo\Models\SeoKeyword;
+use Platform\Seo\Models\SeoKeywordSerp;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRelationship;
@@ -83,7 +84,7 @@ class SeoClusteringService
      * Cluster bleiben unangetastet (autoCluster filtert whereNull('cluster_id')).
      * Neue Cluster hängen am Org-Knoten des Wirkungsraums (Rollup).
      */
-    public function autoClusterForPortfolio(int $portfolioId, int $minOverlap = 3, ?int $minVolume = null): array
+    public function autoClusterForPortfolio(int $portfolioId, int $minOverlap = 3, ?int $minVolume = null, ?int $deadlineTs = null): array
     {
         $portfolio = SeoPortfolio::find($portfolioId);
         if (! $portfolio) {
@@ -108,8 +109,17 @@ class SeoClusteringService
         $portfolio->markClustering('running');
 
         try {
-            $result = $this->autoCluster($settings, null, $minOverlap, $urlIds, $entityId, $minVolume);
-            $portfolio->markClustering(empty($result['error']) ? 'completed' : 'failed', $result);
+            $result = $this->autoCluster($settings, null, $minOverlap, $urlIds, $entityId, $minVolume, $deadlineTs);
+
+            if (! empty($result['error'])) {
+                $portfolio->markClustering('failed', $result);
+            } elseif (($result['complete'] ?? true) === false) {
+                // Checkpoint: SERP-Abruf noch nicht durch — bleibt „running",
+                // der Job setzt in einem Folgelauf fort (Cache trägt den Fortschritt).
+                $portfolio->markClustering('running', $result);
+            } else {
+                $portfolio->markClustering('completed', $result);
+            }
 
             return $result;
         } catch (\Throwable $e) {
@@ -124,7 +134,7 @@ class SeoClusteringService
      * @param  int|null    $entityId   Wenn gesetzt: neue Cluster an diesen Org-Knoten hängen.
      * @param  int|null    $minVolume  Wenn gesetzt: nur Keywords mit >= diesem Suchvolumen (spart Budget/Rauschen).
      */
-    public function autoCluster(SeoTeamSettings $settings, ?User $user = null, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null, ?int $minVolume = null): array
+    public function autoCluster(SeoTeamSettings $settings, ?User $user = null, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null, ?int $minVolume = null, ?int $deadlineTs = null): array
     {
         $teamId = $settings->team_id;
 
@@ -136,9 +146,11 @@ class SeoClusteringService
             $query->where('search_volume', '>=', $minVolume);
         }
         $keywords = $query->get();
+        $keywordIds = $keywords->pluck('id')->all();
 
         if ($keywords->count() < 2) {
             return [
+                'complete' => true,
                 'clusters_created' => 0,
                 'keywords_clustered' => 0,
                 'keywords_fetched' => 0,
@@ -148,63 +160,79 @@ class SeoClusteringService
             ];
         }
 
-        $estimatedCost = $this->estimateCost('serp', $keywords->count());
-        if (!$this->budgetGuard->canFetch($settings, $estimatedCost)) {
-            return [
-                'clusters_created' => 0,
-                'keywords_clustered' => 0,
-                'keywords_fetched' => 0,
-                'singletons_remaining' => $keywords->count(),
-                'cost_cents' => 0,
-                'error' => 'Budget limit exceeded',
-            ];
-        }
-
         $settings->update(['clustering_status' => 'running']);
 
         try {
-            $api = $this->resolveApiService($settings);
+            // === Phase 1: SERP abrufen (deadline-begrenzt, persistent, häppchenweise gebucht) ===
+            // Bereits frisch gecachte Keywords überspringen — macht den Lauf
+            // wiederaufsetzbar: ein Timeout/Neustart holt nur noch das Fehlende.
+            $cachedIds = $this->freshSerpKeywordIds($keywordIds);
+            $toFetch = $keywords->reject(fn ($k) => isset($cachedIds[$k->id]))->values();
 
-            // 1. Fetch SERP data for each keyword
-            $serpMap = [];
-            $fetchedCount = 0;
+            $stoppedAtDeadline = false;
+            if ($toFetch->isNotEmpty()) {
+                $estimatedCost = $this->estimateCost('serp', $toFetch->count());
+                if (! $this->budgetGuard->canFetch($settings, $estimatedCost)) {
+                    return [
+                        'complete' => false,
+                        'clusters_created' => 0,
+                        'keywords_clustered' => 0,
+                        'keywords_fetched' => count($cachedIds),
+                        'singletons_remaining' => $keywords->count(),
+                        'cost_cents' => 0,
+                        'error' => 'Budget limit exceeded',
+                    ];
+                }
 
-            foreach ($keywords as $keyword) {
-                try {
-                    $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
+                $fetch = $this->fetchSerpForKeywords($settings, $toFetch, $user, $deadlineTs);
+                $stoppedAtDeadline = $fetch['stopped_at_deadline'];
 
-                    if (empty($serpResults)) {
-                        continue;
-                    }
+                // Sackgassen-Schutz: nichts holbar (alle Fehler) und nicht wegen
+                // Deadline gestoppt → als Fehler sichtbar machen (API/Connection),
+                // NICHT endlos fortsetzen.
+                if ($fetch['fetched'] === 0 && ! $stoppedAtDeadline && count($cachedIds) === 0) {
+                    $result = [
+                        'complete' => false,
+                        'clusters_created' => 0,
+                        'keywords_clustered' => 0,
+                        'keywords_fetched' => 0,
+                        'singletons_remaining' => $keywords->count(),
+                        'cost_cents' => 0,
+                        'error' => 'SERP-Abruf lieferte nichts — API/Connection prüfen.',
+                    ];
+                    $settings->update(['clustering_status' => 'failed', 'clustering_result' => $result]);
 
-                    $urls = [];
-                    foreach (array_slice($serpResults, 0, 10) as $serpResult) {
-                        if ($serpResult->url) {
-                            $normalized = $this->normalizeUrl($serpResult->url);
-                            if ($normalized) {
-                                $urls[] = $normalized;
-                            }
-                        }
-                    }
-
-                    if (! empty($urls)) {
-                        $serpMap[$keyword->id] = $urls;
-                        $fetchedCount++;
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('SeoClusteringService: SERP fetch failed', [
-                        'keyword_id' => $keyword->id,
-                        'keyword' => $keyword->keyword,
-                        'error' => $e->getMessage(),
-                    ]);
+                    return $result;
                 }
             }
 
-            if (count($serpMap) < 2) {
-                $result = [
+            // Checkpoint NUR wenn die Deadline uns gestoppt hat (es ist noch echte
+            // Arbeit da). Bleibt ohne Deadline-Stopp etwas offen, sind das dauerhaft
+            // fehlschlagende Keywords — dann clustern wir mit dem, was da ist, statt
+            // endlos fortzusetzen.
+            $freshCount = count($this->freshSerpKeywordIds($keywordIds));
+            $remaining = $keywords->count() - $freshCount;
+            if ($remaining > 0 && $stoppedAtDeadline) {
+                return [
+                    'complete' => false,
                     'clusters_created' => 0,
                     'keywords_clustered' => 0,
-                    'keywords_fetched' => $fetchedCount,
+                    'keywords_fetched' => $freshCount,
+                    'remaining' => $remaining,
+                    'singletons_remaining' => $keywords->count(),
+                    'cost_cents' => 0,
+                ];
+            }
+
+            // === Phase 2: Clustern (aus dem Cache, kein API-Call, kein Timeout-Risiko) ===
+            $serpMap = $this->serpMapFromCache($keywordIds);
+
+            if (count($serpMap) < 2) {
+                $result = [
+                    'complete' => true,
+                    'clusters_created' => 0,
+                    'keywords_clustered' => 0,
+                    'keywords_fetched' => $freshCount,
                     'singletons_remaining' => $keywords->count(),
                     'cost_cents' => 0,
                     'clusters' => [],
@@ -215,29 +243,23 @@ class SeoClusteringService
                 return $result;
             }
 
-            // 2. Build adjacency list
             $adjacency = $this->buildAdjacencyList($serpMap, $minOverlap);
+            $components = $this->findConnectedComponents($adjacency, array_keys($serpMap));
 
-            // 3. Find connected components (BFS)
-            $allIds = array_keys($serpMap);
-            $components = $this->findConnectedComponents($adjacency, $allIds);
-
-            // 4. Create clusters
             $keywordsById = $keywords->keyBy('id');
             $created = $this->createClusters($teamId, $user, $components, $keywordsById, $entityId);
-
-            // 5. Record cost
-            $actualCost = $this->estimateCost('serp', $fetchedCount);
-            $this->budgetGuard->recordCost($settings, 'auto_cluster', $fetchedCount, $actualCost, $user);
 
             $singletonsRemaining = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id')->count();
 
             $clusteringResult = [
+                'complete' => true,
                 'clusters_created' => $created['clusters_created'],
                 'keywords_clustered' => $created['keywords_clustered'],
-                'keywords_fetched' => $fetchedCount,
+                'keywords_fetched' => $freshCount,
                 'singletons_remaining' => $singletonsRemaining,
-                'cost_cents' => $actualCost,
+                // schon häppchenweise während des Abrufs gebucht; hier nur die
+                // Gesamtsumme fürs Reporting (der echte Verbrauch steht im Budget-Log).
+                'cost_cents' => $this->estimateCost('serp', $freshCount),
                 'clusters' => $created['clusters'],
                 'finished_at' => now()->toIso8601String(),
             ];
@@ -254,13 +276,115 @@ class SeoClusteringService
                 'clustering_status' => 'failed',
                 'clustering_result' => [
                     'error' => $e->getMessage(),
-                    'keywords_fetched' => $fetchedCount ?? 0,
                     'finished_at' => now()->toIso8601String(),
                 ],
             ]);
 
             throw $e;
         }
+    }
+
+    /**
+     * Holt SERP für die übergebenen Keywords, persistiert JEDES Ergebnis sofort
+     * in den Cache und bucht die Kosten in kleinen Häppchen — so geht bei einem
+     * Timeout weder Fortschritt noch Geld-Buchung verloren. Stoppt bei $deadlineTs.
+     *
+     * @return array{fetched:int,stopped_at_deadline:bool}
+     */
+    protected function fetchSerpForKeywords(SeoTeamSettings $settings, $keywords, ?User $user, ?int $deadlineTs): array
+    {
+        $api = $this->resolveApiService($settings);
+        $fetched = 0;
+        $batch = 0;
+        $batchCost = 0;
+        $flush = 25; // Kosten alle 25 Keywords buchen (durabel, aber wenige Log-Zeilen)
+        $stoppedAtDeadline = false;
+
+        foreach ($keywords as $keyword) {
+            if ($deadlineTs !== null && time() >= $deadlineTs) {
+                $stoppedAtDeadline = true;
+                break;
+            }
+
+            try {
+                $serpResults = $api->getSerpOrganic($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
+
+                $urls = [];
+                foreach (array_slice($serpResults ?? [], 0, 10) as $serpResult) {
+                    if ($serpResult->url) {
+                        $normalized = $this->normalizeUrl($serpResult->url);
+                        if ($normalized) {
+                            $urls[] = $normalized;
+                        }
+                    }
+                }
+
+                // Auch ein leeres Ergebnis cachen — der Live-Call ist bezahlt, ein
+                // erneuter Abruf beim Fortsetzen wäre reine Geldverschwendung.
+                SeoKeywordSerp::updateOrCreate(
+                    ['keyword_id' => $keyword->id],
+                    ['team_id' => $settings->team_id, 'urls' => $urls, 'fetched_at' => now()],
+                );
+
+                $fetched++;
+                $batch++;
+                $batchCost += $this->estimateCost('serp', 1);
+
+                if ($batch >= $flush) {
+                    $this->budgetGuard->recordCost($settings, 'auto_cluster', $batch, $batchCost, $user);
+                    $batch = 0;
+                    $batchCost = 0;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('SeoClusteringService: SERP fetch failed', [
+                    'keyword_id' => $keyword->id,
+                    'keyword' => $keyword->keyword,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($batch > 0) {
+            $this->budgetGuard->recordCost($settings, 'auto_cluster', $batch, $batchCost, $user);
+        }
+
+        return ['fetched' => $fetched, 'stopped_at_deadline' => $stoppedAtDeadline];
+    }
+
+    /**
+     * Keyword-IDs, deren SERP-Cache noch frisch ist (TTL 30 Tage) — reicht fürs
+     * Gruppieren. Rückgabe als Set (id => true) für schnelles Nachschlagen.
+     */
+    protected function freshSerpKeywordIds(array $keywordIds): array
+    {
+        if (empty($keywordIds)) {
+            return [];
+        }
+
+        return SeoKeywordSerp::whereIn('keyword_id', $keywordIds)
+            ->where('fetched_at', '>=', now()->subDays(30))
+            ->pluck('keyword_id')
+            ->flip()
+            ->all();
+    }
+
+    /**
+     * Baut die serpMap (keyword_id => URLs) aus dem Cache; leere Einträge fallen
+     * raus (können nicht überlappen).
+     */
+    protected function serpMapFromCache(array $keywordIds): array
+    {
+        $serpMap = [];
+        SeoKeywordSerp::whereIn('keyword_id', $keywordIds)
+            ->where('fetched_at', '>=', now()->subDays(30))
+            ->get(['keyword_id', 'urls'])
+            ->each(function ($row) use (&$serpMap) {
+                if (! empty($row->urls)) {
+                    $serpMap[$row->keyword_id] = $row->urls;
+                }
+            });
+
+        return $serpMap;
     }
 
     protected function normalizeUrl(string $url): ?string
@@ -341,7 +465,7 @@ class SeoClusteringService
         return $components;
     }
 
-    protected function createClusters(int $teamId, User $user, array $components, $keywordsById, ?int $entityId = null): array
+    protected function createClusters(int $teamId, ?User $user, array $components, $keywordsById, ?int $entityId = null): array
     {
         $clustersCreated = 0;
         $keywordsClustered = 0;
