@@ -33,6 +33,12 @@ class SeoSemanticMapService
     /** So viele Zeilen je Liste an die UI geben. */
     protected const LIST_CAP = 60;
 
+    /** Ab dieser Größe gilt eine Nachbarschaft als „Quartier" und wird in Zimmer aufgelöst. */
+    protected const ROOM_TRIGGER = 40;
+
+    /** Feinere Cosine-Schwelle INNERHALB eines Quartiers (Simulation, read-only). */
+    protected const ROOM_THRESHOLD = 0.68;
+
     public function __construct(
         protected EmbeddingProviderRegistry $providers,
         protected EmbeddingStoreRegistry $stores,
@@ -116,8 +122,11 @@ class SeoSemanticMapService
                 if ($nid === $id || ! isset($scope[$nid])) {
                     continue; // sich selbst und alles außerhalb der Linse ignorieren
                 }
-                $adjacency[$id][$nid] = true;
-                $adjacency[$nid][$id] = true; // ungerichtet
+                // Kante mit Cosine-Score (max beider Richtungen) — der Score erlaubt
+                // später das feinere Auflösen eines Quartiers in Zimmer, ohne neuen API-Call.
+                $score = (float) ($h['score'] ?? 0.0);
+                $adjacency[$id][$nid] = max($adjacency[$id][$nid] ?? 0.0, $score);
+                $adjacency[$nid][$id] = max($adjacency[$nid][$id] ?? 0.0, $score);
             }
         }
 
@@ -131,11 +140,21 @@ class SeoSemanticMapService
             }
             $members = array_map(fn ($id) => $this->row($byId[$id], $anchorScores[$id] ?? null), $comp);
             usort($members, fn ($a, $b) => $b['volume'] <=> $a['volume']);
+
+            // Großes Quartier → in Zimmer auflösen (SIMULATION, read-only): dasselbe
+            // Kanten-Set, nur bei feinerer Schwelle re-partitioniert. Keine Persistenz.
+            $rooms = [];
+            if (count($comp) > self::ROOM_TRIGGER) {
+                $rooms = $this->rooms($comp, $adjacency, $byId, $anchorScores);
+            }
+
             $neighborhoods[] = [
                 'label' => $members[0]['keyword'],
                 'size' => count($members),
                 'volume' => array_sum(array_column($members, 'volume')),
-                'keywords' => $members,
+                'keywords' => array_slice($members, 0, 10), // Anzeige zeigt 8; size trägt den Rest
+                'rooms' => $rooms,
+                'is_quarter' => ! empty($rooms),
             ];
         }
         usort($neighborhoods, fn ($a, $b) => $b['volume'] <=> $a['volume']);
@@ -254,6 +273,78 @@ class SeoSemanticMapService
         }
 
         return $components;
+    }
+
+    /**
+     * Löst ein Quartier in Zimmer auf (SIMULATION): re-partitioniert dieselben
+     * Keywords mit dem GLEICHEN Kanten-Set, aber nur Kanten ≥ ROOM_THRESHOLD. Kein
+     * neuer API-Call, keine Persistenz. Gibt [] zurück, wenn es nicht echt splittet
+     * (< 2 Zimmer) — dann bleibt das Quartier flach.
+     *
+     * @param  int[]  $memberIds
+     * @param  array<int, array<int, float>>  $adjacency
+     */
+    protected function rooms(array $memberIds, array $adjacency, $byId, array $anchorScores): array
+    {
+        $memberSet = array_flip($memberIds);
+        $sub = [];
+        foreach ($memberIds as $id) {
+            $sub[$id] = [];
+        }
+        foreach ($memberIds as $id) {
+            foreach (($adjacency[$id] ?? []) as $nid => $score) {
+                if (isset($memberSet[$nid]) && $score >= self::ROOM_THRESHOLD) {
+                    $sub[$id][$nid] = true;
+                }
+            }
+        }
+
+        $rooms = [];
+        $inRoom = [];
+        foreach ($this->connectedComponents($sub) as $c) {
+            if (count($c) < 2) {
+                continue;
+            }
+            $m = array_map(fn ($id) => $this->row($byId[$id], $anchorScores[$id] ?? null), $c);
+            usort($m, fn ($a, $b) => $b['volume'] <=> $a['volume']);
+            foreach ($c as $id) {
+                $inRoom[$id] = true;
+            }
+            $rooms[] = [
+                'label' => $m[0]['keyword'],
+                'size' => count($m),
+                'volume' => array_sum(array_column($m, 'volume')),
+                'keywords' => array_slice($m, 0, 10),
+                'is_rest' => false,
+            ];
+        }
+
+        // Kein echtes Auflösen (nur ein Zimmer) → Quartier flach lassen.
+        if (count($rooms) < 2) {
+            return [];
+        }
+
+        usort($rooms, fn ($a, $b) => $b['volume'] <=> $a['volume']);
+
+        // Rest: Quartier-Keywords, die in kein enges Zimmer fielen.
+        $rest = [];
+        foreach ($memberIds as $id) {
+            if (! isset($inRoom[$id])) {
+                $rest[] = $this->row($byId[$id], $anchorScores[$id] ?? null);
+            }
+        }
+        if (! empty($rest)) {
+            usort($rest, fn ($a, $b) => $b['volume'] <=> $a['volume']);
+            $rooms[] = [
+                'label' => 'übrige (kein enges Zimmer)',
+                'size' => count($rest),
+                'volume' => array_sum(array_column($rest, 'volume')),
+                'keywords' => array_slice($rest, 0, 10),
+                'is_rest' => true,
+            ];
+        }
+
+        return $rooms;
     }
 
     protected function row($kw, ?float $anchorScore): array

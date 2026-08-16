@@ -435,23 +435,56 @@
                     </div>
 
                     @if(! empty($sm['neighborhoods']))
-                        <div class="grid gap-2 mb-2" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
-                            @foreach($sm['neighborhoods'] as $nb)
-                                <div class="bg-white rounded-lg border border-gray-200 p-3">
-                                    <div class="flex items-baseline justify-between gap-2 mb-1.5">
-                                        <span class="text-[12px] font-medium text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $nb['label'] }}</span>
-                                        <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }}</span>
+                        {{-- Quartiere (große Nachbarschaften, in Zimmer aufgelöst — Simulation, read-only) --}}
+                        @foreach($sm['neighborhoods'] as $nb)
+                            @if(! empty($nb['rooms']))
+                                <div class="bg-white rounded-lg border border-gray-200 p-3 mb-2">
+                                    <div class="flex items-baseline justify-between gap-2 mb-2">
+                                        <span class="text-[12px] font-semibold text-gray-700">
+                                            <span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-teal-100 text-teal-700 align-middle mr-1">Quartier</span>{{ $nb['label'] }}
+                                        </span>
+                                        <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }} · {{ count($nb['rooms']) }} Zimmer</span>
                                     </div>
-                                    <div class="flex flex-wrap gap-1">
-                                        @foreach(array_slice($nb['keywords'], 0, 8) as $kw)
-                                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600" title="Vol {{ number_format($kw['volume']) }}">@if(! $kw['clustered'])<span style="color:#0f766e">•</span> @endif{{ $kw['keyword'] }}</span>
+                                    <div class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">
+                                        @foreach($nb['rooms'] as $room)
+                                            <div class="rounded-md border border-gray-100 p-2" style="background:#fafafa">
+                                                <div class="flex items-baseline justify-between gap-2 mb-1">
+                                                    <span class="text-[11px] font-medium {{ $room['is_rest'] ? 'text-gray-400' : 'text-gray-700' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}</span>
+                                                    <span class="text-[9px] text-gray-400 shrink-0 tabular-nums">{{ $room['size'] }}</span>
+                                                </div>
+                                                <div class="flex flex-wrap gap-1">
+                                                    @foreach(array_slice($room['keywords'], 0, 6) as $kw)
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-white border border-gray-100 text-gray-600" title="Vol {{ number_format($kw['volume']) }}">@if(! $kw['clustered'])<span style="color:#0f766e">•</span> @endif{{ $kw['keyword'] }}</span>
+                                                    @endforeach
+                                                    @if($room['size'] > 6)<span class="text-[10px] text-gray-400 px-1 py-0.5">+{{ $room['size'] - 6 }}</span>@endif
+                                                </div>
+                                            </div>
                                         @endforeach
-                                        @if($nb['size'] > 8)<span class="text-[10px] text-gray-400 px-1 py-0.5">+{{ $nb['size'] - 8 }}</span>@endif
                                     </div>
                                 </div>
+                            @endif
+                        @endforeach
+
+                        {{-- Einfache Nachbarschaften (schon je ein Thema) --}}
+                        <div class="grid gap-2 mb-2" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
+                            @foreach($sm['neighborhoods'] as $nb)
+                                @if(empty($nb['rooms']))
+                                    <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                        <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                            <span class="text-[12px] font-medium text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $nb['label'] }}</span>
+                                            <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }}</span>
+                                        </div>
+                                        <div class="flex flex-wrap gap-1">
+                                            @foreach(array_slice($nb['keywords'], 0, 8) as $kw)
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600" title="Vol {{ number_format($kw['volume']) }}">@if(! $kw['clustered'])<span style="color:#0f766e">•</span> @endif{{ $kw['keyword'] }}</span>
+                                            @endforeach
+                                            @if($nb['size'] > 8)<span class="text-[10px] text-gray-400 px-1 py-0.5">+{{ $nb['size'] - 8 }}</span>@endif
+                                        </div>
+                                    </div>
+                                @endif
                             @endforeach
                         </div>
-                        <p class="text-[10px] text-gray-400 mb-4"><span style="color:#0f766e">•</span> = noch ungeclustert (Weißraum-Kandidat)</p>
+                        <p class="text-[10px] text-gray-400 mb-4"><span class="text-teal-700 font-medium">Quartier</span> = großes Feld, simuliert in Zimmer aufgelöst (nichts gespeichert) · <span style="color:#0f766e">•</span> = noch ungeclustert (Weißraum-Kandidat)</p>
                     @endif
 
                     <div class="grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
