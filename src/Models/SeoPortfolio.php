@@ -29,12 +29,17 @@ class SeoPortfolio extends Model
         'clustering_status',
         'clustering_started_at',
         'clustering_result',
+        'semantic_status',
+        'semantic_map',
+        'semantic_built_at',
     ];
 
     protected $casts = [
         'uuid' => 'string',
         'clustering_started_at' => 'datetime',
         'clustering_result' => 'array',
+        'semantic_map' => 'array',
+        'semantic_built_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -104,6 +109,16 @@ class SeoPortfolio extends Model
             'clustering_status' => $status,
             'clustering_started_at' => $status === 'running' ? now() : $this->clustering_started_at,
             'clustering_result' => $result,
+        ])->save();
+    }
+
+    /** Status/Ergebnis der semantischen Karte festhalten (running/completed/failed). */
+    public function markSemantic(string $status, ?array $map = null): void
+    {
+        $this->forceFill([
+            'semantic_status' => $status,
+            'semantic_map' => $map,
+            'semantic_built_at' => $status === 'completed' ? now() : $this->semantic_built_at,
         ])->save();
     }
 }

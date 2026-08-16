@@ -64,6 +64,7 @@ class SeoServiceProvider extends ServiceProvider
         $this->app->singleton(SeoScoringService::class);
         $this->app->singleton(\Platform\Seo\Services\SeoOrganizationLinker::class);
         $this->app->singleton(\Platform\Seo\Services\SeoClusterMetricsService::class);
+        $this->app->singleton(\Platform\Seo\Services\SeoSemanticMapService::class);
         $this->app->singleton(\Platform\Seo\Services\SeoSignalReadService::class);
         $this->app->singleton(
             \Platform\Core\Contracts\SeoSignalServiceInterface::class,

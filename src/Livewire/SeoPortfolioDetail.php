@@ -5,6 +5,7 @@ namespace Platform\Seo\Livewire;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Platform\Seo\Jobs\ClusterPortfolioRestJob;
+use Platform\Seo\Jobs\BuildPortfolioSemanticMapJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoConversionSnapshot;
 use Platform\Seo\Models\SeoPortfolio;
@@ -361,6 +362,20 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Semantische Karte (neu) aufbauen: die Wirkungsraum-Linse auf die Keyword-
+     * Vektoren in Qdrant. Kein SERP, kein Content — nur sehen. Läuft im Hintergrund.
+     */
+    public function buildSemanticMap(): void
+    {
+        if (($this->portfolio->semantic_status ?? null) === 'running') {
+            return;
+        }
+
+        $this->portfolio->markSemantic('running', null);
+        BuildPortfolioSemanticMapJob::dispatch($this->portfolio->id);
+    }
+
+    /**
      * Zahl der clusterbaren Keywords: ungeclustert (cluster_id null), an einer
      * Mitglieds-URL, ab Volumen-Schwelle. Basis für Kostenschätzung + Guard.
      */
@@ -458,6 +473,11 @@ class SeoPortfolioDetail extends Component
             'verbundWirkung' => $this->verbundWirkung($pv['members']),
             'verbundReferrals' => $this->verbundReferrals($pv['members']),
             'conversionTrend' => $this->conversionTrend($pv['members']->pluck('id')->all()),
+            'semantic' => [
+                'status' => $this->portfolio->semantic_status,
+                'map' => $this->portfolio->semantic_map,
+                'built_at' => $this->portfolio->semantic_built_at,
+            ],
         ])->layout('platform::layouts.app');
     }
 }
