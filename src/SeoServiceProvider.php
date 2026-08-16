@@ -50,6 +50,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\DiscoverClusters::class,
                 \Platform\Seo\Console\Commands\MigrateFromBrands::class,
                 \Platform\Seo\Console\Commands\PlausibleDoctor::class,
+                \Platform\Seo\Console\Commands\SeoEmbedKeywords::class,
             ]);
         }
 
@@ -151,6 +152,16 @@ class SeoServiceProvider extends ServiceProvider
         $this->registerTools();
         $this->registerSchedule();
 
+        // Keyword-Embeddings liegen in Qdrant (ANN, skaliert auf die Regionsraum-/
+        // Mehr-Feld-Größe der Mission), nicht im MySQL-Brute-Force-Store. Reine
+        // Routing-Entscheidung — Provider/Service bleiben core-seitig gleich.
+        try {
+            resolve(\Platform\Core\Services\EmbeddingStoreRegistry::class)
+                ->route('seo_keyword', 'qdrant');
+        } catch (\Throwable $e) {
+            // Core-Embedding-Infra nicht geladen
+        }
+
         try {
             resolve(\Platform\Organization\Services\EntityLinkRegistry::class)
                 ->register(new \Platform\Seo\Organization\SeoEntityLinkProvider());
@@ -194,6 +205,14 @@ class SeoServiceProvider extends ServiceProvider
         // angefasst, der Rest wird übersprungen.
         Schedule::command('seo:pipeline')
             ->dailyAt('03:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Täglich 03:30 — Keyword-Embeddings auffrischen (OpenAI→Qdrant). Nach der
+        // Pipeline (03:00), damit neu entdeckte Keywords desselben Nachts embedded
+        // werden. Skip-if-unchanged → nur neue/geänderte kosten etwas (Cent-Bereich).
+        Schedule::command('seo:embed-keywords')
+            ->dailyAt('03:30')
             ->withoutOverlapping()
             ->runInBackground();
 
