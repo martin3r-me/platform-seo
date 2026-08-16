@@ -49,6 +49,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\SnapshotClusters::class,
                 \Platform\Seo\Console\Commands\DiscoverClusters::class,
                 \Platform\Seo\Console\Commands\MigrateFromBrands::class,
+                \Platform\Seo\Console\Commands\PlausibleDoctor::class,
             ]);
         }
 
