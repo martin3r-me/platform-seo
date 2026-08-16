@@ -407,11 +407,11 @@
             @endif
 
             {{-- Semantische Karte — die Wirkungsraum-Linse auf die Keyword-Bedeutungen (Slice 2) --}}
-            <div class="mb-8" @if(($semantic['status'] ?? null) === 'running') wire:poll.5s @endif>
+            <div class="mb-8" {{ ($semantic['status'] ?? null) === 'running' ? 'wire:poll.5s' : '' }}>
                 <div class="flex items-start justify-between gap-3 mb-1">
                     <h2 class="text-[13px] font-semibold text-gray-700">Semantische Karte</h2>
                     <button wire:click="buildSemanticMap" wire:loading.attr="disabled"
-                            @if(($semantic['status'] ?? null) === 'running') disabled @endif
+                            @disabled(($semantic['status'] ?? null) === 'running')
                             class="text-[11px] px-2.5 py-1 rounded bg-gray-900 text-white disabled:opacity-50 shrink-0">
                         {{ ($semantic['map'] ?? null) ? 'Neu aufbauen' : 'Karte aufbauen' }}
                     </button>
