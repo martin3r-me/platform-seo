@@ -697,6 +697,15 @@
                             @endif
                         </div>
 
+                        {{-- Conversion-Verlauf über Zeit --}}
+                        @if(count($conversionTrend ?? []) >= 2)
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[11px] text-gray-500 mb-1">Conversion-Verlauf <span class="text-gray-400">(30-Tage-Wert je Messung)</span></div>
+                                @include('seo::partials.sparkline', ['data' => array_column($conversionTrend, 'value'), 'color' => '#0f766e', 'height' => 50, 'type' => 'area'])
+                                <div class="text-[11px] text-gray-400 mt-1">{{ count($conversionTrend) }} Messpunkte seit {{ \Illuminate\Support\Carbon::parse($conversionTrend[0]['date'])->format('d.m.Y') }}</div>
+                            </div>
+                        @endif
+
                         {{-- Conversion-Attribution je Landingpage — der SEO→Wert-Hebel --}}
                         @if($seoUrl->conversion_pages)
                             @php

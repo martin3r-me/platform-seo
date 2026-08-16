@@ -66,6 +66,11 @@
             </div>
         </div>
 
+        {{-- Datenquellen-Abdeckung — wie viele Sites je Quelle Daten haben --}}
+        <div class="mb-4">
+            @include('seo::partials.data-source-coverage', ['urls' => $listUrls])
+        </div>
+
         {{-- Daten-Profil (Listen-Default) & Kosten --}}
         <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
             <div class="flex items-center justify-between flex-wrap gap-3">

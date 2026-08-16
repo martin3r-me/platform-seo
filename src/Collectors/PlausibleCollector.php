@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Platform\Integrations\Services\IntegrationConnectionResolver;
 use Platform\Integrations\Services\PlausibleApiService;
 use Platform\Seo\Contracts\SeoCollectorInterface;
+use Platform\Seo\Models\SeoConversionSnapshot;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRegistration;
@@ -280,13 +281,22 @@ class PlausibleCollector implements SeoCollectorInterface
 
         $primary = $goals->first();
 
+        $conversions30d = (int) $goals->sum('events');
+        $rate = $primary ? $primary['rate'] : null;
+
         $root->update([
-            'conversions_30d' => (int) $goals->sum('events'),
-            'conversion_rate' => $primary ? $primary['rate'] : null,
+            'conversions_30d' => $conversions30d,
+            'conversion_rate' => $rate,
             'primary_goal' => $primary['goal'] ?? null,
             'top_goals' => $goals->take(8)->all(),
             'conversions_fetched_at' => now(),
         ]);
+
+        // Verlauf: Snapshot je Tag (event-getrieben, im Takt der Datensammlung).
+        SeoConversionSnapshot::updateOrCreate(
+            ['url_id' => $root->id, 'snapshot_date' => now()->toDateString()],
+            ['conversions_30d' => $conversions30d, 'conversion_rate' => $rate],
+        );
     }
 
     /**

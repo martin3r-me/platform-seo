@@ -87,6 +87,11 @@
             </div>
             <p class="text-[11px] text-gray-400 mb-4">Zahlen auf Property-Ebene — jede Mitglieds-URL inkl. ihrer eigenen Unterseiten, über den Verbund dedupliziert (deckungsgleich mit der URL-Detailseite).</p>
 
+            {{-- Datenquellen-Abdeckung — wie viele Sites je Quelle Daten haben --}}
+            <div class="mb-6">
+                @include('seo::partials.data-source-coverage', ['urls' => $members])
+            </div>
+
             {{-- Reifegrad — der Optimierungs-Trichter (Phase = erstes Gate, das reißt) --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
                 <div class="flex items-baseline justify-between mb-3">
@@ -187,6 +192,23 @@
                 <div class="mb-6">
                     <h2 class="text-[13px] font-semibold text-gray-700 mb-1">Wirkung im Verbund</h2>
                     <p class="text-[11px] text-gray-400 mb-3">Nicht nur Sichtbarkeit — was die Properties wirklich <span class="font-medium">wandeln</span> (Plausible, 30 Tage).</p>
+
+                    {{-- Conversion-Verlauf (steigt die Wirkung?) --}}
+                    @if($conversionTrend['count'] >= 2)
+                        <div class="bg-white rounded-lg border border-gray-200 p-3 mb-3">
+                            <div class="flex items-baseline justify-between mb-1">
+                                <span class="text-[11px] text-gray-500">Conversion-Verlauf (Verbund)</span>
+                                @php($up = ($conversionTrend['delta'] ?? 0) >= 0)
+                                <span class="text-[12px] font-semibold tabular-nums" style="color:{{ $up ? '#15803d' : '#be123c' }}">{{ $up ? '▲' : '▼' }} {{ number_format(abs($conversionTrend['delta'])) }} seit Start</span>
+                            </div>
+                            @include('seo::partials.sparkline', ['data' => array_column($conversionTrend['points'], 'value'), 'color' => '#0f766e', 'height' => 60, 'type' => 'area'])
+                            <div class="text-[11px] text-gray-400 mt-1">{{ \Illuminate\Support\Carbon::parse($conversionTrend['since'])->format('d.m.') }} → heute · {{ $conversionTrend['count'] }} Messpunkte</div>
+                        </div>
+                    @elseif($conversionTrend['count'] === 1)
+                        <div class="rounded-lg border border-dashed border-gray-200 px-3 py-2 mb-3 text-[11px] text-gray-400">
+                            Conversion-Verlauf: 1 Messpunkt seit {{ \Illuminate\Support\Carbon::parse($conversionTrend['since'])->format('d.m.Y') }} — die Kurve entsteht ab dem zweiten Lauf.
+                        </div>
+                    @endif
 
                     {{-- Wirkung je Property --}}
                     <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto mb-3">

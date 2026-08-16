@@ -492,8 +492,17 @@ class SeoUrlDetail extends Component
         $scope = app(\Platform\Seo\Services\SeoScopeMetrics::class)
             ->forUrlIds((int) $this->seoUrl->team_id, $allUrlIds);
 
+        // Conversion-Verlauf dieser URL (site-level Snapshots).
+        $conversionTrend = \Platform\Seo\Models\SeoConversionSnapshot::where('url_id', $this->seoUrl->id)
+            ->where('snapshot_date', '>=', now()->subDays(90))
+            ->orderBy('snapshot_date')
+            ->get()
+            ->map(fn ($s) => ['date' => $s->snapshot_date->format('Y-m-d'), 'value' => (int) $s->conversions_30d])
+            ->all();
+
         return view('seo::livewire.seo-url-detail', [
             'scope' => $scope,
+            'conversionTrend' => $conversionTrend,
             'contextNodes' => $contextNodes,
             'availableNodes' => $availableNodes,
             'effectiveProfile' => $profileSvc->effectiveProfile($this->seoUrl),

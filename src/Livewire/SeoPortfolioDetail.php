@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Platform\Seo\Jobs\ClusterPortfolioRestJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoConversionSnapshot;
 use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlSnapshot;
@@ -190,6 +191,47 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Conversion-Verlauf über Zeit (Summe über die URL-Menge je Snapshot-Tag).
+     * Empty-State-first — jeder Punkt eine echte Messung. Zeigt, ob die Wirkung
+     * STEIGT, statt nur den aktuellen Stand.
+     *
+     * @param  int[]  $urlIds
+     */
+    protected function conversionTrend(array $urlIds): array
+    {
+        $empty = ['points' => [], 'count' => 0, 'since' => null, 'current' => null, 'delta' => null];
+        if (empty($urlIds)) {
+            return $empty;
+        }
+
+        $rows = SeoConversionSnapshot::whereIn('url_id', $urlIds)
+            ->where('snapshot_date', '>=', now()->subDays(90))
+            ->selectRaw('snapshot_date, SUM(conversions_30d) as total')
+            ->groupBy('snapshot_date')
+            ->orderBy('snapshot_date')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return $empty;
+        }
+
+        $points = $rows->map(fn ($r) => [
+            'date' => \Illuminate\Support\Carbon::parse($r->snapshot_date)->format('Y-m-d'),
+            'value' => (int) $r->total,
+        ])->values()->all();
+
+        $count = count($points);
+
+        return [
+            'points' => $points,
+            'count' => $count,
+            'since' => $points[0]['date'],
+            'current' => $points[$count - 1]['value'],
+            'delta' => $count >= 2 ? $points[$count - 1]['value'] - $points[0]['value'] : null,
+        ];
+    }
+
+    /**
      * KI-Verteilung: die vier Facetten in einen Aussteuerungs-Vorschlag gießen.
      */
     public function analyze(): void
@@ -349,6 +391,7 @@ class SeoPortfolioDetail extends Component
             'clusterCostCents' => $clusterable * (int) config('seo.cost_estimates.serp', 10),
             'trend' => $this->trend($effectiveIds),
             'verbundWirkung' => $this->verbundWirkung($pv['members']),
+            'conversionTrend' => $this->conversionTrend($pv['members']->pluck('id')->all()),
         ])->layout('platform::layouts.app');
     }
 }
