@@ -52,6 +52,17 @@ class SeoUrlService implements SeoUrlServiceInterface
             $seoUrl->update(['priority' => $priority]);
         }
 
+        // Plausible-Opt-in explizit steuerbar: gibt die Quelle eine Absicht an,
+        // wird sie erzwungen (auch auf bestehenden URLs). So kann eine Quelle wie
+        // Syltjunkie ihre URLs verlässlich opt-out halten — selbstheilend bei
+        // jedem Sync, statt vom DB-Default abzuhängen. Ohne Angabe unverändert.
+        if (array_key_exists('plausible_enabled', $options)) {
+            $want = (bool) $options['plausible_enabled'];
+            if ((bool) $seoUrl->plausible_enabled !== $want) {
+                $seoUrl->update(['plausible_enabled' => $want]);
+            }
+        }
+
         // Create registration
         $sourceModule = $options['source_module'] ?? 'seo';
         $sourceType = $options['source_type'] ?? null;
