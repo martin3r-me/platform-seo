@@ -78,7 +78,12 @@ class SeoSemanticMapService
         $scope = $rows->pluck('id')->flip()->all(); // set: keyword_id => true
 
         // --- Anker (Identität des Wirkungsraums) für die Themenferne-Sicht ---
-        $anchorText = $this->buildAnchorText($portfolio);
+        // NUR die Cluster DIESES Wirkungsraums (aus den cluster_ids seiner Keywords),
+        // nicht alle Team-Cluster — sonst verwässert Fremdes (z.B. SOVRA) den Anker.
+        $ownClusterIds = $rows->pluck('cluster_id')->filter()->unique()->values()->all();
+        $ownClusterNames = empty($ownClusterIds) ? [] : \Platform\Seo\Models\SeoKeywordCluster::whereIn('id', $ownClusterIds)
+            ->whereNotNull('name')->pluck('name')->all();
+        $anchorText = $this->buildAnchorText($portfolio, $ownClusterNames);
         $anchorScores = [];
         if ($anchorText !== '') {
             $anchorVec = $provider->embed([$anchorText], 'query')[0] ?? null;
@@ -179,22 +184,19 @@ class SeoSemanticMapService
      * Anker-Text aus der Identität des Wirkungsraums: Name + Beschreibung + die
      * Namen seiner bestehenden Cluster. Daran wird „themenfern" gemessen.
      */
-    protected function buildAnchorText(SeoPortfolio $portfolio): string
+    /**
+     * Anker-Text = Identität des Wirkungsraums: Name + die Namen SEINER EIGENEN
+     * Cluster (übergeben, nicht team-weit gezogen). Bewusst OHNE die Meta-
+     * Beschreibung („Steuer-Scope …") — die ist Boilerplate, kein Thema.
+     *
+     * @param  string[]  $ownClusterNames
+     */
+    protected function buildAnchorText(SeoPortfolio $portfolio, array $ownClusterNames): string
     {
-        $parts = array_filter([
-            (string) $portfolio->name,
-            (string) ($portfolio->description ?? ''),
-        ]);
+        $parts = array_filter([(string) $portfolio->name]);
 
-        $clusterNames = \Platform\Seo\Models\SeoKeywordCluster::where('team_id', $portfolio->team_id)
-            ->whereNotNull('name')
-            ->orderByDesc('id')
-            ->limit(30)
-            ->pluck('name')
-            ->all();
-
-        if (! empty($clusterNames)) {
-            $parts[] = implode(', ', $clusterNames);
+        if (! empty($ownClusterNames)) {
+            $parts[] = implode(', ', $ownClusterNames);
         }
 
         return trim(implode('. ', $parts));
