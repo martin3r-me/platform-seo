@@ -406,6 +406,91 @@
                 </div>
             @endif
 
+            {{-- Semantische Karte — die Wirkungsraum-Linse auf die Keyword-Bedeutungen (Slice 2) --}}
+            <div class="mb-8" {{ ($semantic['status'] ?? null) === 'running' ? 'wire:poll.5s' : '' }}>
+                <div class="flex items-start justify-between gap-3 mb-1">
+                    <h2 class="text-[13px] font-semibold text-gray-700">Semantische Karte</h2>
+                    <button wire:click="buildSemanticMap" wire:loading.attr="disabled"
+                            @disabled(($semantic['status'] ?? null) === 'running')
+                            class="text-[11px] px-2.5 py-1 rounded bg-gray-900 text-white disabled:opacity-50 shrink-0">
+                        {{ ($semantic['map'] ?? null) ? 'Neu aufbauen' : 'Karte aufbauen' }}
+                    </button>
+                </div>
+                <p class="text-[11px] text-gray-400 mb-3 max-w-2xl">Die Keywords dieses Wirkungsraums nach <span class="font-medium">Bedeutung</span> geordnet — read-only, kein SERP. Nachbarschaften (zusammengehörige Themen), Ausreißer (ohne Nachbarn) und themenferne Keywords. Kosten: ein paar Cent, die Vektoren liegen schon in Qdrant.</p>
+
+                @php($sm = $semantic['map'] ?? null)
+                @php($smStatus = $semantic['status'] ?? null)
+
+                @if($smStatus === 'running')
+                    <div class="bg-white rounded-lg border border-gray-200 p-4 text-[12px] text-gray-500">Karte wird gebaut … (Nachbarschaftssuche über Qdrant) — aktualisiert sich automatisch.</div>
+                @elseif($smStatus === 'failed')
+                    <div class="bg-white rounded-lg border border-gray-200 p-4 text-[12px]" style="color:#b91c1c">Aufbau fehlgeschlagen{{ ! empty($sm['error']) ? ': ' . $sm['error'] : '' }}. Läuft <code>seo:embed-keywords</code> schon?</div>
+                @elseif($sm && empty($sm['error']))
+                    <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3 text-[12px] text-gray-600">
+                        <span><span class="font-semibold tabular-nums">{{ number_format($sm['stats']['total']) }}</span> Keywords</span>
+                        <span><span class="font-semibold tabular-nums" style="color:#0f766e">{{ number_format($sm['stats']['neighborhoods']) }}</span> Nachbarschaften ({{ number_format($sm['stats']['grouped']) }} gruppiert)</span>
+                        <span><span class="font-semibold tabular-nums" style="color:#b45309">{{ number_format($sm['stats']['outliers']) }}</span> Ausreißer</span>
+                        @if(! empty($sm['built_at']))<span class="text-gray-400">· {{ \Illuminate\Support\Carbon::parse($sm['built_at'])->diffForHumans() }}</span>@endif
+                        @if(! empty($sm['truncated']))<span class="text-gray-400">· auf {{ number_format($sm['cap']) }} volumenstärkste begrenzt</span>@endif
+                    </div>
+
+                    @if(! empty($sm['neighborhoods']))
+                        <div class="grid gap-2 mb-2" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
+                            @foreach($sm['neighborhoods'] as $nb)
+                                <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                    <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                        <span class="text-[12px] font-medium text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $nb['label'] }}</span>
+                                        <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }}</span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-1">
+                                        @foreach(array_slice($nb['keywords'], 0, 8) as $kw)
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600" title="Vol {{ number_format($kw['volume']) }}">@if(! $kw['clustered'])<span style="color:#0f766e">•</span> @endif{{ $kw['keyword'] }}</span>
+                                        @endforeach
+                                        @if($nb['size'] > 8)<span class="text-[10px] text-gray-400 px-1 py-0.5">+{{ $nb['size'] - 8 }}</span>@endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                        <p class="text-[10px] text-gray-400 mb-4"><span style="color:#0f766e">•</span> = noch ungeclustert (Weißraum-Kandidat)</p>
+                    @endif
+
+                    <div class="grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+                        @if(! empty($sm['outliers']))
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[12px] font-medium text-gray-700 mb-0.5">Ausreißer</div>
+                                <div class="text-[10px] text-gray-400 mb-2">Keine semantischen Nachbarn im Wirkungsraum — Quarantäne-Kandidaten.</div>
+                                <div class="flex flex-wrap gap-1">
+                                    @foreach($sm['outliers'] as $kw)
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500" title="Vol {{ number_format($kw['volume']) }}">{{ $kw['keyword'] }}</span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        @if(! empty($sm['themefar']))
+                            <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                <div class="text-[12px] font-medium text-gray-700 mb-0.5">Themenfern</div>
+                                <div class="text-[10px] text-gray-400 mb-2">Geringste Nähe zur Wirkungsraum-Identität — zum Aussortieren prüfen.</div>
+                                <div class="flex flex-col gap-0.5">
+                                    @foreach(array_slice($sm['themefar'], 0, 20) as $kw)
+                                        <div class="flex items-baseline justify-between gap-2 text-[11px]">
+                                            <span class="text-gray-600" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $kw['keyword'] }}</span>
+                                            <span class="text-gray-400 tabular-nums shrink-0">{{ $kw['anchor_score'] !== null ? number_format($kw['anchor_score'], 2) : '—' }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+
+                    @if(! empty($sm['anchor']))
+                        <p class="text-[10px] text-gray-400 mt-2">Anker: {{ \Illuminate\Support\Str::limit($sm['anchor'], 140) }}</p>
+                    @endif
+                @else
+                    <div class="bg-white rounded-lg border border-gray-200 p-4 text-[12px] text-gray-500">Noch keine Karte. Der Knopf liest die Keyword-Vektoren aus Qdrant und zeigt Nachbarschaften, Ausreißer und themenferne Keywords.</div>
+                @endif
+            </div>
+
             {{-- Wettbewerber-Benchmark (der Markt um den Verbund) --}}
             @if($competitors->isNotEmpty())
                 <div class="mt-8">
