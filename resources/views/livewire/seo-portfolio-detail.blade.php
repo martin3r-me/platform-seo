@@ -133,7 +133,15 @@
                         </div>
                     @endforeach
                 </div>
-                <p class="text-[11px] text-gray-400 mt-3">Weitere Dimensionen (Suchperformance · Seiten-Qualität · Wirkung) folgen, sobald GSC/On-Page/Plausible-Daten erhoben sind.</p>
+                @if($health['wirkung']['has_data'] ?? false)
+                    <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap text-[12px]">
+                        <span class="text-gray-500">Wirkung (Conversions)</span>
+                        <span class="text-gray-700"><span class="font-semibold tabular-nums">{{ number_format($health['wirkung']['conversions']) }}</span> Conversions/30T · beste Rate <span class="font-medium tabular-nums">{{ number_format($health['wirkung']['best_rate'], 1) }}%</span></span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mt-2">Weitere Dimensionen (Suchperformance/GSC · Seiten-Qualität) folgen mit den Daten.</p>
+                @else
+                    <p class="text-[11px] text-gray-400 mt-3">Weitere Dimensionen (Suchperformance · Seiten-Qualität · Wirkung) folgen, sobald GSC/On-Page/Plausible-Daten erhoben sind.</p>
+                @endif
             </div>
 
             {{-- Verbund-Entwicklung über Zeit — der Nordstern: steigt die gemeinsame Sichtbarkeit? --}}

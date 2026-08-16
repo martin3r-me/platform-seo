@@ -4,6 +4,7 @@ namespace Platform\Seo\Services;
 
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoPortfolio;
+use Platform\Seo\Models\SeoUrl;
 
 /**
  * Portfolio-Reifegrad — der Optimierungs-Trichter als Gate-Modell (kein
@@ -41,11 +42,20 @@ class SeoPortfolioHealth
         $clustersWithoutOwner = empty($clusterIds) ? 0
             : SeoKeywordCluster::whereIn('id', $clusterIds)->whereNull('pillar_url_id')->count();
 
+        // Wirkung: Conversions/Goals über den Scope (Plausible, Site-Level).
+        $conv = SeoUrl::whereIn('id', $ids)
+            ->selectRaw('COALESCE(SUM(conversions_30d),0) as c, MAX(conversion_rate) as r, COUNT(conversions_fetched_at) as fetched')
+            ->first();
+        $conversions = (int) ($conv->c ?? 0);
+        $bestRate = (float) ($conv->r ?? 0);
+        $hasConversionData = ((int) ($conv->fetched ?? 0)) > 0;
+
         // Gates (geordnet). met = Bedingung erfüllt.
         $hasData = ($cov['ranking'] ?? 0) > 0;
         $ordnungOk = $ordnung >= $ordnungsgradMin;
         $ownersOk = ! empty($clusterIds) && $clustersWithoutOwner === 0;
         $durchOk = $durchdringung >= $durchdringungMin;
+        $wirkungOk = $hasConversionData && $conversions > 0;
 
         $defs = [
             [
@@ -71,9 +81,13 @@ class SeoPortfolioHealth
                 'why' => "Durchdringung Ø {$durchdringung}% (Ziel ≥ {$durchdringungMin}%) — IST/SOLL-Lücken schließen.",
             ],
             [
-                'key' => 'konvertieren', 'label' => 'Konvertieren', 'met' => false, 'future' => true,
-                'action' => 'Wirkungsdaten erschließen (Plausible-Ziele, GSC-CTR)',
-                'why' => 'Conversion-/Wirkungsdaten noch nicht erhoben.',
+                'key' => 'konvertieren', 'label' => 'Konvertieren', 'met' => $wirkungOk, 'future' => ! $hasConversionData,
+                'action' => $hasConversionData
+                    ? 'Conversion-schwache Landingpages heben, starke ausbauen'
+                    : 'Wirkungsdaten erschließen (Plausible-Ziele aktivieren)',
+                'why' => $hasConversionData
+                    ? "{$conversions} Conversions/30T, beste Rate {$bestRate}% — auf die wandelnden Seiten steuern."
+                    : 'Conversion-/Wirkungsdaten noch nicht erhoben.',
             ],
         ];
 
@@ -113,6 +127,11 @@ class SeoPortfolioHealth
             'dimensions' => [
                 'ordnung' => $ordnung,
                 'durchdringung' => $durchdringung,
+            ],
+            'wirkung' => [
+                'has_data' => $hasConversionData,
+                'conversions' => $conversions,
+                'best_rate' => $bestRate,
             ],
         ];
     }

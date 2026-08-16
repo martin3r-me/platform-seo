@@ -189,6 +189,23 @@ class PlausibleCollector implements SeoCollectorInterface
                 $url->setCollectorTimestamp($this->key());
                 $processed++;
             }
+
+            // Goals/Conversions (Site-Level, 30-Tage-Snapshot) → auf die Root-URL.
+            // Die Wirkung-Zahl: CTA-Clicks, Formular-Submits usw. liegen in
+            // Plausible und werden hier endlich abgeholt. Bricht der Call (keine
+            // Goals konfiguriert o.ä.), bleibt der Traffic unberührt.
+            try {
+                $goals = $api->getBreakdown(null, [
+                    'site_id' => $siteId,
+                    'property' => 'event:goal',
+                    'period' => '30d',
+                    'metrics' => 'visitors,events,conversion_rate',
+                    'limit' => 20,
+                ]);
+                $this->storeGoals($root, $goals['results'] ?? []);
+            } catch (\Throwable $e) {
+                $errors[] = "goals {$domain}: ".$e->getMessage();
+            }
         }
 
         if (! empty($errors)) {
@@ -228,6 +245,39 @@ class PlausibleCollector implements SeoCollectorInterface
             'organic_visitors_30d' => (int) ($agg->ov ?? 0),
             'organic_pageviews_30d' => (int) ($agg->op ?? 0),
             'traffic_fetched_at' => now(),
+        ]);
+    }
+
+    /**
+     * Speichert den Goal/Conversion-Snapshot (30 Tage) auf der Root-URL:
+     * Summe der Conversion-Events, primäres Goal (nach Besuchern) samt Rate,
+     * und die Top-Goals als JSON-Detail. Site-Level (nicht je Pfad).
+     *
+     * @param  array<int,array<string,mixed>>  $results
+     */
+    protected function storeGoals(SeoUrl $root, array $results): void
+    {
+        if (empty($results)) {
+            $root->update(['conversions_fetched_at' => now()]);
+
+            return;
+        }
+
+        $goals = collect($results)->map(fn ($g) => [
+            'goal' => (string) ($g['goal'] ?? '?'),
+            'visitors' => (int) ($g['visitors'] ?? 0),
+            'events' => (int) ($g['events'] ?? 0),
+            'rate' => (float) ($g['conversion_rate'] ?? 0),
+        ])->sortByDesc('visitors')->values();
+
+        $primary = $goals->first();
+
+        $root->update([
+            'conversions_30d' => (int) $goals->sum('events'),
+            'conversion_rate' => $primary ? $primary['rate'] : null,
+            'primary_goal' => $primary['goal'] ?? null,
+            'top_goals' => $goals->take(8)->all(),
+            'conversions_fetched_at' => now(),
         ]);
     }
 
