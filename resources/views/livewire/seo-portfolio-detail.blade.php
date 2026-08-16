@@ -451,7 +451,7 @@
                                         <span class="text-[12px] font-semibold text-gray-700">
                                             <span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-teal-100 text-teal-700 align-middle mr-1">Quartier</span>{{ $nb['label'] }}@if(! empty($nb['is_opportunity']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-rose-100 text-rose-700 align-middle ml-1">Chance</span>@endif
                                         </span>
-                                        <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }} · {{ count($nb['rooms']) }} Zimmer</span>
+                                        <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ count($nb['rooms']) }} Zimmer · Pot ~{{ number_format($nb['potenzial'] ?? 0) }} / IST ~{{ number_format($nb['ist'] ?? 0) }}</span>
                                     </div>
                                     <div class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">
                                         @foreach($nb['rooms'] as $roomIdx => $room)
@@ -459,7 +459,7 @@
                                                 <div class="flex items-center justify-between gap-2 mb-1">
                                                     <span class="text-[11px] font-medium {{ $room['is_rest'] ? 'text-gray-400' : 'text-gray-700' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}@if(! empty($room['is_opportunity']))<span class="text-[8px] uppercase tracking-wide px-1 rounded bg-rose-100 text-rose-700 align-middle ml-1">Chance</span>@endif</span>
                                                     <span class="flex items-center gap-1.5 shrink-0">
-                                                        <span class="text-[9px] text-gray-400 tabular-nums">{{ $room['size'] }}</span>
+                                                        <span class="text-[9px] text-gray-400 tabular-nums" title="Größe · Chance = erreichbarer Mehr-Traffic/Monat">{{ $room['size'] }} · <span style="color:#e11d48">↑{{ number_format($room['gap'] ?? 0) }}</span></span>
                                                         <button wire:click="adoptRoom({{ $nbIdx }}, {{ $roomIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
                                                                 class="text-[9px] px-1.5 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
                                                     </span>
@@ -485,7 +485,7 @@
                                         <div class="flex items-center justify-between gap-2 mb-1.5">
                                             <span class="text-[12px] font-medium text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $nb['label'] }}@if(! empty($nb['is_opportunity']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-rose-100 text-rose-700 align-middle ml-1">Chance</span>@endif</span>
                                             <span class="flex items-center gap-1.5 shrink-0">
-                                                <span class="text-[10px] text-gray-400 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }}</span>
+                                                <span class="text-[10px] text-gray-400 tabular-nums" title="Keywords · Potenzial ~Besuche/Mon bei Top-Rang / IST ~aktuell erreicht">{{ $nb['size'] }} KW · Pot ~{{ number_format($nb['potenzial'] ?? 0) }} / IST ~{{ number_format($nb['ist'] ?? 0) }}</span>
                                                 <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
                                                         class="text-[9px] px-1.5 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
                                             </span>
@@ -500,7 +500,7 @@
                                 @endif
                             @endforeach
                         </div>
-                        <p class="text-[10px] text-gray-400 mb-4"><span class="text-teal-700 font-medium">Quartier</span> = großes Feld in Zimmer aufgelöst · <span class="text-rose-700 font-medium">Chance</span> = überwiegend Wettbewerber-Keywords (Grau) · <span style="color:#0f766e">•</span> ungeclustert (eigen) · <span style="color:#e11d48">◆</span> Wettbewerber-Keyword</p>
+                        <p class="text-[10px] text-gray-400 mb-4"><span class="text-teal-700 font-medium">Quartier</span> = großes Feld in Zimmer aufgelöst · <span class="text-rose-700 font-medium">Chance</span> = überwiegend Wettbewerber-Keywords (Grau) · <span style="color:#0f766e">•</span> ungeclustert (eigen) · <span style="color:#e11d48">◆</span> Wettbewerber-Keyword · <span style="color:#e11d48">↑</span> Chance = erreichbarer Mehr-Traffic/Mon (Pot − IST) · sortiert nach größter Chance</p>
                     @endif
 
                     <div class="grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">

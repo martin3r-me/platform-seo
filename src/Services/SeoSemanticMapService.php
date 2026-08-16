@@ -54,6 +54,12 @@ class SeoSemanticMapService
      *  die Kopf-Seite deckt den Schwanz mit ab. 0 = kein Boden. */
     protected const VOLUME_FLOOR = 10;
 
+    /** Angenommene CTR bei Top-Position — die Decke fürs „Potenzial". */
+    protected const TOP_CTR = 0.30;
+
+    /** keyword_id => unsere beste eigene Position (für IST je Keyword); je Build gesetzt. */
+    protected array $ownPositions = [];
+
     public function __construct(
         protected EmbeddingProviderRegistry $providers,
         protected EmbeddingStoreRegistry $stores,
@@ -125,6 +131,18 @@ class SeoSemanticMapService
 
         $byId = $rows->keyBy('id');
         $scope = $rows->pluck('id')->flip()->all(); // set: keyword_id => true
+
+        // IST je Keyword: unsere beste eigene Position (min über die eigenen URLs).
+        // Fehlt sie (Wettbewerber-KW / wir ranken nicht) → kein IST = reines Potenzial.
+        $this->ownPositions = DB::table('seo_url_keywords')
+            ->whereIn('keyword_id', array_keys($scope))
+            ->whereIn('url_id', $ownUrlIds)
+            ->whereNotNull('position')
+            ->groupBy('keyword_id')
+            ->selectRaw('keyword_id, MIN(position) as pos')
+            ->pluck('pos', 'keyword_id')
+            ->map(fn ($p) => (int) $p)
+            ->all();
 
         // --- Anker (Identität des Wirkungsraums) für die Themenferne-Sicht ---
         // NUR die Cluster DIESES Wirkungsraums (aus den cluster_ids seiner Keywords),
@@ -200,9 +218,12 @@ class SeoSemanticMapService
                 'keyword_ids' => array_values($comp),        // volle Menge fürs SERP-Übernehmen
                 'rooms' => $rooms,
                 'is_quarter' => ! empty($rooms),
-            ], $this->provenance($members));
+            ], $this->groupStats($members));
         }
-        usort($neighborhoods, fn ($a, $b) => $b['volume'] <=> $a['volume']);
+        // Nach OPPORTUNITY sortieren (größte ungehobene Nachfrage zuerst): Grau
+        // (Wettbewerber, IST=0) und eigen-aber-schlecht-platziert steigen nach oben,
+        // schon gewonnene Themen (kleiner Gap) sinken.
+        usort($neighborhoods, fn ($a, $b) => ($b['gap'] ?? 0) <=> ($a['gap'] ?? 0));
 
         $outliers = [];
         foreach ($idsInOrder as $id) {
@@ -403,9 +424,9 @@ class SeoSemanticMapService
                 'keywords' => array_slice($m, 0, 10),
                 'keyword_ids' => array_values($c),
                 'is_rest' => false,
-            ], $this->provenance($m));
+            ], $this->groupStats($m));
         }
-        usort($rooms, fn ($a, $b) => $b['volume'] <=> $a['volume']);
+        usort($rooms, fn ($a, $b) => ($b['gap'] ?? 0) <=> ($a['gap'] ?? 0));
 
         // Rest: Quartier-Keywords, die in kein Zimmer fielen (lose Ränder).
         $rest = [];
@@ -425,7 +446,7 @@ class SeoSemanticMapService
                 'keywords' => array_slice($rest, 0, 10),
                 'keyword_ids' => array_values($restIds),
                 'is_rest' => true,
-            ], $this->provenance($rest));
+            ], $this->groupStats($rest));
         }
 
         return $rooms;
@@ -433,33 +454,69 @@ class SeoSemanticMapService
 
     protected function row($kw, ?float $anchorScore, array $ownSet): array
     {
+        $id = (int) $kw->id;
+        $volume = (int) ($kw->search_volume ?? 0);
+        $position = $this->ownPositions[$id] ?? null; // unsere beste Position (null = ranken nicht)
+
         return [
-            'id' => (int) $kw->id,
+            'id' => $id,
             'keyword' => (string) $kw->keyword,
-            'volume' => (int) ($kw->search_volume ?? 0),
+            'volume' => $volume,
             'clustered' => $kw->cluster_id !== null,
             // Herkunft (Faden 1 vs 2): 'own' = wir ranken dafür; 'competitor' = nur
             // Wettbewerber ranken, wir nicht = das Grau/die Chance.
-            'origin' => isset($ownSet[(int) $kw->id]) ? 'own' : 'competitor',
+            'origin' => isset($ownSet[$id]) ? 'own' : 'competitor',
+            'position' => $position,
+            // IST: geschätzt erreichter Traffic bei aktueller Position (0 = ranken nicht).
+            'reach' => (int) round($volume * $this->ctr($position)),
             'anchor_score' => $anchorScore !== null ? round($anchorScore, 3) : null,
         ];
     }
 
+    /** Grobe CTR je Position (organisch) — für die IST-Schätzung. null/keine = 0. */
+    protected function ctr(?int $pos): float
+    {
+        if ($pos === null || $pos < 1) {
+            return 0.0;
+        }
+
+        $curve = [1 => 0.30, 2 => 0.15, 3 => 0.10, 4 => 0.07, 5 => 0.05,
+            6 => 0.04, 7 => 0.03, 8 => 0.025, 9 => 0.02, 10 => 0.018];
+        if (isset($curve[$pos])) {
+            return $curve[$pos];
+        }
+
+        return match (true) {
+            $pos <= 20 => 0.010,
+            $pos <= 50 => 0.005,
+            default => 0.002,
+        };
+    }
+
     /**
-     * Provenienz einer Gruppe: wie viele Keywords sind Wettbewerber-Herkunft und
-     * ist sie „Chance" (überwiegend Wettbewerber = Thema, das wir kaum besetzen)?
+     * Kennzahlen einer Gruppe: Herkunft (Wettbewerber-Anteil → „Chance") UND
+     * Potenzial vs IST — Potenzial = erreichbarer Traffic (bei Top-Position),
+     * IST = aktuell geschätzt erreichter; Chance-Gap = Potenzial − IST. Danach
+     * sortieren wir (größte ungehobene Nachfrage zuerst).
      *
      * @param  array<int, array>  $members
-     * @return array{comp_count:int,is_opportunity:bool}
+     * @return array{comp_count:int,is_opportunity:bool,potenzial:int,ist:int,gap:int}
      */
-    protected function provenance(array $members): array
+    protected function groupStats(array $members): array
     {
-        $comp = count(array_filter($members, fn ($m) => ($m['origin'] ?? 'own') === 'competitor'));
         $total = count($members);
+        $comp = count(array_filter($members, fn ($m) => ($m['origin'] ?? 'own') === 'competitor'));
+
+        $volume = array_sum(array_column($members, 'volume'));
+        $ist = array_sum(array_column($members, 'reach'));
+        $potenzial = (int) round($volume * self::TOP_CTR); // Ceiling: als würden wir top ranken
 
         return [
             'comp_count' => $comp,
             'is_opportunity' => $total > 0 && ($comp / $total) >= 0.6,
+            'potenzial' => $potenzial,
+            'ist' => $ist,
+            'gap' => max(0, $potenzial - $ist),
         ];
     }
 }
