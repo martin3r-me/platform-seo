@@ -128,7 +128,48 @@
                 </div>
             @endif
 
-            <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: Wettbewerber-Benchmark · Entwicklung über Zeit · KI-Verteilung.</p>
+            {{-- Wettbewerber-Benchmark (der Markt um den Verbund) --}}
+            @if($competitors->isNotEmpty())
+                <div class="mt-8">
+                    <div class="flex items-baseline justify-between mb-3">
+                        <div>
+                            <h2 class="text-[13px] font-semibold text-gray-700">Wettbewerber-Benchmark</h2>
+                            <p class="text-[11px] text-gray-400">Der Markt um den Verbund — wer rankt für dieselben Themen.</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[13px] font-semibold text-gray-900 tabular-nums">{{ number_format($agg['visibility'], 0) }}</div>
+                            <div class="text-[10px] uppercase tracking-wide text-gray-400">Verbund (wir)</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                        <table class="w-full text-[13px]" style="min-width: 480px">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                    <th class="text-left px-4 py-2">Wettbewerber-Domain</th>
+                                    <th class="text-right px-4 py-2">gemeinsame KWs</th>
+                                    <th class="text-right px-4 py-2">Sichtbarkeit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($competitors as $c)
+                                    <tr class="border-b border-gray-50 last:border-0">
+                                        <td class="px-4 py-2.5">
+                                            <span class="inline-flex items-center gap-2">
+                                                <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+                                                <span class="text-gray-700">{{ $c->domain }}</span>
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ number_format($c->shared_keywords) }}</td>
+                                        <td class="px-4 py-2.5 text-right tabular-nums {{ $c->visibility > $agg['visibility'] ? 'font-semibold text-rose-600' : 'text-gray-700' }}" @if($c->visibility > $agg['visibility']) title="Überholt den Verbund" @endif>{{ number_format($c->visibility, 0) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            @endif
+
+            <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: Entwicklung über Zeit · KI-Verteilung.</p>
         </div>
 
         {{-- Add-URLs-Modal (nur eigene, kontrollierte URLs) --}}

@@ -106,6 +106,31 @@ class SeoWirkungsraumDetail extends Component
         return ['clusters' => $clusters, 'unclustered' => $unclustered];
     }
 
+    /**
+     * Wettbewerber-Benchmark: Domains, die sich mit dem Verbund um dieselben
+     * Keywords balgen (Überlapp mit unseren Mitglieds-Keywords) + ihre Stärke.
+     * Nicht Mitglied — der Markt drumherum, gegen den wir messen.
+     */
+    protected function competitors(array $memberIds): \Illuminate\Support\Collection
+    {
+        if (empty($memberIds)) {
+            return collect();
+        }
+
+        return DB::table('seo_url_keywords as uk')
+            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+            ->join('seo_url_keywords as cuk', 'cuk.keyword_id', '=', 'k.id')
+            ->join('seo_urls as cu', 'cu.id', '=', 'cuk.url_id')
+            ->whereIn('uk.url_id', $memberIds)
+            ->where('cu.is_own', false)
+            ->where('cu.team_id', $this->seoSettings->team_id)
+            ->groupBy('cu.domain')
+            ->select('cu.domain', DB::raw('COUNT(DISTINCT k.id) as shared_keywords'), DB::raw('MAX(cu.visibility_score) as visibility'))
+            ->orderByDesc('shared_keywords')
+            ->limit(12)
+            ->get();
+    }
+
     public function render()
     {
         $members = $this->wirkungsraum->urls()
@@ -137,6 +162,7 @@ class SeoWirkungsraumDetail extends Component
             'agg' => $agg,
             'availableUrls' => $availableUrls,
             'penetration' => $this->penetration($members->pluck('id')->all()),
+            'competitors' => $this->competitors($members->pluck('id')->all()),
         ])->layout('platform::layouts.app');
     }
 }
