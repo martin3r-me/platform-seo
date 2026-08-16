@@ -182,6 +182,70 @@
                 @endif
             </div>
 
+            {{-- Wirkung im Verbund — die Plausible-Fakten aufs Portfolio gehoben --}}
+            @if($verbundWirkung['has_data'])
+                <div class="mb-6">
+                    <h2 class="text-[13px] font-semibold text-gray-700 mb-1">Wirkung im Verbund</h2>
+                    <p class="text-[11px] text-gray-400 mb-3">Nicht nur Sichtbarkeit — was die Properties wirklich <span class="font-medium">wandeln</span> (Plausible, 30 Tage).</p>
+
+                    {{-- Wirkung je Property --}}
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto mb-3">
+                        <table class="w-full text-[13px]" style="min-width:560px">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                    <th class="text-left px-4 py-2">Property</th>
+                                    <th class="text-right px-4 py-2">Org. Besucher</th>
+                                    <th class="text-right px-4 py-2">Conversions</th>
+                                    <th class="text-right px-4 py-2">Rate</th>
+                                    <th class="text-left px-4 py-2">Top-Ziel</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($verbundWirkung['members'] as $m)
+                                    <tr class="border-b border-gray-50 last:border-0">
+                                        <td class="px-4 py-2 text-gray-700 font-medium">{{ $m['domain'] }}</td>
+                                        <td class="px-4 py-2 text-right text-gray-500 tabular-nums">{{ $m['org_visitors'] > 0 ? number_format($m['org_visitors']) : '—' }}</td>
+                                        <td class="px-4 py-2 text-right font-semibold text-gray-900 tabular-nums">{{ number_format($m['conversions']) }}</td>
+                                        <td class="px-4 py-2 text-right tabular-nums font-medium" style="color:{{ $m['rate'] >= 10 ? '#15803d' : ($m['rate'] >= 3 ? '#b45309' : '#6b7280') }}">{{ number_format($m['rate'], 1) }}%</td>
+                                        <td class="px-4 py-2 text-gray-500 text-[12px]">{{ $m['goal'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Top konvertierende Seiten Verbund-weit --}}
+                    @if(! empty($verbundWirkung['topPages']))
+                        <div class="bg-white rounded-lg border border-gray-200 p-4">
+                            <div class="text-[12px] font-medium text-gray-700 mb-0.5">Top konvertierende Seiten im Verbund</div>
+                            <div class="text-[11px] text-gray-400 mb-2.5">Welche einzelnen Seiten über alle Properties den Wert bringen — die „mehr davon"-Liste.</div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-[12px]" style="min-width:520px">
+                                    <thead>
+                                        <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                            <th class="text-left py-1.5 pr-3">Seite</th>
+                                            <th class="text-left py-1.5 px-2">Property</th>
+                                            <th class="text-right py-1.5 px-2">Conversions</th>
+                                            <th class="text-right py-1.5 pl-2">beste Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($verbundWirkung['topPages'] as $p)
+                                            <tr class="border-b border-gray-50 last:border-0">
+                                                <td class="py-1.5 pr-3 text-gray-700" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $p['page'] }}">{{ $p['page'] }}</td>
+                                                <td class="py-1.5 px-2 text-gray-400">{{ $p['site'] }}</td>
+                                                <td class="py-1.5 px-2 text-right text-gray-600 tabular-nums font-medium">{{ number_format($p['conversions']) }}</td>
+                                                <td class="py-1.5 pl-2 text-right tabular-nums font-semibold" style="color:{{ $p['rate'] >= 20 ? '#15803d' : ($p['rate'] >= 5 ? '#b45309' : '#6b7280') }}">{{ number_format($p['rate'], 1) }}%</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endif
+
             {{-- Mitglieder --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>
             <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">

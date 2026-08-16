@@ -147,6 +147,47 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Wirkung im Verbund: die Plausible-Fakten aussagekräftig aufs Portfolio
+     * heben — welche Property wirklich wandelt (nicht nur rankt) und welche
+     * Seiten Verbund-weit den Wert bringen. Quelle: Conversion-Felder auf den
+     * Mitglieds-Root-URLs (site-level Plausible).
+     *
+     * @param  \Illuminate\Support\Collection  $members
+     */
+    protected function verbundWirkung($members): array
+    {
+        $memberRows = $members->map(fn ($u) => [
+            'domain' => $u->domain . ($u->path !== '/' ? $u->path : ''),
+            'org_visitors' => (int) ($u->organic_visitors_30d ?? 0),
+            'conversions' => (int) ($u->conversions_30d ?? 0),
+            'rate' => (float) ($u->conversion_rate ?? 0),
+            'goal' => $u->primary_goal,
+        ])->filter(fn ($m) => $m['conversions'] > 0)->sortByDesc('conversions')->values();
+
+        // Top konvertierende Seiten über alle Mitglieder (Events je Seite summiert, beste Rate).
+        $pages = [];
+        foreach ($members as $u) {
+            foreach (($u->conversion_pages ?? []) as $group) {
+                $goal = $group['goal'] ?? '';
+                foreach (($group['pages'] ?? []) as $p) {
+                    $key = $u->domain . '|' . ($p['page'] ?? '');
+                    if (! isset($pages[$key])) {
+                        $pages[$key] = ['site' => $u->domain, 'page' => (string) ($p['page'] ?? ''), 'conversions' => 0, 'rate' => 0.0, 'goal' => $goal];
+                    }
+                    $pages[$key]['conversions'] += (int) ($p['events'] ?? 0);
+                    if ((float) ($p['rate'] ?? 0) > $pages[$key]['rate']) {
+                        $pages[$key]['rate'] = (float) $p['rate'];
+                        $pages[$key]['goal'] = $goal;
+                    }
+                }
+            }
+        }
+        $topPages = collect($pages)->sortByDesc('conversions')->take(12)->values()->all();
+
+        return ['members' => $memberRows->all(), 'topPages' => $topPages, 'has_data' => $memberRows->isNotEmpty()];
+    }
+
+    /**
      * KI-Verteilung: die vier Facetten in einen Aussteuerungs-Vorschlag gießen.
      */
     public function analyze(): void
@@ -305,6 +346,7 @@ class SeoPortfolioDetail extends Component
             'clusterable' => $clusterable,
             'clusterCostCents' => $clusterable * (int) config('seo.cost_estimates.serp', 10),
             'trend' => $this->trend($effectiveIds),
+            'verbundWirkung' => $this->verbundWirkung($pv['members']),
         ])->layout('platform::layouts.app');
     }
 }
