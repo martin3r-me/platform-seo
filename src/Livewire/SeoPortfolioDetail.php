@@ -158,7 +158,9 @@ class SeoPortfolioDetail extends Component
     {
         $memberRows = $members->map(fn ($u) => [
             'domain' => $u->domain . ($u->path !== '/' ? $u->path : ''),
-            'org_visitors' => (int) ($u->organic_visitors_30d ?? 0),
+            // Frische 30-Tage-Summe aus den organischen Landingpages (site-level,
+            // ein Call) statt des dünn akkumulierten organic_visitors_30d.
+            'org_visitors' => (int) collect($u->organic_landing_pages ?? [])->sum('visitors'),
             'conversions' => (int) ($u->conversions_30d ?? 0),
             'rate' => (float) ($u->conversion_rate ?? 0),
             'goal' => $u->primary_goal,
