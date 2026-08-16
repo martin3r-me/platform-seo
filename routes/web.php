@@ -20,8 +20,8 @@ use Platform\Seo\Livewire\SeoUrlDetail;
 use Platform\Seo\Livewire\SeoUrlExplorer;
 use Platform\Seo\Livewire\SeoUrlListDetail;
 use Platform\Seo\Livewire\SeoUrlListManager;
-use Platform\Seo\Livewire\SeoWirkungsraumDetail;
-use Platform\Seo\Livewire\SeoWirkungsraumManager;
+use Platform\Seo\Livewire\SeoPortfolioDetail;
+use Platform\Seo\Livewire\SeoPortfolioManager;
 
 // Top-Level
 Route::get('/', SeoCockpit::class)->name('seo.dashboard');
@@ -50,8 +50,8 @@ Route::get('/lists/{seoUrlList}/cannibalization', SeoCannibalization::class)->na
 Route::get('/lists/{seoUrlList}/signals', SeoSignalIndex::class)->name('seo.lists.signals');
 
 // Wirkungsräume (Steuer-Scopes)
-Route::get('/wirkungsraeume', SeoWirkungsraumManager::class)->name('seo.wirkungsraeume');
-Route::get('/wirkungsraeume/{seoWirkungsraum}', SeoWirkungsraumDetail::class)->name('seo.wirkungsraeume.show');
+Route::get('/portfolios', SeoPortfolioManager::class)->name('seo.portfolios');
+Route::get('/portfolios/{seoPortfolio}', SeoPortfolioDetail::class)->name('seo.portfolios.show');
 
 // URL-Kontext
 Route::get('/urls/{seoUrl}/keywords', SeoKeywordExplorer::class)->name('seo.urls.keywords');

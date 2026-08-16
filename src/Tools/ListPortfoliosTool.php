@@ -5,22 +5,22 @@ namespace Platform\Seo\Tools;
 use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
-use Platform\Seo\Models\SeoWirkungsraum;
+use Platform\Seo\Models\SeoPortfolio;
 
 /**
  * Listet die Wirkungsräume des Teams (Steuer-Scopes), inkl. URL-Zahl,
  * Ziel und Verschachtelung.
  */
-class ListWirkungsraeumeTool implements ToolContract
+class ListPortfoliosTool implements ToolContract
 {
     public function getName(): string
     {
-        return 'seo.wirkungsraeume.GET';
+        return 'seo.portfolios.GET';
     }
 
     public function getDescription(): string
     {
-        return 'GET /seo/wirkungsraeume - Listet die Wirkungsräume des Teams (Steuer-Scopes: kontrollierte URLs + Ziel). '
+        return 'GET /seo/portfolios - Listet die Wirkungsräume des Teams (Steuer-Scopes: kontrollierte URLs + Ziel). '
             . 'Optional: parent_id (nur Kinder eines Verbunds).';
     }
 
@@ -42,7 +42,7 @@ class ListWirkungsraeumeTool implements ToolContract
                 return ToolResult::error('Kein Team im Kontext.', 'MISSING_TEAM');
             }
 
-            $query = SeoWirkungsraum::where('team_id', $team->id)
+            $query = SeoPortfolio::where('team_id', $team->id)
                 ->withCount('urls', 'children')
                 ->orderBy('name');
 
@@ -61,7 +61,7 @@ class ListWirkungsraeumeTool implements ToolContract
             ])->all();
 
             return ToolResult::success([
-                'wirkungsraeume' => $items,
+                'portfolios' => $items,
                 'total' => count($items),
             ]);
         } catch (\Throwable $e) {

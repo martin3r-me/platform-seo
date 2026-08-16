@@ -1,5 +1,10 @@
 # Wirkungsraum — Steuer-Scope für Verbund-Sichtbarkeit
 
+> **Namens-Abbildung:** „Wirkungsraum" ist der deutsche **Produkt-/UI-Begriff** (Oberfläche, Doku).
+> Im **Code/Schema** heißt die Entität englisch **`SeoPortfolio` / `seo_portfolios`** (Konvention der
+> Codebase). Route `seo.portfolios`, Tools `seo.portfolios.*` / `seo.portfolio_urls.*`, morph-Alias
+> `seo_portfolio`. Also: UI/Konzept = Wirkungsraum, Code = Portfolio — dasselbe Ding.
+
 > Nordstern: ein Tool, das **KI-getrieben die Sichtbarkeit erhöht** — nicht je
 > Einzelseite, sondern klug ausgesteuert über einen **Verbund** kontrollierter
 > Properties, hin zur **maximalen gemeinsamen Sichtbarkeit**.

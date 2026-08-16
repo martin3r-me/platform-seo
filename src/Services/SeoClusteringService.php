@@ -9,7 +9,7 @@ use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRelationship;
-use Platform\Seo\Models\SeoWirkungsraum;
+use Platform\Seo\Models\SeoPortfolio;
 
 class SeoClusteringService
 {
@@ -83,37 +83,37 @@ class SeoClusteringService
      * Cluster bleiben unangetastet (autoCluster filtert whereNull('cluster_id')).
      * Neue Cluster hängen am Org-Knoten des Wirkungsraums (Rollup).
      */
-    public function autoClusterForWirkungsraum(int $wirkungsraumId, int $minOverlap = 3, ?int $minVolume = null): array
+    public function autoClusterForPortfolio(int $portfolioId, int $minOverlap = 3, ?int $minVolume = null): array
     {
-        $wr = SeoWirkungsraum::find($wirkungsraumId);
-        if (! $wr) {
+        $portfolio = SeoPortfolio::find($portfolioId);
+        if (! $portfolio) {
             return ['error' => 'Wirkungsraum nicht gefunden'];
         }
 
-        $settings = SeoTeamSettings::where('team_id', $wr->team_id)->first();
+        $settings = SeoTeamSettings::where('team_id', $portfolio->team_id)->first();
         if (! $settings) {
             return ['error' => 'Keine SEO-Einstellungen für dieses Team'];
         }
 
         // Nur eigene (kontrollierte) Mitglieds-URLs — Steuer-Invariante.
-        $urlIds = $wr->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
+        $urlIds = $portfolio->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
         if (empty($urlIds)) {
-            $wr->markClustering('failed', ['error' => 'Keine eigenen URLs im Wirkungsraum']);
+            $portfolio->markClustering('failed', ['error' => 'Keine eigenen URLs im Wirkungsraum']);
 
             return ['error' => 'Keine eigenen URLs im Wirkungsraum'];
         }
 
-        $entityId = $this->linker->nodeIdsFor(SeoOrganizationLinker::ALIAS_WIRKUNGSRAUM, $wirkungsraumId)[0] ?? null;
+        $entityId = $this->linker->nodeIdsFor(SeoOrganizationLinker::ALIAS_PORTFOLIO, $portfolioId)[0] ?? null;
 
-        $wr->markClustering('running');
+        $portfolio->markClustering('running');
 
         try {
             $result = $this->autoCluster($settings, null, $minOverlap, $urlIds, $entityId, $minVolume);
-            $wr->markClustering(empty($result['error']) ? 'completed' : 'failed', $result);
+            $portfolio->markClustering(empty($result['error']) ? 'completed' : 'failed', $result);
 
             return $result;
         } catch (\Throwable $e) {
-            $wr->markClustering('failed', ['error' => $e->getMessage()]);
+            $portfolio->markClustering('failed', ['error' => $e->getMessage()]);
 
             throw $e;
         }

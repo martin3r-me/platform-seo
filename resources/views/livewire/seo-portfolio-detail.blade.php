@@ -1,13 +1,13 @@
 <x-ui-page>
     <x-slot name="navbar">
-        <x-ui-page-navbar :title="$wirkungsraum->name" icon="heroicon-o-rocket-launch" />
+        <x-ui-page-navbar :title="$portfolio->name" icon="heroicon-o-rocket-launch" />
     </x-slot>
 
     <x-slot name="actionbar">
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'SEO', 'icon' => 'magnifying-glass-circle', 'route' => 'seo.dashboard'],
-            ['label' => 'Wirkungsräume', 'route' => 'seo.wirkungsraeume'],
-            ['label' => $wirkungsraum->name],
+            ['label' => 'Wirkungsräume', 'route' => 'seo.portfolios'],
+            ['label' => $portfolio->name],
         ]" />
     </x-slot>
 
@@ -16,9 +16,9 @@
             {{-- Kopf --}}
             <div class="flex items-start justify-between gap-4 mb-4">
                 <div class="min-w-0">
-                    <h1 class="text-lg font-semibold text-gray-900">{{ $wirkungsraum->name }}</h1>
-                    @if($wirkungsraum->goal)
-                        <p class="text-[13px] text-gray-500 mt-0.5">🎯 {{ $wirkungsraum->goal }}</p>
+                    <h1 class="text-lg font-semibold text-gray-900">{{ $portfolio->name }}</h1>
+                    @if($portfolio->goal)
+                        <p class="text-[13px] text-gray-500 mt-0.5">🎯 {{ $portfolio->goal }}</p>
                     @endif
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
@@ -190,9 +190,9 @@
                             </table>
                         </div>
                     @endif
-                    @if($penetration['unclustered'] || ($wirkungsraum->clustering_status ?? null))
+                    @if($penetration['unclustered'] || ($portfolio->clustering_status ?? null))
                         <div class="mt-3 bg-white rounded-lg border border-dashed border-gray-200 px-4 py-3"
-                            @if(($wirkungsraum->clustering_status ?? null) === 'running') wire:poll.10s @endif>
+                            @if(($portfolio->clustering_status ?? null) === 'running') wire:poll.10s @endif>
                             <div class="flex items-center justify-between gap-3 flex-wrap">
                                 <span class="text-[12px] text-gray-600">
                                     @if($penetration['unclustered'])
@@ -202,7 +202,7 @@
                                     @endif
                                 </span>
 
-                                @if(($wirkungsraum->clustering_status ?? null) === 'running')
+                                @if(($portfolio->clustering_status ?? null) === 'running')
                                     <span class="text-[12px] font-medium" style="color:#1d4ed8">⏳ Nach-Clustern läuft…</span>
                                 @elseif($clusterable >= 2)
                                     <div class="flex items-center gap-2">
@@ -231,10 +231,10 @@
                                 <p class="text-[11px] mt-1.5" style="color:#0f766e">{{ $clusterFlash }}</p>
                             @endif
 
-                            @php($cr = is_array($wirkungsraum->clustering_result ?? null) ? $wirkungsraum->clustering_result : null)
-                            @if(($wirkungsraum->clustering_status ?? null) === 'completed' && $cr && empty($cr['error']))
+                            @php($cr = is_array($portfolio->clustering_result ?? null) ? $portfolio->clustering_result : null)
+                            @if(($portfolio->clustering_status ?? null) === 'completed' && $cr && empty($cr['error']))
                                 <p class="text-[11px] mt-1.5" style="color:#15803d">✓ {{ (int) ($cr['clusters_created'] ?? 0) }} neue Cluster · {{ (int) ($cr['keywords_clustered'] ?? 0) }} Keywords geordnet · {{ (int) ($cr['singletons_remaining'] ?? 0) }} Einzelgänger übrig</p>
-                            @elseif(($wirkungsraum->clustering_status ?? null) === 'failed' || ($cr && ! empty($cr['error'])))
+                            @elseif(($portfolio->clustering_status ?? null) === 'failed' || ($cr && ! empty($cr['error'])))
                                 <p class="text-[11px] mt-1.5" style="color:#b91c1c">Nach-Clustern fehlgeschlagen{{ $cr && ! empty($cr['error']) ? ': ' . $cr['error'] : '' }}.</p>
                             @endif
                         </div>

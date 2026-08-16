@@ -4,13 +4,13 @@ namespace Platform\Seo\Livewire;
 
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
-use Platform\Seo\Jobs\ClusterWirkungsraumRestJob;
+use Platform\Seo\Jobs\ClusterPortfolioRestJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlSnapshot;
-use Platform\Seo\Models\SeoWirkungsraum;
-use Platform\Seo\Services\SeoWirkungsraumAdvisor;
+use Platform\Seo\Models\SeoPortfolio;
+use Platform\Seo\Services\SeoPortfolioAdvisor;
 
 /**
  * Wirkungsraum-Detail — der Arbeitsraum (Slice 2: Listen-Niveau + Mitglieder-
@@ -18,11 +18,11 @@ use Platform\Seo\Services\SeoWirkungsraumAdvisor;
  * Invariante: nur eigene (kontrollierte) URLs. Steuer-Facetten (Durchdringung,
  * ungeclusterter Rest, Wettbewerber, KI) folgen in Slice 3/4.
  */
-class SeoWirkungsraumDetail extends Component
+class SeoPortfolioDetail extends Component
 {
     use ResolvesTeamSettings;
 
-    public SeoWirkungsraum $wirkungsraum;
+    public SeoPortfolio $portfolio;
 
     public bool $showAddUrls = false;
     public string $urlSearch = '';
@@ -36,11 +36,11 @@ class SeoWirkungsraumDetail extends Component
 
     public ?string $clusterFlash = null;
 
-    public function mount(SeoWirkungsraum $seoWirkungsraum): void
+    public function mount(SeoPortfolio $seoPortfolio): void
     {
         $this->resolveSettings();
-        abort_unless((int) $seoWirkungsraum->team_id === (int) $this->seoSettings->team_id, 404);
-        $this->wirkungsraum = $seoWirkungsraum;
+        abort_unless((int) $seoPortfolio->team_id === (int) $this->seoSettings->team_id, 404);
+        $this->portfolio = $seoPortfolio;
     }
 
     public function openAddUrls(): void
@@ -62,7 +62,7 @@ class SeoWirkungsraumDetail extends Component
             ->whereIn('id', $this->selectedUrlIds)
             ->pluck('id');
 
-        $this->wirkungsraum->urls()->syncWithoutDetaching(
+        $this->portfolio->urls()->syncWithoutDetaching(
             $ownIds->mapWithKeys(fn ($id) => [$id => ['added_at' => now()]])->all()
         );
 
@@ -71,7 +71,7 @@ class SeoWirkungsraumDetail extends Component
 
     public function removeUrl(int $urlId): void
     {
-        $this->wirkungsraum->urls()->detach($urlId);
+        $this->portfolio->urls()->detach($urlId);
     }
 
     /**
@@ -79,7 +79,7 @@ class SeoWirkungsraumDetail extends Component
      */
     public function analyze(): void
     {
-        $members = $this->wirkungsraum->urls()->orderByDesc('visibility_score')->get();
+        $members = $this->portfolio->urls()->orderByDesc('visibility_score')->get();
         $memberIds = $members->pluck('id')->all();
         $pen = $this->penetration($memberIds);
         $comp = $this->competitors($memberIds);
@@ -100,7 +100,7 @@ class SeoWirkungsraumDetail extends Component
             'own_visibility' => (int) round((float) $members->sum('visibility_score')),
         ];
 
-        $this->advice = app(SeoWirkungsraumAdvisor::class)->advise($this->wirkungsraum, $facets);
+        $this->advice = app(SeoPortfolioAdvisor::class)->advise($this->portfolio, $facets);
     }
 
     /**
@@ -110,11 +110,11 @@ class SeoWirkungsraumDetail extends Component
      */
     public function clusterRest(): void
     {
-        if (($this->wirkungsraum->clustering_status ?? null) === 'running') {
+        if (($this->portfolio->clustering_status ?? null) === 'running') {
             return;
         }
 
-        $memberIds = $this->wirkungsraum->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
+        $memberIds = $this->portfolio->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
         $count = $this->clusterableCount($memberIds, $this->clusterMinVolume);
 
         if ($count < 2) {
@@ -123,8 +123,8 @@ class SeoWirkungsraumDetail extends Component
             return;
         }
 
-        $this->wirkungsraum->markClustering('running');
-        ClusterWirkungsraumRestJob::dispatch($this->wirkungsraum->id, 3, $this->clusterMinVolume);
+        $this->portfolio->markClustering('running');
+        ClusterPortfolioRestJob::dispatch($this->portfolio->id, 3, $this->clusterMinVolume);
 
         $this->clusterFlash = "Nach-Clustern gestartet für {$count} Keywords (läuft im Hintergrund).";
     }
@@ -261,7 +261,7 @@ class SeoWirkungsraumDetail extends Component
 
     public function render()
     {
-        $members = $this->wirkungsraum->urls()
+        $members = $this->portfolio->urls()
             ->orderByDesc('visibility_score')
             ->get();
 
@@ -275,7 +275,7 @@ class SeoWirkungsraumDetail extends Component
         // Add-Modal: nur EIGENE, noch nicht zugeordnete URLs.
         $availableUrls = collect();
         if ($this->showAddUrls) {
-            $existing = $this->wirkungsraum->urls()->pluck('seo_urls.id');
+            $existing = $this->portfolio->urls()->pluck('seo_urls.id');
             $q = SeoUrl::where('team_id', $this->seoSettings->team_id)
                 ->where('is_own', true)
                 ->whereNotIn('id', $existing);
@@ -288,7 +288,7 @@ class SeoWirkungsraumDetail extends Component
         $memberIds = $members->pluck('id')->all();
         $clusterable = $this->clusterableCount($memberIds, $this->clusterMinVolume);
 
-        return view('seo::livewire.seo-wirkungsraum-detail', [
+        return view('seo::livewire.seo-portfolio-detail', [
             'members' => $members,
             'agg' => $agg,
             'availableUrls' => $availableUrls,

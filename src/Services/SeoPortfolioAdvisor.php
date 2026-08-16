@@ -3,7 +3,7 @@
 namespace Platform\Seo\Services;
 
 use Platform\Core\Services\LLMProviderRegistry;
-use Platform\Seo\Models\SeoWirkungsraum;
+use Platform\Seo\Models\SeoPortfolio;
 
 /**
  * Die KI-Klammer: liest den Zustand eines Wirkungsraums (Mitglieder,
@@ -12,11 +12,11 @@ use Platform\Seo\Models\SeoWirkungsraum;
  * sierung), was cross-linken, was clustern, wo Lücken schließen. Nordstern:
  * maximale gemeinsame Sichtbarkeit im Verbund. Siehe docs/WIRKUNGSRAUM-CONCEPT.md.
  */
-class SeoWirkungsraumAdvisor
+class SeoPortfolioAdvisor
 {
     public function __construct(private LLMProviderRegistry $registry) {}
 
-    public function advise(SeoWirkungsraum $wr, array $facets): array
+    public function advise(SeoPortfolio $portfolio, array $facets): array
     {
         $provider = $this->registry->get('openai') ?? $this->registry->getDefaultProvider();
         if (! $provider || ! $provider->isAvailable()) {
@@ -25,7 +25,7 @@ class SeoWirkungsraumAdvisor
 
         try {
             $resp = $provider->chat(
-                [['role' => 'user', 'content' => $this->userPrompt($wr, $facets)]],
+                [['role' => 'user', 'content' => $this->userPrompt($portfolio, $facets)]],
                 ['system' => $this->systemPrompt(), 'max_tokens' => 1300, 'tools' => false],
             );
 
@@ -65,10 +65,10 @@ Keine Floskeln, keine generischen SEO-Tipps. Nur was aus DIESEN Daten folgt.
 TXT;
     }
 
-    protected function userPrompt(SeoWirkungsraum $wr, array $facets): string
+    protected function userPrompt(SeoPortfolio $portfolio, array $facets): string
     {
-        $out = "WIRKUNGSRAUM: {$wr->name}\n";
-        $out .= 'ZIEL: ' . ($wr->goal ?: '(kein Ziel gesetzt)') . "\n\n";
+        $out = "WIRKUNGSRAUM: {$portfolio->name}\n";
+        $out .= 'ZIEL: ' . ($portfolio->goal ?: '(kein Ziel gesetzt)') . "\n\n";
 
         $out .= "MITGLIEDER (kontrollierte URLs, mit eigener Sichtbarkeit):\n";
         foreach (($facets['members'] ?? []) as $m) {

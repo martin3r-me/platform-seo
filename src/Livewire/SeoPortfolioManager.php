@@ -4,13 +4,13 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
-use Platform\Seo\Models\SeoWirkungsraum;
+use Platform\Seo\Models\SeoPortfolio;
 
 /**
  * Wirkungsraum-Index — Steuer-Scopes des Teams (Gegenstück zur Listen-Übersicht,
  * aber: Steuern statt Beobachten). Inline anlegen; Detail steuert die Mitglieder.
  */
-class SeoWirkungsraumManager extends Component
+class SeoPortfolioManager extends Component
 {
     use ResolvesTeamSettings;
 
@@ -30,14 +30,14 @@ class SeoWirkungsraumManager extends Component
             return;
         }
 
-        $base = \Illuminate\Support\Str::slug($name) ?: 'wirkungsraum';
+        $base = \Illuminate\Support\Str::slug($name) ?: 'portfolio';
         $slug = $base;
         $i = 1;
-        while (SeoWirkungsraum::where('team_id', $this->seoSettings->team_id)->where('slug', $slug)->exists()) {
+        while (SeoPortfolio::where('team_id', $this->seoSettings->team_id)->where('slug', $slug)->exists()) {
             $slug = $base . '-' . (++$i);
         }
 
-        $wr = SeoWirkungsraum::create([
+        $wr = SeoPortfolio::create([
             'team_id' => $this->seoSettings->team_id,
             'user_id' => auth()->id(),
             'name' => $name,
@@ -46,12 +46,12 @@ class SeoWirkungsraumManager extends Component
         ]);
 
         $this->reset('newName', 'newGoal', 'showCreate');
-        $this->redirectRoute('seo.wirkungsraeume.show', $wr, navigate: true);
+        $this->redirectRoute('seo.portfolios.show', $wr, navigate: true);
     }
 
     public function render()
     {
-        $items = SeoWirkungsraum::where('team_id', $this->seoSettings->team_id)
+        $items = SeoPortfolio::where('team_id', $this->seoSettings->team_id)
             ->withCount('urls', 'children')
             ->with(['urls:id,visibility_score'])
             ->orderBy('name')
@@ -62,7 +62,7 @@ class SeoWirkungsraumManager extends Component
                 return $wr;
             });
 
-        return view('seo::livewire.seo-wirkungsraum-manager', [
+        return view('seo::livewire.seo-portfolio-manager', [
             'items' => $items,
         ])->layout('platform::layouts.app');
     }

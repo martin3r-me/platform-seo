@@ -21,7 +21,7 @@ class SeoOrganizationLinker
     public const ALIAS_CLUSTER = 'seo_cluster';
     public const ALIAS_CONTENT_BRIEF = 'seo_content_brief';
     public const ALIAS_SIGNAL = 'seo_signal';
-    public const ALIAS_WIRKUNGSRAUM = 'seo_wirkungsraum';
+    public const ALIAS_PORTFOLIO = 'seo_portfolio';
 
     /**
      * Liefert die Bridge-Klasse, wenn das Organization-Modul geladen ist.

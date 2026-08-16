@@ -37,7 +37,7 @@
 
             <div class="mt-5 space-y-2">
                 @forelse($items as $wr)
-                    <a href="{{ route('seo.wirkungsraeume.show', $wr->id) }}" wire:navigate
+                    <a href="{{ route('seo.portfolios.show', $wr->id) }}" wire:navigate
                        class="block bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
                         <div class="flex items-start justify-between gap-4">
                             <div class="min-w-0">

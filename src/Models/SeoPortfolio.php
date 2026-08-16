@@ -12,9 +12,9 @@ use Symfony\Component\Uid\UuidV7;
  * Wirkungsraum — der Steuer-Scope: kontrollierte URLs + Ziel, verschachtelbar.
  * Siehe Migration 2026_08_15_030001 / docs/WIRKUNGSRAUM-CONCEPT.md.
  */
-class SeoWirkungsraum extends Model
+class SeoPortfolio extends Model
 {
-    protected $table = 'seo_wirkungsraeume';
+    protected $table = 'seo_portfolios';
 
     protected $fillable = [
         'uuid',
@@ -48,7 +48,7 @@ class SeoWirkungsraum extends Model
     /** Kontrollierte URLs dieses Wirkungsraums. */
     public function urls(): BelongsToMany
     {
-        return $this->belongsToMany(SeoUrl::class, 'seo_wirkungsraum_urls', 'wirkungsraum_id', 'url_id')
+        return $this->belongsToMany(SeoUrl::class, 'seo_portfolio_urls', 'portfolio_id', 'url_id')
             ->withPivot('role', 'added_at');
     }
 

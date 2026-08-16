@@ -6,24 +6,24 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Seo\Models\SeoUrl;
-use Platform\Seo\Models\SeoWirkungsraum;
+use Platform\Seo\Models\SeoPortfolio;
 
 /**
  * Hängt kontrollierte URLs an einen Wirkungsraum (oder entfernt sie). Steuer-
  * Invariante: nur EIGENE URLs (is_own) — man kann nur steuern, was man
  * kontrolliert. Fremde/Wettbewerber-URLs gehören in eine Liste (Beobachtung).
  */
-class WirkungsraumUrlsTool implements ToolContract
+class PortfolioUrlsTool implements ToolContract
 {
     public function getName(): string
     {
-        return 'seo.wirkungsraum_urls.POST';
+        return 'seo.portfolio_urls.POST';
     }
 
     public function getDescription(): string
     {
-        return 'POST /seo/wirkungsraum-urls - Hängt kontrollierte URLs an einen Wirkungsraum (action add|remove). '
-            . 'Parameter: wirkungsraum_id (required), url_ids (required, Array). Optional: role (core|support), '
+        return 'POST /seo/portfolio-urls - Hängt kontrollierte URLs an einen Wirkungsraum (action add|remove). '
+            . 'Parameter: portfolio_id (required), url_ids (required, Array). Optional: role (core|support), '
             . 'action (Default add). NUR eigene URLs (is_own) — Wettbewerber/fremde URLs werden abgelehnt (die '
             . 'gehören in eine Liste = Beobachtung).';
     }
@@ -33,12 +33,12 @@ class WirkungsraumUrlsTool implements ToolContract
         return [
             'type' => 'object',
             'properties' => [
-                'wirkungsraum_id' => ['type' => 'integer'],
+                'portfolio_id' => ['type' => 'integer'],
                 'url_ids' => ['type' => 'array', 'items' => ['type' => 'integer']],
                 'role' => ['type' => 'string', 'description' => 'core|support (Owner vs. Zulieferer)'],
                 'action' => ['type' => 'string', 'description' => 'add (Standard) oder remove'],
             ],
-            'required' => ['wirkungsraum_id', 'url_ids'],
+            'required' => ['portfolio_id', 'url_ids'],
         ];
     }
 
@@ -50,7 +50,7 @@ class WirkungsraumUrlsTool implements ToolContract
                 return ToolResult::error('Kein Team im Kontext.', 'MISSING_TEAM');
             }
 
-            $wr = SeoWirkungsraum::where('team_id', $team->id)->find((int) ($arguments['wirkungsraum_id'] ?? 0));
+            $wr = SeoPortfolio::where('team_id', $team->id)->find((int) ($arguments['portfolio_id'] ?? 0));
             if (!$wr) {
                 return ToolResult::error('Wirkungsraum nicht gefunden.', 'NOT_FOUND');
             }
@@ -65,7 +65,7 @@ class WirkungsraumUrlsTool implements ToolContract
                 $wr->urls()->detach($urlIds);
 
                 return ToolResult::success([
-                    'wirkungsraum_id' => $wr->id,
+                    'portfolio_id' => $wr->id,
                     'removed' => count($urlIds),
                     'message' => count($urlIds) . ' URL(s) aus Wirkungsraum entfernt.',
                 ]);
@@ -91,7 +91,7 @@ class WirkungsraumUrlsTool implements ToolContract
             );
 
             return ToolResult::success([
-                'wirkungsraum_id' => $wr->id,
+                'portfolio_id' => $wr->id,
                 'added' => count($ownIds),
                 'rejected_competitors' => $rejected,
                 'not_found' => $missing,
