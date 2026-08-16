@@ -140,8 +140,8 @@
                 </div>
                 @if($health['wirkung']['has_data'] ?? false)
                     <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap text-[12px]">
-                        <span class="text-gray-500">Wirkung (Conversions)</span>
-                        <span class="text-gray-700"><span class="font-semibold tabular-nums">{{ number_format($health['wirkung']['conversions']) }}</span> Conversions/30T · beste Rate <span class="font-medium tabular-nums">{{ number_format($health['wirkung']['best_rate'], 1) }}%</span></span>
+                        <span class="text-gray-500">Wirkung (organische Conversions)</span>
+                        <span class="text-gray-700"><span class="font-semibold tabular-nums">{{ number_format($health['wirkung']['conversions']) }}</span> org. Conversions/30T · beste Rate <span class="font-medium tabular-nums">{{ number_format($health['wirkung']['best_rate'], 1) }}%</span></span>
                     </div>
                     <p class="text-[11px] text-gray-400 mt-2">Weitere Dimensionen (Suchperformance/GSC · Seiten-Qualität) folgen mit den Daten.</p>
                 @else
@@ -191,7 +191,7 @@
             @if($verbundWirkung['has_data'])
                 <div class="mb-6">
                     <h2 class="text-[13px] font-semibold text-gray-700 mb-1">Wirkung im Verbund</h2>
-                    <p class="text-[11px] text-gray-400 mb-3">Nicht nur Sichtbarkeit — was die Properties wirklich <span class="font-medium">wandeln</span> (Plausible, 30 Tage).</p>
+                    <p class="text-[11px] text-gray-400 mb-3">Nicht nur Sichtbarkeit — was die Properties aus <span class="font-medium">organischer Suche</span> wirklich wandeln (Plausible, 30 Tage). Reine SEO-Wirkung, ohne App-/Direkt-Traffic.</p>
 
                     {{-- Conversion-Verlauf (steigt die Wirkung?) --}}
                     @if($conversionTrend['count'] >= 2)
@@ -217,8 +217,8 @@
                                 <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                                     <th class="text-left px-4 py-2">Property</th>
                                     <th class="text-right px-4 py-2">Org. Besucher</th>
-                                    <th class="text-right px-4 py-2">Conversions</th>
-                                    <th class="text-right px-4 py-2">Rate</th>
+                                    <th class="text-right px-4 py-2">Org. Conv.</th>
+                                    <th class="text-right px-4 py-2">Org. Rate</th>
                                     <th class="text-left px-4 py-2">Top-Ziel</th>
                                 </tr>
                             </thead>

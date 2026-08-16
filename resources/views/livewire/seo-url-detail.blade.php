@@ -719,7 +719,7 @@
                             @endphp
                             <div class="bg-white rounded-lg border border-gray-200 p-4">
                                 <div class="text-[13px] font-medium text-gray-900 mb-0.5">Conversions je Seite</div>
-                                <div class="text-[12px] text-gray-500 mb-3">Welche Landingpage bringt dieses Ziel — der SEO→Wert-Hebel (30 Tage). Ziel wählen:</div>
+                                <div class="text-[12px] text-gray-500 mb-3">Welche Landingpage bringt dieses Ziel aus <span class="font-medium">organischer Suche</span> — der SEO→Wert-Hebel (30 Tage). Ziel wählen:</div>
 
                                 {{-- Ziel-Switcher --}}
                                 <div class="flex items-center gap-1.5 flex-wrap mb-3">

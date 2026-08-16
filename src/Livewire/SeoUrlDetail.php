@@ -147,6 +147,13 @@ class SeoUrlDetail extends Component
             return;
         }
 
+        // Status vor dem Test merken: ein site-spezifisches 401 (falscher site_id)
+        // markiert sonst die GETEILTE Connection als 'error' — und resolveForTeam
+        // liefert nur aktive → das würde die Plausible-Sammlung des ganzen Teams
+        // lahmlegen. Ein Site-Test darf die Connection nicht vergiften.
+        $prevStatus = $connection->status;
+        $prevError = $connection->last_error;
+
         try {
             $res = app(\Platform\Integrations\Services\PlausibleApiService::class)
                 ->forConnection($connection->id)
@@ -160,6 +167,11 @@ class SeoUrlDetail extends Component
             $n = count($res['results'] ?? []);
             $this->plausibleTest = ['ok' => true, 'msg' => "OK — {$siteId} liefert Daten ({$n} Zeile(n) in 7 T)."];
         } catch (\Throwable $e) {
+            // Connection-Status zurücksetzen, falls der Test-Call sie gekippt hat.
+            $connection->refresh();
+            if ($prevStatus === 'active' && $connection->status !== 'active') {
+                $connection->update(['status' => $prevStatus, 'last_error' => $prevError]);
+            }
             $this->plausibleTest = ['ok' => false, 'msg' => "{$siteId}: " . $e->getMessage()];
         }
     }

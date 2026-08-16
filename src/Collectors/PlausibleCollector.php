@@ -196,15 +196,19 @@ class PlausibleCollector implements SeoCollectorInterface
             // Plausible und werden hier endlich abgeholt. Bricht der Call (keine
             // Goals konfiguriert o.ä.), bleibt der Traffic unberührt.
             try {
+                // SEO-Tool: nur ORGANISCHE Conversions zählen (was aus organischer
+                // Suche kommt), nicht der ganze App-/Direkt-Funnel.
+                $organicFilter = config('seo.plausible.organic_filter', 'visit:channel==Organic Search');
                 $goals = $api->getBreakdown(null, [
                     'site_id' => $siteId,
                     'property' => 'event:goal',
                     'period' => '30d',
                     'metrics' => 'visitors,events,conversion_rate',
+                    'filters' => $organicFilter,
                     'limit' => 20,
                 ]);
                 $this->storeGoals($root, $goals['results'] ?? []);
-                $this->storeConversionPages($root, $siteId, $api, $goals['results'] ?? []);
+                $this->storeConversionPages($root, $siteId, $api, $goals['results'] ?? [], $organicFilter);
             } catch (\Throwable $e) {
                 $errors[] = "goals {$domain}: ".$e->getMessage();
             }
@@ -214,6 +218,17 @@ class PlausibleCollector implements SeoCollectorInterface
                 $this->storeOrganicLandingPages($root, $siteId, $api);
             } catch (\Throwable $e) {
                 $errors[] = "landing {$domain}: ".$e->getMessage();
+            }
+        }
+
+        // Self-Heal: hat ein site-spezifisches 401 (falscher site_id einer Domain)
+        // die GETEILTE Connection auf 'error' gekippt, wir aber erfolgreich
+        // gesammelt → der Key ist gültig. Status zurücksetzen, sonst bricht der
+        // nächste Lauf (resolveForTeam liefert nur aktive) für das ganze Team.
+        if ($processed > 0) {
+            $connection->refresh();
+            if ($connection->status !== 'active') {
+                $connection->update(['status' => 'active', 'last_error' => null]);
             }
         }
 
@@ -307,7 +322,7 @@ class PlausibleCollector implements SeoCollectorInterface
      *
      * @param  array<int,array<string,mixed>>  $goalResults
      */
-    protected function storeConversionPages(SeoUrl $root, string $siteId, $api, array $goalResults): void
+    protected function storeConversionPages(SeoUrl $root, string $siteId, $api, array $goalResults, ?string $organicFilter = null): void
     {
         if (empty($goalResults)) {
             return;
@@ -326,13 +341,19 @@ class PlausibleCollector implements SeoCollectorInterface
                 continue;
             }
 
+            // Attribution ebenfalls organisch: welche Seite bringt ORGANISCHE Conversions.
+            $filter = 'event:goal==' . $goalName;
+            if ($organicFilter) {
+                $filter .= ';' . $organicFilter;
+            }
+
             try {
                 $bd = $api->getBreakdown(null, [
                     'site_id' => $siteId,
                     'property' => 'event:page',
                     'period' => '30d',
                     'metrics' => 'visitors,events,conversion_rate',
-                    'filters' => 'event:goal==' . $goalName,
+                    'filters' => $filter,
                     'limit' => 6,
                 ]);
             } catch (\Throwable $e) {
