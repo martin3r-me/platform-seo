@@ -192,6 +192,70 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Verbund-Verweise: speist der Verbund sich selbst? Für jede Property matchen
+     * wir ihre Traffic-Quellen (visit:source) gegen die ANDEREN Verbund-Domains.
+     * Ein Treffer = eine Verbund-Property schickt Besucher an eine andere (Ranker
+     * → Endpunkt). Das ist der Verbund-Effekt, endlich messbar — nicht behauptet.
+     * Gegen ALLE team-eigenen Domains gematcht (nicht nur Portfolio-Mitglieder),
+     * damit auch Verweise von Verbund-Nachbarn außerhalb des Portfolios zählen.
+     *
+     * @param  \Illuminate\Support\Collection  $members
+     */
+    protected function verbundReferrals($members): array
+    {
+        $norm = fn ($s) => strtolower(preg_replace('/^www\./', '', trim((string) $s)));
+
+        // Alle Verbund-Domains (team-eigen) als mögliche Verweis-Quellen.
+        $ownDomains = SeoUrl::where('team_id', $this->seoSettings->team_id)
+            ->where('is_own', true)
+            ->pluck('domain')
+            ->map($norm)->filter()->unique()->values()->all();
+
+        $memberDomains = $members->pluck('domain')->map($norm)->filter()->unique()->values()->all();
+
+        $edges = [];
+        foreach ($members as $m) {
+            $toDomain = $norm($m->domain);
+            foreach (($m->traffic_sources ?? []) as $src) {
+                $s = $norm($src['source'] ?? '');
+                $v = (int) ($src['visitors'] ?? 0);
+                if ($s === '' || $v <= 0) {
+                    continue;
+                }
+                // matcht die Quelle eine ANDERE Verbund-Domain (nicht die eigene)?
+                $match = null;
+                foreach ($ownDomains as $d) {
+                    if ($d === $toDomain) {
+                        continue; // eigene Subdomain = Selbstverweis, nicht Verbund
+                    }
+                    if ($s === $d || str_ends_with($s, '.' . $d)) {
+                        $match = $d;
+                        break;
+                    }
+                }
+                if ($match === null) {
+                    continue;
+                }
+                $edges[] = [
+                    'from' => (string) ($src['source'] ?? ''), // Rohquelle (zeigt ggf. Subdomain)
+                    'from_domain' => $match,
+                    'to' => $m->domain . ($m->path !== '/' ? $m->path : ''),
+                    'visitors' => $v,
+                    'from_is_member' => in_array($match, $memberDomains, true),
+                ];
+            }
+        }
+
+        usort($edges, fn ($a, $b) => $b['visitors'] <=> $a['visitors']);
+
+        return [
+            'edges' => $edges,
+            'total' => array_sum(array_column($edges, 'visitors')),
+            'has_data' => ! empty($edges),
+        ];
+    }
+
+    /**
      * Conversion-Verlauf über Zeit (Summe über die URL-Menge je Snapshot-Tag).
      * Empty-State-first — jeder Punkt eine echte Messung. Zeigt, ob die Wirkung
      * STEIGT, statt nur den aktuellen Stand.
@@ -392,6 +456,7 @@ class SeoPortfolioDetail extends Component
             'clusterCostCents' => $clusterable * (int) config('seo.cost_estimates.serp', 10),
             'trend' => $this->trend($effectiveIds),
             'verbundWirkung' => $this->verbundWirkung($pv['members']),
+            'verbundReferrals' => $this->verbundReferrals($pv['members']),
             'conversionTrend' => $this->conversionTrend($pv['members']->pluck('id')->all()),
         ])->layout('platform::layouts.app');
     }

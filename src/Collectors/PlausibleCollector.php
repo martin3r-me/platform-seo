@@ -229,6 +229,14 @@ class PlausibleCollector implements SeoCollectorInterface
             } catch (\Throwable $e) {
                 $errors[] = "landing {$domain}: ".$e->getMessage();
             }
+
+            // Traffic-Quellen (visit:source) — Basis für den Verbund-Referral:
+            // welche Property speist welche? Der Verbund bei der Arbeit.
+            try {
+                $this->storeTrafficSources($root, $siteId, $api);
+            } catch (\Throwable $e) {
+                $errors[] = "sources {$domain}: ".$e->getMessage();
+            }
         }
 
         // Self-Heal: hat ein site-spezifisches 401 (falscher site_id einer Domain)
@@ -439,6 +447,33 @@ class PlausibleCollector implements SeoCollectorInterface
             ->all();
 
         $root->update(['organic_landing_pages' => $pages ?: null]);
+    }
+
+    /**
+     * Traffic-Quellen der Property (visit:source, 30 T). Nicht bewertet — das
+     * Matching gegen die anderen Verbund-Domains macht die Portfolio-Sicht.
+     * Behält auch Suchmaschinen/Direct, damit der Referral-Anteil einordbar bleibt.
+     */
+    protected function storeTrafficSources(SeoUrl $root, string $siteId, $api): void
+    {
+        $bd = $api->getBreakdown(null, [
+            'site_id' => $siteId,
+            'property' => 'visit:source',
+            'period' => '30d',
+            'metrics' => 'visitors',
+            'limit' => 20,
+        ]);
+
+        $sources = collect($bd['results'] ?? [])
+            ->map(fn ($r) => [
+                'source' => (string) ($r['source'] ?? ''),
+                'visitors' => (int) ($r['visitors'] ?? 0),
+            ])
+            ->filter(fn ($s) => $s['source'] !== '' && $s['visitors'] > 0)
+            ->values()
+            ->all();
+
+        $root->update(['traffic_sources' => $sources ?: null]);
     }
 
     /**

@@ -270,6 +270,47 @@
                 </div>
             @endif
 
+            {{-- Verbund-Verweise — speist der Verbund sich selbst? --}}
+            @if($verbundReferrals['has_data'])
+                <div class="mb-8">
+                    <h2 class="text-[13px] font-semibold text-gray-700 mb-1">Verbund-Verweise</h2>
+                    <p class="text-[11px] text-gray-400 mb-3 max-w-2xl">Besucher, die eine Verbund-Property per Verweis an eine andere schickt — der Ranker speist den Endpunkt. Das ist der Verbund bei der Arbeit, nicht behauptet, sondern in Plausible gemessen (30 Tage).</p>
+
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <div class="flex items-baseline gap-2 mb-3">
+                            <span class="text-[22px] font-semibold text-gray-800 tabular-nums" style="color:#0f766e">{{ number_format($verbundReferrals['total']) }}</span>
+                            <span class="text-[12px] text-gray-500">Besucher intern verwiesen · {{ count($verbundReferrals['edges']) }} Verweis-Wege</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-[12px]" style="min-width:480px">
+                                <thead>
+                                    <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                        <th class="text-left py-1.5 pr-3">von (Quelle)</th>
+                                        <th class="text-left py-1.5 px-2">an (Property)</th>
+                                        <th class="text-right py-1.5 pl-2">Besucher</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($verbundReferrals['edges'] as $e)
+                                        <tr class="border-b border-gray-50 last:border-0">
+                                            <td class="py-1.5 pr-3 text-gray-700">
+                                                {{ $e['from'] }}
+                                                @if($e['from_is_member'])
+                                                    <span class="ml-1 inline-block text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-teal-100 text-teal-700 align-middle">Mitglied</span>
+                                                @endif
+                                            </td>
+                                            <td class="py-1.5 px-2 text-gray-500">{{ $e['to'] }}</td>
+                                            <td class="py-1.5 pl-2 text-right text-gray-700 tabular-nums font-semibold">{{ number_format($e['visitors']) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-3">„Mitglied" = Quelle ist selbst eine Property dieses Wirkungsraums. Ohne Badge: Verbund-Nachbar außerhalb des Portfolios.</p>
+                    </div>
+                </div>
+            @endif
+
             {{-- Mitglieder --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>
             <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
