@@ -413,8 +413,37 @@ class SeoSemanticMapService
             return [];
         }
 
-        $rooms = [];
+        // Post-Pass: ein übergroßes Blatt ist meist ein Geo-/Modifier-Rest (z.B.
+        // „catering hamburg/köln …"), den Semantik NICHT trennt (gleiche Wörter).
+        // Regel-basiert nach dem diskriminierenden Token splitten → 1 Gruppe pro
+        // Ort/Modifier. Präziser + gratis, genau wo SERP nur Einzelgänger liefert.
+        $groups = [];
         foreach ($leaves as $c) {
+            if (count($c) > self::MAX_ROOM) {
+                $split = $this->tokenSplit($c, $byId);
+                if (! empty($split)) {
+                    foreach ($split as $tok => $ids) {
+                        if (count($ids) >= 2) {
+                            $groups[] = ['ids' => $ids, 'pattern' => $tok === '_rest' ? null : $tok];
+                        }
+                    }
+
+                    continue;
+                }
+            }
+            $groups[] = ['ids' => $c, 'pattern' => null];
+        }
+
+        $inLeaf = [];
+        foreach ($groups as $g) {
+            foreach ($g['ids'] as $id) {
+                $inLeaf[$id] = true;
+            }
+        }
+
+        $rooms = [];
+        foreach ($groups as $g) {
+            $c = $g['ids'];
             $m = array_map(fn ($id) => $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet), $c);
             usort($m, fn ($a, $b) => $b['volume'] <=> $a['volume']);
             $rooms[] = array_merge([
@@ -424,6 +453,7 @@ class SeoSemanticMapService
                 'keywords' => array_slice($m, 0, 10),
                 'keyword_ids' => array_values($c),
                 'is_rest' => false,
+                'pattern' => $g['pattern'], // gesetzt = per Geo/Modifier-Regel entstanden
             ], $this->groupStats($m));
         }
         usort($rooms, fn ($a, $b) => ($b['gap'] ?? 0) <=> ($a['gap'] ?? 0));
@@ -450,6 +480,96 @@ class SeoSemanticMapService
         }
 
         return $rooms;
+    }
+
+    /**
+     * Regel-basierter Split eines dichten Zimmers nach dem DISKRIMINIERENDEN Token:
+     * gemeinsamer Stamm (Token in ≥ 50 % der Keywords) raus, dann je Keyword das
+     * häufigste Nicht-Stamm-Token als Gruppen-Schlüssel → 1 Gruppe pro Ort/Modifier
+     * („catering hamburg" → hamburg, „… köln" → köln). Greift nur, wenn ein Stamm
+     * existiert UND ≥ 2 echte Gruppen entstehen — sonst []. Gazetteer-frei.
+     *
+     * @param  int[]  $memberIds
+     * @return array<string, int[]>  Token => Keyword-IDs
+     */
+    protected function tokenSplit(array $memberIds, $byId): array
+    {
+        if (count($memberIds) < 4) {
+            return [];
+        }
+
+        $tokensByKw = [];
+        $freq = [];
+        foreach ($memberIds as $id) {
+            $kw = $byId[$id] ?? null;
+            if (! $kw) {
+                continue;
+            }
+            $tokens = $this->tokenize((string) $kw->keyword);
+            $tokensByKw[$id] = $tokens;
+            foreach (array_unique($tokens) as $t) {
+                $freq[$t] = ($freq[$t] ?? 0) + 1;
+            }
+        }
+
+        $n = count($tokensByKw);
+        if ($n < 4) {
+            return [];
+        }
+
+        // Gemeinsamer Stamm: Tokens in ≥ 50 % der Keywords.
+        $common = [];
+        foreach ($freq as $t => $c) {
+            if ($c / $n >= 0.5) {
+                $common[$t] = true;
+            }
+        }
+        if (empty($common)) {
+            return []; // kein gemeinsamer Stamm → kein Muster
+        }
+
+        // Diskriminator je Keyword = häufigstes Nicht-Stamm-Token.
+        $groups = [];
+        foreach ($memberIds as $id) {
+            $best = null;
+            $bestFreq = -1;
+            foreach ($tokensByKw[$id] ?? [] as $t) {
+                if (isset($common[$t])) {
+                    continue;
+                }
+                $f = $freq[$t] ?? 0;
+                if ($f > $bestFreq) {
+                    $bestFreq = $f;
+                    $best = $t;
+                }
+            }
+            $groups[$best ?? '_rest'][] = $id;
+        }
+
+        // Mindestens 2 echte Gruppen (ohne _rest) nötig, sonst kein sinnvoller Split.
+        $realCount = 0;
+        foreach ($groups as $k => $g) {
+            if ($k !== '_rest' && count($g) >= 2) {
+                $realCount++;
+            }
+        }
+
+        return $realCount >= 2 ? $groups : [];
+    }
+
+    /**
+     * Tokenisiert ein Keyword (klein, ohne Satzzeichen, ohne kurze Stoppwörter).
+     *
+     * @return string[]
+     */
+    protected function tokenize(string $s): array
+    {
+        $parts = preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($s), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $stop = ['für', 'und', 'in', 'im', 'der', 'die', 'das', 'den', 'dem', 'mit', 'von', 'vom',
+            'zu', 'zum', 'zur', 'am', 'an', 'auf', 'aus', 'bei', 'pro', 'je', 'ohne', 'oder', 'ein',
+            'eine', 'einen', 'als', 'wie', 'was', 'wo', 'ist', 'de', 'the', 'and', 'for'];
+
+        return array_values(array_filter($parts, fn ($t) => mb_strlen($t) >= 2 && ! in_array($t, $stop, true)));
     }
 
     protected function row($kw, ?float $anchorScore, array $ownSet): array
