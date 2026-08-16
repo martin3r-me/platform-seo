@@ -46,8 +46,26 @@
         </div>
 
         {{-- Daten-Profil dieses Kunden: setzt die Tiefe (und Kosten) für alle eigenen Arbeits-URLs --}}
+        @if($entityId)
+            <div class="flex items-center justify-between flex-wrap gap-3 mb-6 bg-white rounded-lg border border-gray-200 p-3">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Daten-Profil (Kunde)</span>
+                    @php($__activeProfile = $this->nodeProfile())
+                    <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
 
-        {{-- BISECT6: Profil-Block raus, KPIs+Tabs bleiben --}}
+        {{-- BISECT7: @foreach-Block (55-66) raus --}}
+
+                    @if($__activeProfile === 'gemischt')
+                        <span class="text-[11px] text-amber-700" title="Die eigenen URLs dieses Kunden haben unterschiedliche Profile">gemischt</span>
+                    @endif
+                </div>
+                <div class="text-[12px] text-gray-500">
+                    <span class="text-gray-400 uppercase tracking-wide text-[10px]">Kosten</span>
+                    <span class="font-semibold text-gray-800 tabular-nums ml-1">{{ number_format($this->nodeMonthlyCents() / 100, 2, ',', '.') }} € / Monat</span>
+                </div>
+            </div>
+        @endif
+
 
         @php $tabs = ['overview' => 'Übersicht', 'movers' => 'Bewegung', 'urls' => 'URLs', 'cannibalization' => 'Überschneidungen', 'competitors' => 'Wettbewerber', 'recommendations' => 'Empfehlungen', 'clusters' => 'Cluster']; @endphp
         <x-nx-tabs class="mb-6">
