@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\Uid\UuidV7;
 
 /**
@@ -67,6 +68,33 @@ class SeoPortfolio extends Model
     public function getDisplayName(): ?string
     {
         return $this->name;
+    }
+
+    /**
+     * Property-Ebene: eigene Mitglieds-URLs PLUS ihre eigenen Unterseiten
+     * (parent_child, eine Ebene — wie die URL-Detailseite rollt), über die
+     * Vereinigungsmenge dedupliziert. Gemeinsame Quelle für alle Portfolio-weiten
+     * Metriken (Aggregat, Durchdringung, Wettbewerber, Nach-Clustern), damit
+     * Portfolio- und URL-Sicht deckungsgleich sind und der Fußabdruck echt ist.
+     *
+     * @return int[]
+     */
+    public function effectiveUrlIds(): array
+    {
+        $memberIds = $this->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
+        if (empty($memberIds)) {
+            return [];
+        }
+
+        $childIds = DB::table('seo_url_relationships as r')
+            ->join('seo_urls as c', 'c.id', '=', 'r.target_url_id')
+            ->whereIn('r.source_url_id', $memberIds)
+            ->where('r.type', 'parent_child')
+            ->where('c.is_own', true)
+            ->pluck('r.target_url_id')
+            ->all();
+
+        return array_values(array_unique(array_merge($memberIds, $childIds)));
     }
 
     /** Status des Nach-Clusterns (running/completed/failed) festhalten. */

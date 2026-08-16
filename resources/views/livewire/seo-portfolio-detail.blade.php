@@ -59,8 +59,8 @@
                 </div>
             @endif
 
-            {{-- Aggregat-KPIs --}}
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            {{-- Aggregat-KPIs (Property-Ebene: Mitglieder inkl. eigener Unterseiten, dedupliziert) --}}
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-1">
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
                     <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Sichtbarkeit</div>
                     <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($agg['visibility'], 0) }}</div>
@@ -78,6 +78,7 @@
                     <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($agg['urls']) }}</div>
                 </div>
             </div>
+            <p class="text-[11px] text-gray-400 mb-6">Zahlen auf Property-Ebene — jede Mitglieds-URL inkl. ihrer eigenen Unterseiten, über den Verbund dedupliziert (deckungsgleich mit der URL-Detailseite).</p>
 
             {{-- Verbund-Entwicklung über Zeit — der Nordstern: steigt die gemeinsame Sichtbarkeit? --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
@@ -133,12 +134,16 @@
                     <tbody>
                         @forelse($members as $url)
                             <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                                @php($t = $memberTotals[$url->id] ?? ['keywords' => $url->keyword_count, 'search_volume' => $url->total_search_volume, 'visibility' => $url->visibility_score, 'subpages' => 0])
                                 <td class="px-4 py-2.5">
                                     <a href="{{ route('seo.urls.show', $url) }}" wire:navigate class="text-indigo-600 hover:underline font-medium">{{ $url->domain }}{{ $url->path !== '/' ? $url->path : '' }}</a>
+                                    @if($t['subpages'] > 0)
+                                        <span class="ml-1.5 text-[10px] text-gray-400" title="inkl. {{ $t['subpages'] }} Unterseite(n)">+{{ $t['subpages'] }} Unterseite{{ $t['subpages'] > 1 ? 'n' : '' }}</span>
+                                    @endif
                                 </td>
-                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ number_format($url->keyword_count) }}</td>
-                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ number_format($url->total_search_volume) }}</td>
-                                <td class="px-4 py-2.5 text-right font-semibold text-gray-900 tabular-nums">{{ number_format($url->visibility_score, 0) }}</td>
+                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ number_format($t['keywords']) }}</td>
+                                <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ number_format($t['search_volume']) }}</td>
+                                <td class="px-4 py-2.5 text-right font-semibold text-gray-900 tabular-nums">{{ number_format($t['visibility'], 0) }}</td>
                                 <td class="px-4 py-2.5 text-right">
                                     <button wire:click="removeUrl({{ $url->id }})" wire:confirm="URL aus dem Wirkungsraum entfernen?" class="text-gray-300 hover:text-rose-500" title="Entfernen">&times;</button>
                                 </td>

@@ -75,20 +75,92 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Property-Ebene: jede Mitglieds-URL PLUS ihre eigenen Unterseiten
+     * (parent_child, eine Ebene — wie die URL-Detailseite rollt), über die
+     * Vereinigungsmenge dedupliziert. Liefert die Mitglieder-Modelle, deren
+     * Property-Totale (Mitglied + Unterseiten), die effektive URL-Menge (für
+     * alle Portfolio-weiten Facetten) und das deduplizierte Aggregat. Damit
+     * stimmen Portfolio- und URL-Sicht überein und der Fußabdruck ist echt.
+     *
+     * @return array{members: \Illuminate\Support\Collection, effectiveIds: int[], memberTotals: array<int,array>, agg: array}
+     */
+    protected function propertyView(): array
+    {
+        $members = $this->portfolio->urls()->orderByDesc('visibility_score')->get();
+        $memberIds = $members->pluck('id')->all();
+
+        if (empty($memberIds)) {
+            return ['members' => $members, 'effectiveIds' => [], 'memberTotals' => [],
+                'agg' => ['visibility' => 0.0, 'keywords' => 0, 'search_volume' => 0, 'urls' => 0]];
+        }
+
+        // Eigene Unterseiten je Mitglied (parent_child, eine Ebene).
+        $childRels = DB::table('seo_url_relationships as r')
+            ->join('seo_urls as c', 'c.id', '=', 'r.target_url_id')
+            ->whereIn('r.source_url_id', $memberIds)
+            ->where('r.type', 'parent_child')
+            ->where('c.is_own', true)
+            ->get(['r.source_url_id', 'r.target_url_id']);
+
+        $childrenByParent = $childRels->groupBy('source_url_id')
+            ->map(fn ($g) => $g->pluck('target_url_id')->all());
+
+        // Vereinigungsmenge, dedupliziert (keine Doppelzählung bei Überlapp).
+        $effectiveIds = array_values(array_unique(array_merge(
+            $memberIds, $childRels->pluck('target_url_id')->all()
+        )));
+
+        $metrics = SeoUrl::whereIn('id', $effectiveIds)
+            ->get(['id', 'keyword_count', 'total_search_volume', 'visibility_score'])
+            ->keyBy('id');
+
+        // Property-Total je Mitglied (Mitglied + eigene Unterseiten).
+        $memberTotals = [];
+        foreach ($members as $m) {
+            $ids = array_merge([$m->id], $childrenByParent->get($m->id, []));
+            $kw = 0; $sv = 0; $vis = 0.0;
+            foreach ($ids as $id) {
+                $row = $metrics->get($id);
+                if (! $row) {
+                    continue;
+                }
+                $kw += (int) $row->keyword_count;
+                $sv += (int) $row->total_search_volume;
+                $vis += (float) $row->visibility_score;
+            }
+            $memberTotals[$m->id] = ['keywords' => $kw, 'search_volume' => $sv,
+                'visibility' => $vis, 'subpages' => count($childrenByParent->get($m->id, []))];
+        }
+
+        // Nach Property-Sichtbarkeit sortieren (nicht nur Knoten).
+        $members = $members->sortByDesc(fn ($m) => $memberTotals[$m->id]['visibility'] ?? 0)->values();
+
+        $agg = [
+            'visibility' => (float) $metrics->sum('visibility_score'),
+            'keywords' => (int) $metrics->sum('keyword_count'),
+            'search_volume' => (int) $metrics->sum('total_search_volume'),
+            'urls' => count($memberIds),
+        ];
+
+        return compact('members', 'effectiveIds', 'memberTotals', 'agg');
+    }
+
+    /**
      * KI-Verteilung: die vier Facetten in einen Aussteuerungs-Vorschlag gießen.
      */
     public function analyze(): void
     {
-        $members = $this->portfolio->urls()->orderByDesc('visibility_score')->get();
-        $memberIds = $members->pluck('id')->all();
-        $pen = $this->penetration($memberIds);
-        $comp = $this->competitors($memberIds);
+        $pv = $this->propertyView();
+        $members = $pv['members'];
+        $totals = $pv['memberTotals'];
+        $pen = $this->penetration($pv['effectiveIds']);
+        $comp = $this->competitors($pv['effectiveIds']);
 
         $facets = [
             'members' => $members->map(fn ($u) => [
                 'url' => $u->domain . ($u->path !== '/' ? $u->path : ''),
-                'keywords' => (int) $u->keyword_count,
-                'visibility' => (int) round((float) $u->visibility_score),
+                'keywords' => (int) ($totals[$u->id]['keywords'] ?? $u->keyword_count),
+                'visibility' => (int) round((float) ($totals[$u->id]['visibility'] ?? $u->visibility_score)),
             ])->all(),
             'penetration' => $pen['clusters']->map(fn ($c) => [
                 'name' => $c['name'], 'soll' => $c['soll'], 'ist' => $c['ist'], 'pct' => $c['pct'], 'volume' => $c['volume'],
@@ -97,7 +169,7 @@ class SeoPortfolioDetail extends Component
             'competitors' => $comp->map(fn ($c) => [
                 'domain' => $c->domain, 'shared' => (int) $c->shared_keywords, 'visibility' => (int) round((float) $c->visibility),
             ])->all(),
-            'own_visibility' => (int) round((float) $members->sum('visibility_score')),
+            'own_visibility' => (int) round((float) $pv['agg']['visibility']),
         ];
 
         $this->advice = app(SeoPortfolioAdvisor::class)->advise($this->portfolio, $facets);
@@ -114,8 +186,7 @@ class SeoPortfolioDetail extends Component
             return;
         }
 
-        $memberIds = $this->portfolio->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
-        $count = $this->clusterableCount($memberIds, $this->clusterMinVolume);
+        $count = $this->clusterableCount($this->portfolio->effectiveUrlIds(), $this->clusterMinVolume);
 
         if ($count < 2) {
             $this->clusterFlash = 'Nichts zu clustern — kein ungeclusterter Rest über der Volumen-Schwelle.';
@@ -261,16 +332,8 @@ class SeoPortfolioDetail extends Component
 
     public function render()
     {
-        $members = $this->portfolio->urls()
-            ->orderByDesc('visibility_score')
-            ->get();
-
-        $agg = [
-            'visibility' => (float) $members->sum('visibility_score'),
-            'keywords' => (int) $members->sum('keyword_count'),
-            'search_volume' => (int) $members->sum('total_search_volume'),
-            'urls' => $members->count(),
-        ];
+        $pv = $this->propertyView();
+        $effectiveIds = $pv['effectiveIds'];
 
         // Add-Modal: nur EIGENE, noch nicht zugeordnete URLs.
         $availableUrls = collect();
@@ -285,18 +348,18 @@ class SeoPortfolioDetail extends Component
             $availableUrls = $q->orderBy('domain')->orderBy('path')->limit(50)->get();
         }
 
-        $memberIds = $members->pluck('id')->all();
-        $clusterable = $this->clusterableCount($memberIds, $this->clusterMinVolume);
+        $clusterable = $this->clusterableCount($effectiveIds, $this->clusterMinVolume);
 
         return view('seo::livewire.seo-portfolio-detail', [
-            'members' => $members,
-            'agg' => $agg,
+            'members' => $pv['members'],
+            'memberTotals' => $pv['memberTotals'],
+            'agg' => $pv['agg'],
             'availableUrls' => $availableUrls,
-            'penetration' => $this->penetration($memberIds),
-            'competitors' => $this->competitors($memberIds),
+            'penetration' => $this->penetration($effectiveIds),
+            'competitors' => $this->competitors($effectiveIds),
             'clusterable' => $clusterable,
             'clusterCostCents' => $clusterable * (int) config('seo.cost_estimates.serp', 10),
-            'trend' => $this->trend($memberIds),
+            'trend' => $this->trend($effectiveIds),
         ])->layout('platform::layouts.app');
     }
 }

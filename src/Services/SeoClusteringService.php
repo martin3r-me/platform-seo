@@ -95,8 +95,8 @@ class SeoClusteringService
             return ['error' => 'Keine SEO-Einstellungen für dieses Team'];
         }
 
-        // Nur eigene (kontrollierte) Mitglieds-URLs — Steuer-Invariante.
-        $urlIds = $portfolio->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
+        // Property-Ebene: eigene Mitglieds-URLs + ihre eigenen Unterseiten (dedupliziert).
+        $urlIds = $portfolio->effectiveUrlIds();
         if (empty($urlIds)) {
             $portfolio->markClustering('failed', ['error' => 'Keine eigenen URLs im Wirkungsraum']);
 
