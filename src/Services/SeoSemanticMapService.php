@@ -36,10 +36,23 @@ class SeoSemanticMapService
     protected const LIST_CAP = 60;
 
     /** Ab dieser Größe gilt eine Nachbarschaft als „Quartier" und wird in Zimmer aufgelöst. */
-    protected const ROOM_TRIGGER = 40;
+    protected const ROOM_TRIGGER = 50;
 
-    /** Feinere Cosine-Schwelle INNERHALB eines Quartiers (Simulation, read-only). */
+    /** Start-Schwelle beim Auflösen eines Quartiers in Zimmer. */
     protected const ROOM_THRESHOLD = 0.68;
+
+    /** Ziel: ein Zimmer ist seiten-groß. Größere Zimmer werden adaptiv weiter geteilt. */
+    protected const MAX_ROOM = 50;
+
+    /** Schrittweite, um die die Schwelle bei jedem Rekursionsschritt steigt. */
+    protected const ROOM_STEP = 0.04;
+
+    /** Decke: höher geht Semantik nicht sinnvoll — der dichte Rest ist der SERP-Fall. */
+    protected const ROOM_CEILING = 0.86;
+
+    /** Volumen-Boden: Keywords darunter (reiner Long-Tail) kommen gar nicht in die Karte;
+     *  die Kopf-Seite deckt den Schwanz mit ab. 0 = kein Boden. */
+    protected const VOLUME_FLOOR = 10;
 
     public function __construct(
         protected EmbeddingProviderRegistry $providers,
@@ -93,9 +106,11 @@ class SeoSemanticMapService
 
         $allKeywordIds = array_values(array_unique(array_merge($ownKeywordIds, $compKeywordIds)));
 
-        // Ausschnitt (die Linse), volumenstark zuerst.
+        // Ausschnitt (die Linse), volumenstark zuerst. Volumen-Boden: reiner Long-Tail
+        // (unter VOLUME_FLOOR) kommt gar nicht rein — die Kopf-Seite deckt ihn mit ab.
         $rows = SeoKeyword::where('team_id', $teamId)
             ->whereIn('id', $allKeywordIds)
+            ->when(self::VOLUME_FLOOR > 0, fn ($q) => $q->where('search_volume', '>=', self::VOLUME_FLOOR))
             ->orderByDesc('search_volume')
             ->limit(self::SCOPE_CAP + 1)
             ->get(['id', 'keyword', 'search_volume', 'cluster_id']);
@@ -310,40 +325,77 @@ class SeoSemanticMapService
     }
 
     /**
-     * Löst ein Quartier in Zimmer auf (SIMULATION): re-partitioniert dieselben
-     * Keywords mit dem GLEICHEN Kanten-Set, aber nur Kanten ≥ ROOM_THRESHOLD. Kein
-     * neuer API-Call, keine Persistenz. Gibt [] zurück, wenn es nicht echt splittet
-     * (< 2 Zimmer) — dann bleibt das Quartier flach.
+     * Löst ein Quartier ADAPTIV in seiten-große Zimmer auf (SIMULATION, read-only):
+     * teilt bei steigender Schwelle rekursiv, bis ein Zimmer ≤ MAX_ROOM ist oder die
+     * Decke (ROOM_CEILING) erreicht ist — dann bleibt der dichte Rest EIN großes
+     * Zimmer = der klare SERP-Fall. Nutzt nur die vorhandenen Cosine-Scores (gratis).
+     * Gibt [] zurück, wenn es gar nicht echt splittet (Quartier bleibt flach).
      *
      * @param  int[]  $memberIds
      * @param  array<int, array<int, float>>  $adjacency
      */
     protected function rooms(array $memberIds, array $adjacency, $byId, array $anchorScores, array $ownSet): array
     {
-        $memberSet = array_flip($memberIds);
-        $sub = [];
-        foreach ($memberIds as $id) {
-            $sub[$id] = [];
-        }
-        foreach ($memberIds as $id) {
-            foreach (($adjacency[$id] ?? []) as $nid => $score) {
-                if (isset($memberSet[$nid]) && $score >= self::ROOM_THRESHOLD) {
-                    $sub[$id][$nid] = true;
+        // Arbeits-Queue: (Mitglieder, aktuelle Schwelle). Ergebnis = Blatt-Gruppen.
+        $leaves = [];
+        $inLeaf = [];
+        $queue = [[$memberIds, self::ROOM_THRESHOLD]];
+        $guard = 0;
+
+        while (! empty($queue) && $guard++ < 5000) {
+            [$members, $thr] = array_shift($queue);
+
+            // Seiten-groß genug ODER Decke erreicht → Blatt (dichter Rest = SERP-Fall).
+            if (count($members) <= self::MAX_ROOM || $thr > self::ROOM_CEILING) {
+                if (count($members) >= 2) {
+                    $leaves[] = $members;
+                    foreach ($members as $id) {
+                        $inLeaf[$id] = true;
+                    }
                 }
+
+                continue;
+            }
+
+            // Bei $thr teilen (Teilgraph nur mit Kanten ≥ $thr innerhalb der Menge).
+            $memberSet = array_flip($members);
+            $sub = [];
+            foreach ($members as $id) {
+                $sub[$id] = [];
+            }
+            foreach ($members as $id) {
+                foreach (($adjacency[$id] ?? []) as $nid => $score) {
+                    if (isset($memberSet[$nid]) && $score >= $thr) {
+                        $sub[$id][$nid] = true;
+                    }
+                }
+            }
+
+            $big = array_values(array_filter($this->connectedComponents($sub), fn ($c) => count($c) >= 2));
+
+            // Kein echtes Splitten (≤ 1 große Komponente) → Schwelle anheben, erneut.
+            if (count($big) <= 1) {
+                $queue[] = [$members, $thr + self::ROOM_STEP];
+
+                continue;
+            }
+
+            // Fortschritt: jede große Komponente weiter prüfen (wird Blatt, sobald klein
+            // genug); Singletons dieser Ebene fallen unten in den Rest.
+            foreach ($big as $c) {
+                $queue[] = [$c, $thr + self::ROOM_STEP];
             }
         }
 
+        // Kein echtes Auflösen → Quartier flach lassen.
+        if (count($leaves) < 2) {
+            return [];
+        }
+
         $rooms = [];
-        $inRoom = [];
-        foreach ($this->connectedComponents($sub) as $c) {
-            if (count($c) < 2) {
-                continue;
-            }
+        foreach ($leaves as $c) {
             $m = array_map(fn ($id) => $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet), $c);
             usort($m, fn ($a, $b) => $b['volume'] <=> $a['volume']);
-            foreach ($c as $id) {
-                $inRoom[$id] = true;
-            }
             $rooms[] = array_merge([
                 'label' => $m[0]['keyword'],
                 'size' => count($m),
@@ -353,19 +405,13 @@ class SeoSemanticMapService
                 'is_rest' => false,
             ], $this->provenance($m));
         }
-
-        // Kein echtes Auflösen (nur ein Zimmer) → Quartier flach lassen.
-        if (count($rooms) < 2) {
-            return [];
-        }
-
         usort($rooms, fn ($a, $b) => $b['volume'] <=> $a['volume']);
 
-        // Rest: Quartier-Keywords, die in kein enges Zimmer fielen.
+        // Rest: Quartier-Keywords, die in kein Zimmer fielen (lose Ränder).
         $rest = [];
         $restIds = [];
         foreach ($memberIds as $id) {
-            if (! isset($inRoom[$id])) {
+            if (! isset($inLeaf[$id])) {
                 $rest[] = $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet);
                 $restIds[] = $id;
             }
