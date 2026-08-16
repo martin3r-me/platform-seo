@@ -430,7 +430,13 @@ class SeoUrlDetail extends Component
         $profileSvc = app(\Platform\Seo\Services\SeoDataProfileService::class);
         $costSvc = app(\Platform\Seo\Services\SeoCostProjectionService::class);
 
+        // Gemeinsamer Scope-Kennzahlen-Kern (Durchdringung/Ordnungsgrad/Wettbewerber)
+        // über diese URL + ihre Unterseiten — dieselbe Lesart wie Portfolio/Liste.
+        $scope = app(\Platform\Seo\Services\SeoScopeMetrics::class)
+            ->forUrlIds((int) $this->seoUrl->team_id, $allUrlIds);
+
         return view('seo::livewire.seo-url-detail', [
+            'scope' => $scope,
             'contextNodes' => $contextNodes,
             'availableNodes' => $availableNodes,
             'effectiveProfile' => $profileSvc->effectiveProfile($this->seoUrl),

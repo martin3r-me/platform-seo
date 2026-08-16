@@ -160,41 +160,7 @@
             {{-- Durchdringung je Cluster (IST rankend / SOLL laut Cluster) --}}
             @if($penetration['clusters']->isNotEmpty() || $penetration['unclustered'])
                 <div class="mt-8">
-                    <h2 class="text-[13px] font-semibold text-gray-700 mb-1">Durchdringung je Cluster</h2>
-                    <p class="text-[11px] text-gray-400 mb-3">IST (ranken) von SOLL (Ziel laut Cluster). Höher = Thema tiefer besetzt.</p>
-                    @if($penetration['clusters']->isNotEmpty())
-                        <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-                            <table class="w-full text-[13px]" style="min-width: 640px">
-                                <thead>
-                                    <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                                        <th class="text-left px-4 py-2">Cluster</th>
-                                        <th class="text-right px-4 py-2">SOLL</th>
-                                        <th class="text-right px-4 py-2">IST</th>
-                                        <th class="text-left px-4 py-2" style="width: 160px">Durchdringung</th>
-                                        <th class="text-right px-4 py-2">Volumen</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($penetration['clusters'] as $c)
-                                        <tr class="border-b border-gray-50 last:border-0">
-                                            <td class="px-4 py-2.5 text-gray-700">{{ $c['name'] }}</td>
-                                            <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">{{ $c['soll'] }}</td>
-                                            <td class="px-4 py-2.5 text-right font-medium text-gray-800 tabular-nums">{{ $c['ist'] }}</td>
-                                            <td class="px-4 py-2.5">
-                                                <div class="flex items-center gap-2">
-                                                    <div class="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                                        <div class="h-full rounded-full {{ $c['pct'] >= 70 ? 'bg-green-500' : ($c['pct'] >= 30 ? 'bg-amber-500' : 'bg-gray-300') }}" style="width: {{ max(2, $c['pct']) }}%"></div>
-                                                    </div>
-                                                    <span class="text-[11px] tabular-nums text-gray-500 w-9 text-right">{{ $c['pct'] }}%</span>
-                                                </div>
-                                            </td>
-                                            <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">{{ number_format($c['volume']) }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @endif
+                    @include('seo::partials.scope-penetration', ['clusters' => $penetration['clusters'], 'coverage' => $coverage])
                     @if($penetration['unclustered'] || ($portfolio->clustering_status ?? null))
                         <div class="mt-3 bg-white rounded-lg border border-dashed border-gray-200 px-4 py-3"
                             @if(($portfolio->clustering_status ?? null) === 'running') wire:poll.10s @endif>

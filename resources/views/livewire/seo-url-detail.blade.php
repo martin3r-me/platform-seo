@@ -191,6 +191,9 @@
                         </div>
                     @endif
 
+                    {{-- Gemeinsames Scope-Panel: Ordnungsgrad + Durchdringung (URL + Unterseiten) --}}
+                    @include('seo::partials.scope-penetration', ['clusters' => $scope['clusters'], 'coverage' => $scope['coverage']])
+
                     @if($hasKeywords)
                         {{-- Filter-/Sortierleiste --}}
                         <div class="flex flex-wrap items-center gap-2 mb-3">
