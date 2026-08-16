@@ -2,8 +2,10 @@
 
 namespace Platform\Seo\Livewire;
 
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoWirkungsraum;
 
@@ -61,6 +63,49 @@ class SeoWirkungsraumDetail extends Component
         $this->wirkungsraum->urls()->detach($urlId);
     }
 
+    /**
+     * Durchdringung je Cluster: SOLL (Ziel-Keywords, an Mitglieds-URLs gehängt)
+     * vs. IST (davon rankend = Pivot-Position gesetzt). Plus ungeclusterter Rest
+     * (wild rankend). Der Kern-Steuer-Fakt des Wirkungsraums.
+     */
+    protected function penetration(array $memberIds): array
+    {
+        if (empty($memberIds)) {
+            return ['clusters' => collect(), 'unclustered' => null];
+        }
+
+        // Je Keyword: beste Position über die Mitglieds-URLs (null = rankt nirgends = nur SOLL).
+        $rows = DB::table('seo_url_keywords as uk')
+            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+            ->whereIn('uk.url_id', $memberIds)
+            ->groupBy('k.id', 'k.cluster_id', 'k.search_volume')
+            ->select('k.id', 'k.cluster_id', 'k.search_volume', DB::raw('MIN(uk.position) as best_position'))
+            ->get();
+
+        $groups = $rows->groupBy(fn ($r) => $r->cluster_id ?? 0);
+        $build = fn ($kws) => [
+            'soll' => $kws->count(),
+            'ist' => $kws->filter(fn ($r) => $r->best_position !== null)->count(),
+            'volume' => (int) $kws->sum('search_volume'),
+        ];
+
+        $unclusteredKws = $groups->get(0);
+        $unclustered = $unclusteredKws ? $build($unclusteredKws) : null;
+
+        $names = SeoKeywordCluster::whereIn('id', $groups->keys()->filter(fn ($k) => $k > 0))->pluck('name', 'id');
+
+        $clusters = $groups->except([0])->map(function ($kws, $cid) use ($build, $names) {
+            $b = $build($kws);
+            $b['cluster_id'] = (int) $cid;
+            $b['name'] = $names[(int) $cid] ?? ('#' . $cid);
+            $b['pct'] = $b['soll'] > 0 ? (int) round($b['ist'] / $b['soll'] * 100) : 0;
+
+            return $b;
+        })->sortByDesc('volume')->values();
+
+        return ['clusters' => $clusters, 'unclustered' => $unclustered];
+    }
+
     public function render()
     {
         $members = $this->wirkungsraum->urls()
@@ -91,6 +136,7 @@ class SeoWirkungsraumDetail extends Component
             'members' => $members,
             'agg' => $agg,
             'availableUrls' => $availableUrls,
+            'penetration' => $this->penetration($members->pluck('id')->all()),
         ])->layout('platform::layouts.app');
     }
 }

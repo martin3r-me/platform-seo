@@ -80,6 +80,22 @@ Die KI liest genau diese fünf, um die Verteilung zu triggern:
 | **Wettbewerber** | der Benchmark | Vereinigung der Wettbewerber der Mitglieder (abgeleitet, nicht Mitglied) |
 | **Ungeclusterter Rest** | loser Fußabdruck / Backlog (mit Volumen-Filter) | `cluster_id IS NULL` |
 
+### IST vs. SOLL — der Kern der Durchdringung
+
+Jedes Keyword hat relativ zu einer URL zwei Zustände:
+- **IST** — wir ranken bereits (Pivot `position` gesetzt, indiziert).
+- **SOLL** — per Cluster als Ziel zugeordnet, aber (noch) keine Position.
+
+**Durchdringung = IST / SOLL je Cluster.** Vier Quadranten:
+
+| | IST (ranken) | nicht IST |
+|---|---|---|
+| **SOLL** | auf Strategie | Lücke/Chance (z.B. broich.schulkita: 25 SOLL, 0 IST) |
+| **nicht SOLL** | wild rankend → clustern | irrelevant |
+
+Ableitbar aus `seo_url_keywords.position` (gesetzt = IST, null = SOLL). Der
+„ungeclusterte Rest" = IST ohne Cluster (wild rankend).
+
 Steuer-Logik daraus: hoch durchdrungen + kein Overlap → verteidigen · dünn +
 Potenzial → Chance · zwei Mitglieder im selben Cluster → Kannibalisierung ·
 Wettbewerber durchdringt tiefer → Lücke schließen · ungeclustert mit Volumen →
