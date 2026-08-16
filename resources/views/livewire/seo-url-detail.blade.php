@@ -676,6 +676,27 @@
                             </button>
                         </div>
 
+                        {{-- site_id: der echte Plausible-Site-Name (falls ≠ Domain). Leer = Domain als Fallback. --}}
+                        <div class="bg-white rounded-lg border border-gray-200 p-4">
+                            <div class="text-[13px] font-medium text-gray-900 mb-0.5">Plausible site_id</div>
+                            <div class="text-[12px] text-gray-500 mb-2.5">Wie die Site in Plausible <span class="font-medium">wirklich</span> heißt. Leer = die Domain „{{ preg_replace('/^www\./', '', strtolower($seoUrl->domain)) }}" wird verwendet. Bei 401 „Invalid site ID" hier den echten Namen eintragen.</div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <input type="text" wire:model="plausibleSiteId" placeholder="{{ preg_replace('/^www\./', '', strtolower($seoUrl->domain)) }}"
+                                       class="text-[13px] border border-gray-200 rounded-md px-3 py-1.5 min-w-[220px] flex-1">
+                                <button wire:click="savePlausibleSiteId" class="text-[13px] font-medium px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-700">Speichern</button>
+                                <button wire:click="testPlausible" wire:loading.attr="disabled" wire:target="testPlausible"
+                                        class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                                    <span wire:loading.remove wire:target="testPlausible">Testen</span>
+                                    <span wire:loading wire:target="testPlausible">Teste…</span>
+                                </button>
+                            </div>
+                            @if($plausibleTest)
+                                <div class="mt-2.5 text-[12px] px-3 py-2 rounded-md" style="{{ $plausibleTest['ok'] ? 'background:#f0fdf4;color:#15803d' : 'background:#fef2f2;color:#b91c1c' }}">
+                                    {{ $plausibleTest['ok'] ? '✓ ' : '✗ ' }}{{ $plausibleTest['msg'] }}
+                                </div>
+                            @endif
+                        </div>
+
                         {{-- Roll-up: Domain-Total (Parent + Kinder) --}}
                         <div class="grid grid-cols-2 gap-3">
                             <div class="bg-white rounded-lg border border-gray-200 p-4">

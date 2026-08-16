@@ -35,10 +35,15 @@ class SeoUrlDetail extends Component
     public int $backlinkLimit = 50;
     public int $gscLimit = 50;
 
+    // Plausible: explizite site_id (Plausible-Site-Name, falls ≠ Domain) + Test-Ergebnis.
+    public string $plausibleSiteId = '';
+    public ?array $plausibleTest = null;
+
     public function mount(SeoUrl $seoUrl)
     {
         $this->resolveSettings();
         $this->seoUrl = $seoUrl;
+        $this->plausibleSiteId = (string) ($seoUrl->plausible_site_id ?? '');
     }
 
     public function setTab(string $tab): void
@@ -105,6 +110,55 @@ class SeoUrlDetail extends Component
             'plausible_enabled' => ! $this->seoUrl->plausible_enabled,
         ]);
         $this->seoUrl->refresh();
+    }
+
+    /**
+     * Explizite Plausible-site_id speichern (leer = Fallback auf die Domain).
+     * Nötig, wenn die Site in Plausible anders heißt als die Domain — sonst 401.
+     */
+    public function savePlausibleSiteId(): void
+    {
+        $value = trim($this->plausibleSiteId);
+        $this->seoUrl->update(['plausible_site_id' => $value !== '' ? $value : null]);
+        $this->seoUrl->refresh();
+        $this->plausibleTest = null;
+    }
+
+    /**
+     * Live-Test: prüft die aktuell eingetragene site_id (bzw. die Domain als
+     * Fallback) direkt gegen die Plausible Stats-API. Schließt die Rate-Schleife
+     * „site_id setzen → testen → grün/rot", statt still ins 401 zu laufen.
+     */
+    public function testPlausible(): void
+    {
+        $siteId = trim($this->plausibleSiteId) ?: preg_replace('/^www\./', '', strtolower($this->seoUrl->domain));
+
+        $team = \Platform\Core\Models\Team::find($this->seoUrl->team_id);
+        $connection = $team
+            ? app(\Platform\Integrations\Services\IntegrationConnectionResolver::class)->resolveForTeam('plausible', $team)
+            : null;
+
+        if (! $connection) {
+            $this->plausibleTest = ['ok' => false, 'msg' => 'Keine aktive Plausible-Connection für das Team dieser URL.'];
+
+            return;
+        }
+
+        try {
+            $res = app(\Platform\Integrations\Services\PlausibleApiService::class)
+                ->forConnection($connection->id)
+                ->getBreakdown(null, [
+                    'site_id' => $siteId,
+                    'property' => 'event:page',
+                    'period' => '7d',
+                    'metrics' => 'visitors',
+                    'limit' => 1,
+                ]);
+            $n = count($res['results'] ?? []);
+            $this->plausibleTest = ['ok' => true, 'msg' => "OK — {$siteId} liefert Daten ({$n} Zeile(n) in 7 T)."];
+        } catch (\Throwable $e) {
+            $this->plausibleTest = ['ok' => false, 'msg' => "{$siteId}: " . $e->getMessage()];
+        }
     }
 
     public function setCompetitorDepth(int $keywordId, ?int $depth): void
