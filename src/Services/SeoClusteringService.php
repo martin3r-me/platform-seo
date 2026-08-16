@@ -159,6 +159,16 @@ class SeoClusteringService
         $portfolio->markClustering('running');
 
         try {
+            // Saubere Abgrenzung — EIN Thema = EIN Cluster: gehört das Zimmer schon
+            // überwiegend zu einem bestehenden Cluster, MERGEN wir hinein (statt einen
+            // zweiten fürs selbe Thema anzulegen) und re-homen ihn am Wirkungsraum.
+            $merge = $this->mergeIntoExistingCluster((int) $settings->team_id, $keywordIds, $entityId);
+            if ($merge !== null) {
+                $portfolio->markClustering('completed', $merge);
+
+                return $merge;
+            }
+
             $result = $this->autoCluster($settings, null, $minOverlap, null, $entityId, null, $deadlineTs, $keywordIds);
 
             if (! empty($result['error'])) {
@@ -175,6 +185,57 @@ class SeoClusteringService
 
             throw $e;
         }
+    }
+
+    /**
+     * Merge-first (saubere Abgrenzung — EIN Thema = EIN Cluster): gehört das Zimmer
+     * überwiegend zu einem BESTEHENDEN Cluster, weist es die noch unclusterten
+     * Keywords diesem zu und re-homet ihn am Wirkungsraum — statt einen zweiten
+     * Cluster fürs selbe Thema anzulegen. Kein SERP nötig (Cluster ist bestätigt).
+     * null = kein dominantes bestehendes Thema → normaler SERP-Weg.
+     *
+     * @param  int[]  $keywordIds
+     */
+    protected function mergeIntoExistingCluster(int $teamId, array $keywordIds, ?int $entityId): ?array
+    {
+        $rows = SeoKeyword::where('team_id', $teamId)->whereIn('id', $keywordIds)->get(['id', 'cluster_id']);
+        $clustered = $rows->filter(fn ($k) => $k->cluster_id !== null);
+        if ($clustered->isEmpty()) {
+            return null; // kein bestehendes Thema → normaler SERP-Weg
+        }
+
+        // Dominanter bestehender Cluster (überwiegt er die schon geclusterten?).
+        $counts = $clustered->groupBy('cluster_id')->map->count();
+        $topId = (int) $counts->sortDesc()->keys()->first();
+        if ($counts[$topId] / $clustered->count() < 0.5) {
+            return null; // über mehrere Cluster gemischt → nicht raten, SERP-Weg
+        }
+
+        // Merge: unclusterte Zimmer-Keywords in den dominanten Cluster.
+        $unclustered = $rows->filter(fn ($k) => $k->cluster_id === null)->pluck('id')->all();
+        if (! empty($unclustered)) {
+            SeoKeyword::whereIn('id', $unclustered)->update(['cluster_id' => $topId]);
+        }
+
+        // Re-Home: das Thema wohnt jetzt im Wirkungsraum (setNode ersetzt die Links).
+        if ($entityId !== null) {
+            $this->linker->setNode(SeoOrganizationLinker::ALIAS_CLUSTER, $topId, $entityId);
+        }
+
+        $cluster = \Platform\Seo\Models\SeoKeywordCluster::find($topId);
+
+        return [
+            'complete' => true,
+            'merged' => true,
+            'cluster_id' => $topId,
+            'clusters' => [['name' => $cluster?->name, 'keyword_count' => $clustered->count() + count($unclustered)]],
+            'clusters_created' => 0,
+            'keywords_clustered' => count($unclustered),
+            'keywords_merged' => count($unclustered),
+            'singletons_remaining' => 0,
+            'cost_cents' => 0,
+            'finished_at' => now()->toIso8601String(),
+        ];
     }
 
     /**

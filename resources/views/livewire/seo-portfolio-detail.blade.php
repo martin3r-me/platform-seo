@@ -396,7 +396,9 @@
                             @endif
 
                             @php($cr = is_array($portfolio->clustering_result ?? null) ? $portfolio->clustering_result : null)
-                            @if(($portfolio->clustering_status ?? null) === 'completed' && $cr && empty($cr['error']))
+                            @if(($portfolio->clustering_status ?? null) === 'completed' && $cr && empty($cr['error']) && ! empty($cr['merged']))
+                                <p class="text-[11px] mt-1.5" style="color:#15803d">✓ In bestehenden Cluster „{{ $cr['clusters'][0]['name'] ?? '—' }}" übernommen · {{ (int) ($cr['keywords_merged'] ?? 0) }} Keywords ergänzt (ein Thema = ein Cluster).</p>
+                            @elseif(($portfolio->clustering_status ?? null) === 'completed' && $cr && empty($cr['error']))
                                 <p class="text-[11px] mt-1.5" style="color:#15803d">✓ {{ (int) ($cr['clusters_created'] ?? 0) }} neue Cluster · {{ (int) ($cr['keywords_clustered'] ?? 0) }} Keywords geordnet · {{ (int) ($cr['singletons_remaining'] ?? 0) }} Einzelgänger übrig</p>
                             @elseif(($portfolio->clustering_status ?? null) === 'failed' || ($cr && ! empty($cr['error'])))
                                 <p class="text-[11px] mt-1.5" style="color:#b91c1c">Nach-Clustern fehlgeschlagen{{ $cr && ! empty($cr['error']) ? ': ' . $cr['error'] : '' }}.</p>
