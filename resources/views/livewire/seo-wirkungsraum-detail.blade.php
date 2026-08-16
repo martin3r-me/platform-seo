@@ -21,10 +21,43 @@
                         <p class="text-[13px] text-gray-500 mt-0.5">🎯 {{ $wirkungsraum->goal }}</p>
                     @endif
                 </div>
-                <button wire:click="openAddUrls" class="shrink-0 text-[13px] font-medium px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-700">
-                    + URLs hinzufügen
-                </button>
+                <div class="shrink-0 flex items-center gap-2">
+                    <button wire:click="analyze" wire:target="analyze" wire:loading.attr="disabled"
+                            class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                        <span wire:loading.remove wire:target="analyze">🤖 Verteilung vorschlagen</span>
+                        <span wire:loading wire:target="analyze">Analysiere…</span>
+                    </button>
+                    <button wire:click="openAddUrls" class="text-[13px] font-medium px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-700">
+                        + URLs hinzufügen
+                    </button>
+                </div>
             </div>
+
+            {{-- KI-Verteilungs-Vorschlag --}}
+            @if($advice)
+                <div class="mb-6 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div class="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                        <span class="text-[12px] font-semibold text-gray-700 inline-flex items-center gap-1.5">🤖 KI-Verteilung</span>
+                        <button wire:click="$set('advice', null)" class="text-gray-400 hover:text-gray-700 text-[11px]">schließen</button>
+                    </div>
+                    <div class="p-4">
+                        @if(!empty($advice['error']))
+                            <p class="text-[13px] text-rose-600">{{ $advice['error'] }}</p>
+                        @else
+                            <style>
+                                .wr-advice{font-size:13px;color:#374151;line-height:1.6}
+                                .wr-advice h1,.wr-advice h2,.wr-advice h3{font-weight:600;color:#111827;font-size:13px;margin:.75rem 0 .25rem}
+                                .wr-advice strong{color:#111827}
+                                .wr-advice ul{list-style:disc;padding-left:1.25rem;margin:.4rem 0}
+                                .wr-advice ol{list-style:decimal;padding-left:1.25rem;margin:.4rem 0}
+                                .wr-advice li{margin:.15rem 0}
+                                .wr-advice p{margin:.4rem 0}
+                            </style>
+                            <div class="wr-advice">{!! \Illuminate\Support\Str::markdown($advice['text']) !!}</div>
+                        @endif
+                    </div>
+                </div>
+            @endif
 
             {{-- Aggregat-KPIs --}}
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

@@ -8,6 +8,7 @@ use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoWirkungsraum;
+use Platform\Seo\Services\SeoWirkungsraumAdvisor;
 
 /**
  * Wirkungsraum-Detail — der Arbeitsraum (Slice 2: Listen-Niveau + Mitglieder-
@@ -24,6 +25,9 @@ class SeoWirkungsraumDetail extends Component
     public bool $showAddUrls = false;
     public string $urlSearch = '';
     public array $selectedUrlIds = [];
+
+    /** KI-Verteilungs-Vorschlag: ['text' => md] | ['error' => msg] | null. */
+    public ?array $advice = null;
 
     public function mount(SeoWirkungsraum $seoWirkungsraum): void
     {
@@ -61,6 +65,35 @@ class SeoWirkungsraumDetail extends Component
     public function removeUrl(int $urlId): void
     {
         $this->wirkungsraum->urls()->detach($urlId);
+    }
+
+    /**
+     * KI-Verteilung: die vier Facetten in einen Aussteuerungs-Vorschlag gießen.
+     */
+    public function analyze(): void
+    {
+        $members = $this->wirkungsraum->urls()->orderByDesc('visibility_score')->get();
+        $memberIds = $members->pluck('id')->all();
+        $pen = $this->penetration($memberIds);
+        $comp = $this->competitors($memberIds);
+
+        $facets = [
+            'members' => $members->map(fn ($u) => [
+                'url' => $u->domain . ($u->path !== '/' ? $u->path : ''),
+                'keywords' => (int) $u->keyword_count,
+                'visibility' => (int) round((float) $u->visibility_score),
+            ])->all(),
+            'penetration' => $pen['clusters']->map(fn ($c) => [
+                'name' => $c['name'], 'soll' => $c['soll'], 'ist' => $c['ist'], 'pct' => $c['pct'], 'volume' => $c['volume'],
+            ])->all(),
+            'unclustered' => $pen['unclustered'],
+            'competitors' => $comp->map(fn ($c) => [
+                'domain' => $c->domain, 'shared' => (int) $c->shared_keywords, 'visibility' => (int) round((float) $c->visibility),
+            ])->all(),
+            'own_visibility' => (int) round((float) $members->sum('visibility_score')),
+        ];
+
+        $this->advice = app(SeoWirkungsraumAdvisor::class)->advise($this->wirkungsraum, $facets);
     }
 
     /**
