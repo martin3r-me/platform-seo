@@ -196,10 +196,21 @@ class PlausibleCollector implements SeoCollectorInterface
             // Plausible und werden hier endlich abgeholt. Bricht der Call (keine
             // Goals konfiguriert o.ä.), bleibt der Traffic unberührt.
             try {
-                // SEO-Tool: nur ORGANISCHE Conversions zählen (was aus organischer
-                // Suche kommt), nicht der ganze App-/Direkt-Funnel.
+                // GESAMT — der Geschäftswert der Property (App/Direkt/Referral/Organic).
+                // Endpunkt-Seiten (Buchung) leben davon; nicht verstecken.
+                $goalsTotal = $api->getBreakdown(null, [
+                    'site_id' => $siteId,
+                    'property' => 'event:goal',
+                    'period' => '30d',
+                    'metrics' => 'visitors,events,conversion_rate',
+                    'limit' => 20,
+                ]);
+                $this->storeGoals($root, $goalsTotal['results'] ?? []);
+                $this->storeConversionPages($root, $siteId, $api, $goalsTotal['results'] ?? []);
+
+                // ORGANISCH — der reine SEO-Anteil (nur Headline-Zahl).
                 $organicFilter = config('seo.plausible.organic_filter', 'visit:channel==Organic Search');
-                $goals = $api->getBreakdown(null, [
+                $goalsOrganic = $api->getBreakdown(null, [
                     'site_id' => $siteId,
                     'property' => 'event:goal',
                     'period' => '30d',
@@ -207,8 +218,7 @@ class PlausibleCollector implements SeoCollectorInterface
                     'filters' => $organicFilter,
                     'limit' => 20,
                 ]);
-                $this->storeGoals($root, $goals['results'] ?? []);
-                $this->storeConversionPages($root, $siteId, $api, $goals['results'] ?? [], $organicFilter);
+                $this->storeOrganicConversions($root, $goalsOrganic['results'] ?? []);
             } catch (\Throwable $e) {
                 $errors[] = "goals {$domain}: ".$e->getMessage();
             }
@@ -312,6 +322,23 @@ class PlausibleCollector implements SeoCollectorInterface
             ['url_id' => $root->id, 'snapshot_date' => now()->toDateString()],
             ['conversions_30d' => $conversions30d, 'conversion_rate' => $rate],
         );
+    }
+
+    /**
+     * Organischer Conversion-Anteil (Headline): Summe der organischen Conversion-
+     * Events + Rate des primären organischen Goals. Die reine SEO-Wirkung.
+     *
+     * @param  array<int,array<string,mixed>>  $organicGoalResults
+     */
+    protected function storeOrganicConversions(SeoUrl $root, array $organicGoalResults): void
+    {
+        $goals = collect($organicGoalResults);
+        $primary = $goals->sortByDesc(fn ($g) => (int) ($g['visitors'] ?? 0))->first();
+
+        $root->update([
+            'organic_conversions_30d' => (int) $goals->sum(fn ($g) => (int) ($g['events'] ?? 0)),
+            'organic_conversion_rate' => $primary ? (float) ($primary['conversion_rate'] ?? 0) : null,
+        ]);
     }
 
     /**

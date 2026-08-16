@@ -44,9 +44,10 @@ class SeoPortfolioHealth
 
         // Wirkung: Conversions/Goals über den Scope (Plausible, Site-Level).
         $conv = SeoUrl::whereIn('id', $ids)
-            ->selectRaw('COALESCE(SUM(conversions_30d),0) as c, MAX(conversion_rate) as r, COUNT(conversions_fetched_at) as fetched')
+            ->selectRaw('COALESCE(SUM(conversions_30d),0) as c, COALESCE(SUM(organic_conversions_30d),0) as oc, MAX(conversion_rate) as r, COUNT(conversions_fetched_at) as fetched')
             ->first();
         $conversions = (int) ($conv->c ?? 0);
+        $organicConversions = (int) ($conv->oc ?? 0);
         $bestRate = (float) ($conv->r ?? 0);
         $hasConversionData = ((int) ($conv->fetched ?? 0)) > 0;
 
@@ -131,6 +132,7 @@ class SeoPortfolioHealth
             'wirkung' => [
                 'has_data' => $hasConversionData,
                 'conversions' => $conversions,
+                'organic_conversions' => $organicConversions,
                 'best_rate' => $bestRate,
             ],
         ];

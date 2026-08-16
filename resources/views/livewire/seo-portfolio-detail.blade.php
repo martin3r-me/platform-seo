@@ -140,8 +140,8 @@
                 </div>
                 @if($health['wirkung']['has_data'] ?? false)
                     <div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap text-[12px]">
-                        <span class="text-gray-500">Wirkung (organische Conversions)</span>
-                        <span class="text-gray-700"><span class="font-semibold tabular-nums">{{ number_format($health['wirkung']['conversions']) }}</span> org. Conversions/30T · beste Rate <span class="font-medium tabular-nums">{{ number_format($health['wirkung']['best_rate'], 1) }}%</span></span>
+                        <span class="text-gray-500">Wirkung (Conversions)</span>
+                        <span class="text-gray-700"><span class="font-semibold tabular-nums">{{ number_format($health['wirkung']['conversions']) }}</span> gesamt <span class="text-gray-400">· davon</span> <span class="font-medium tabular-nums" style="color:#15803d">{{ number_format($health['wirkung']['organic_conversions'] ?? 0) }} organisch</span> <span class="text-gray-400">(30T)</span></span>
                     </div>
                     <p class="text-[11px] text-gray-400 mt-2">Weitere Dimensionen (Suchperformance/GSC · Seiten-Qualität) folgen mit den Daten.</p>
                 @else
@@ -191,7 +191,7 @@
             @if($verbundWirkung['has_data'])
                 <div class="mb-6">
                     <h2 class="text-[13px] font-semibold text-gray-700 mb-1">Wirkung im Verbund</h2>
-                    <p class="text-[11px] text-gray-400 mb-3">Nicht nur Sichtbarkeit — was die Properties aus <span class="font-medium">organischer Suche</span> wirklich wandeln (Plausible, 30 Tage). Reine SEO-Wirkung, ohne App-/Direkt-Traffic.</p>
+                    <p class="text-[11px] text-gray-400 mb-3">Was die Properties wirklich <span class="font-medium">wandeln</span> — <span class="font-medium">Conversions gesamt</span> (der Geschäftswert, inkl. App/Direkt/Referral) und <span class="font-medium">davon organisch</span> (der reine SEO-Anteil). Große Lücke bei Endpunkt-Seiten = Chance, den Verbund dorthin zu speisen (Plausible, 30 Tage).</p>
 
                     {{-- Conversion-Verlauf (steigt die Wirkung?) --}}
                     @if($conversionTrend['count'] >= 2)
@@ -217,8 +217,9 @@
                                 <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                                     <th class="text-left px-4 py-2">Property</th>
                                     <th class="text-right px-4 py-2">Org. Besucher</th>
-                                    <th class="text-right px-4 py-2">Org. Conv.</th>
-                                    <th class="text-right px-4 py-2">Org. Rate</th>
+                                    <th class="text-right px-4 py-2">Conversions</th>
+                                    <th class="text-right px-4 py-2">davon organisch</th>
+                                    <th class="text-right px-4 py-2">Rate</th>
                                     <th class="text-left px-4 py-2">Top-Ziel</th>
                                 </tr>
                             </thead>
@@ -228,6 +229,7 @@
                                         <td class="px-4 py-2 text-gray-700 font-medium">{{ $m['domain'] }}</td>
                                         <td class="px-4 py-2 text-right text-gray-500 tabular-nums">{{ $m['org_visitors'] > 0 ? number_format($m['org_visitors']) : '—' }}</td>
                                         <td class="px-4 py-2 text-right font-semibold text-gray-900 tabular-nums">{{ number_format($m['conversions']) }}</td>
+                                        <td class="px-4 py-2 text-right tabular-nums" style="color:{{ ($m['organic'] ?? 0) > 0 ? '#15803d' : '#9ca3af' }}">{{ number_format($m['organic'] ?? 0) }}</td>
                                         <td class="px-4 py-2 text-right tabular-nums font-medium" style="color:{{ $m['rate'] >= 10 ? '#15803d' : ($m['rate'] >= 3 ? '#b45309' : '#6b7280') }}">{{ number_format($m['rate'], 1) }}%</td>
                                         <td class="px-4 py-2 text-gray-500 text-[12px]">{{ $m['goal'] }}</td>
                                     </tr>

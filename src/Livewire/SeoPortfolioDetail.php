@@ -163,6 +163,7 @@ class SeoPortfolioDetail extends Component
             // ein Call) statt des dünn akkumulierten organic_visitors_30d.
             'org_visitors' => (int) collect($u->organic_landing_pages ?? [])->sum('visitors'),
             'conversions' => (int) ($u->conversions_30d ?? 0),
+            'organic' => (int) ($u->organic_conversions_30d ?? 0),
             'rate' => (float) ($u->conversion_rate ?? 0),
             'goal' => $u->primary_goal,
         ])->filter(fn ($m) => $m['conversions'] > 0)->sortByDesc('conversions')->values();
