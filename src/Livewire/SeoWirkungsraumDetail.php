@@ -4,6 +4,7 @@ namespace Platform\Seo\Livewire;
 
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use Platform\Seo\Jobs\ClusterWirkungsraumRestJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoUrl;
@@ -28,6 +29,11 @@ class SeoWirkungsraumDetail extends Component
 
     /** KI-Verteilungs-Vorschlag: ['text' => md] | ['error' => msg] | null. */
     public ?array $advice = null;
+
+    /** Nur Keywords ab diesem Suchvolumen nach-clustern (spart Budget/Rauschen). */
+    public int $clusterMinVolume = 10;
+
+    public ?string $clusterFlash = null;
 
     public function mount(SeoWirkungsraum $seoWirkungsraum): void
     {
@@ -94,6 +100,51 @@ class SeoWirkungsraumDetail extends Component
         ];
 
         $this->advice = app(SeoWirkungsraumAdvisor::class)->advise($this->wirkungsraum, $facets);
+    }
+
+    /**
+     * Nach-Clustern: den ungeclusterten Rest (wild rankende Keywords der
+     * Mitglieder) zu Themen bündeln — abgegrenzt von bereits geclusterten
+     * (der Service fasst nur cluster_id=null an). Läuft im Hintergrund (SERP).
+     */
+    public function clusterRest(): void
+    {
+        if (($this->wirkungsraum->clustering_status ?? null) === 'running') {
+            return;
+        }
+
+        $memberIds = $this->wirkungsraum->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
+        $count = $this->clusterableCount($memberIds, $this->clusterMinVolume);
+
+        if ($count < 2) {
+            $this->clusterFlash = 'Nichts zu clustern — kein ungeclusterter Rest über der Volumen-Schwelle.';
+
+            return;
+        }
+
+        $this->wirkungsraum->markClustering('running');
+        ClusterWirkungsraumRestJob::dispatch($this->wirkungsraum->id, 3, $this->clusterMinVolume);
+
+        $this->clusterFlash = "Nach-Clustern gestartet für {$count} Keywords (läuft im Hintergrund).";
+    }
+
+    /**
+     * Zahl der clusterbaren Keywords: ungeclustert (cluster_id null), an einer
+     * Mitglieds-URL, ab Volumen-Schwelle. Basis für Kostenschätzung + Guard.
+     */
+    protected function clusterableCount(array $memberIds, int $minVolume): int
+    {
+        if (empty($memberIds)) {
+            return 0;
+        }
+
+        return (int) DB::table('seo_keywords as k')
+            ->join('seo_url_keywords as uk', 'uk.keyword_id', '=', 'k.id')
+            ->whereIn('uk.url_id', $memberIds)
+            ->whereNull('k.cluster_id')
+            ->where('k.search_volume', '>=', $minVolume)
+            ->distinct()
+            ->count('k.id');
     }
 
     /**
@@ -190,12 +241,17 @@ class SeoWirkungsraumDetail extends Component
             $availableUrls = $q->orderBy('domain')->orderBy('path')->limit(50)->get();
         }
 
+        $memberIds = $members->pluck('id')->all();
+        $clusterable = $this->clusterableCount($memberIds, $this->clusterMinVolume);
+
         return view('seo::livewire.seo-wirkungsraum-detail', [
             'members' => $members,
             'agg' => $agg,
             'availableUrls' => $availableUrls,
-            'penetration' => $this->penetration($members->pluck('id')->all()),
-            'competitors' => $this->competitors($members->pluck('id')->all()),
+            'penetration' => $this->penetration($memberIds),
+            'competitors' => $this->competitors($memberIds),
+            'clusterable' => $clusterable,
+            'clusterCostCents' => $clusterable * (int) config('seo.cost_estimates.serp', 10),
         ])->layout('platform::layouts.app');
     }
 }

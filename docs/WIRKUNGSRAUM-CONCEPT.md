@@ -107,7 +107,16 @@ Wettbewerbern = die kollektive Entwicklung, sichtbar gemacht.
 **Vorhanden:** `clusters.auto.POST` (Bestand ordnen) · `pillar_url_id` (Owner-Seite) ·
 Kannibalisierungs-Analyse (Listen) · Brief-Links (Verlinkung).
 
-**Fehlt — die KI-Klammer:** aus (geclusterten Rankings + Owner-Zuordnung +
+**Nach-Clustern im Wirkungsraum (gebaut):** Knopf „Rest clustern" am
+ungeclusterten Rest → `ClusterWirkungsraumRestJob` bündelt die wild rankenden
+Keywords ALLER Mitglieds-URLs zu Themen (SERP-Overlap, Hintergrund-Job, Status
+`clustering_status` am WR). **Abgrenzung ist eingebaut:** der Clustering-Service
+fasst nur `cluster_id IS NULL` an — bereits zugeordnete Keywords bleiben
+unberührt. **Volumen-Filter** (`minVolume`, Default 10) spart SERP-Budget
+(10 ct/KW) und Rauschen; neue Cluster hängen am Org-Knoten des WR (Rollup).
+Owner-Zuordnung (`pillar_url_id`) folgt danach (KI-Vorschlag/manuell).
+
+**KI-Klammer (gebaut, Slice 4):** aus (geclusterten Rankings + Owner-Zuordnung +
 Kannibalisierung) die **Verteilung** vorschlagen: „splitte dieses Thema so,
 verlinke so → der Verbund holt das Maximum."
 

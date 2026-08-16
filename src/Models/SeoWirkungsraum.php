@@ -25,10 +25,15 @@ class SeoWirkungsraum extends Model
         'description',
         'goal',
         'parent_id',
+        'clustering_status',
+        'clustering_started_at',
+        'clustering_result',
     ];
 
     protected $casts = [
         'uuid' => 'string',
+        'clustering_started_at' => 'datetime',
+        'clustering_result' => 'array',
     ];
 
     protected static function booted(): void
@@ -62,5 +67,15 @@ class SeoWirkungsraum extends Model
     public function getDisplayName(): ?string
     {
         return $this->name;
+    }
+
+    /** Status des Nach-Clusterns (running/completed/failed) festhalten. */
+    public function markClustering(string $status, ?array $result = null): void
+    {
+        $this->forceFill([
+            'clustering_status' => $status,
+            'clustering_started_at' => $status === 'running' ? now() : $this->clustering_started_at,
+            'clustering_result' => $result,
+        ])->save();
     }
 }

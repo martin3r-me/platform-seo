@@ -9,6 +9,7 @@ use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlRelationship;
+use Platform\Seo\Models\SeoWirkungsraum;
 
 class SeoClusteringService
 {
@@ -77,16 +78,62 @@ class SeoClusteringService
     }
 
     /**
-     * @param  int[]|null  $urlIds    Wenn gesetzt: nur Keywords dieser URLs clustern (kunden-scoped).
-     * @param  int|null    $entityId  Wenn gesetzt: neue Cluster an diesen Org-Knoten hängen.
+     * Nach-Clustern des ungeclusterten Rests eines Wirkungsraums: die wild
+     * rankenden Keywords ALLER Mitglieds-URLs zu Themen bündeln. Bestehende
+     * Cluster bleiben unangetastet (autoCluster filtert whereNull('cluster_id')).
+     * Neue Cluster hängen am Org-Knoten des Wirkungsraums (Rollup).
      */
-    public function autoCluster(SeoTeamSettings $settings, ?User $user = null, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null): array
+    public function autoClusterForWirkungsraum(int $wirkungsraumId, int $minOverlap = 3, ?int $minVolume = null): array
+    {
+        $wr = SeoWirkungsraum::find($wirkungsraumId);
+        if (! $wr) {
+            return ['error' => 'Wirkungsraum nicht gefunden'];
+        }
+
+        $settings = SeoTeamSettings::where('team_id', $wr->team_id)->first();
+        if (! $settings) {
+            return ['error' => 'Keine SEO-Einstellungen für dieses Team'];
+        }
+
+        // Nur eigene (kontrollierte) Mitglieds-URLs — Steuer-Invariante.
+        $urlIds = $wr->urls()->where('is_own', true)->pluck('seo_urls.id')->all();
+        if (empty($urlIds)) {
+            $wr->markClustering('failed', ['error' => 'Keine eigenen URLs im Wirkungsraum']);
+
+            return ['error' => 'Keine eigenen URLs im Wirkungsraum'];
+        }
+
+        $entityId = $this->linker->nodeIdsFor(SeoOrganizationLinker::ALIAS_WIRKUNGSRAUM, $wirkungsraumId)[0] ?? null;
+
+        $wr->markClustering('running');
+
+        try {
+            $result = $this->autoCluster($settings, null, $minOverlap, $urlIds, $entityId, $minVolume);
+            $wr->markClustering(empty($result['error']) ? 'completed' : 'failed', $result);
+
+            return $result;
+        } catch (\Throwable $e) {
+            $wr->markClustering('failed', ['error' => $e->getMessage()]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * @param  int[]|null  $urlIds     Wenn gesetzt: nur Keywords dieser URLs clustern (kunden-scoped).
+     * @param  int|null    $entityId   Wenn gesetzt: neue Cluster an diesen Org-Knoten hängen.
+     * @param  int|null    $minVolume  Wenn gesetzt: nur Keywords mit >= diesem Suchvolumen (spart Budget/Rauschen).
+     */
+    public function autoCluster(SeoTeamSettings $settings, ?User $user = null, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null, ?int $minVolume = null): array
     {
         $teamId = $settings->team_id;
 
         $query = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id');
         if ($urlIds !== null) {
             $query->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $urlIds));
+        }
+        if ($minVolume !== null) {
+            $query->where('search_volume', '>=', $minVolume);
         }
         $keywords = $query->get();
 

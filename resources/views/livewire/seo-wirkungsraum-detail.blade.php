@@ -152,10 +152,53 @@
                             </table>
                         </div>
                     @endif
-                    @if($penetration['unclustered'])
-                        <div class="mt-3 bg-white rounded-lg border border-dashed border-gray-200 px-4 py-3 flex items-center justify-between">
-                            <span class="text-[12px] text-gray-600">Ungeclusterter Rest: <span class="font-medium">{{ number_format($penetration['unclustered']['soll']) }}</span> Keywords, davon <span class="font-medium">{{ number_format($penetration['unclustered']['ist']) }}</span> wild rankend</span>
-                            <span class="text-[11px] text-gray-400">→ clustern zum Ordnen</span>
+                    @if($penetration['unclustered'] || ($wirkungsraum->clustering_status ?? null))
+                        <div class="mt-3 bg-white rounded-lg border border-dashed border-gray-200 px-4 py-3"
+                            @if(($wirkungsraum->clustering_status ?? null) === 'running') wire:poll.10s @endif>
+                            <div class="flex items-center justify-between gap-3 flex-wrap">
+                                <span class="text-[12px] text-gray-600">
+                                    @if($penetration['unclustered'])
+                                        Ungeclusterter Rest: <span class="font-medium">{{ number_format($penetration['unclustered']['soll']) }}</span> Keywords, davon <span class="font-medium">{{ number_format($penetration['unclustered']['ist']) }}</span> wild rankend
+                                    @else
+                                        Kein ungeclusterter Rest mehr — alles geordnet.
+                                    @endif
+                                </span>
+
+                                @if(($wirkungsraum->clustering_status ?? null) === 'running')
+                                    <span class="text-[12px] font-medium" style="color:#1d4ed8">⏳ Nach-Clustern läuft…</span>
+                                @elseif($clusterable >= 2)
+                                    <div class="flex items-center gap-2">
+                                        <label class="text-[11px] text-gray-500">ab Vol.
+                                            <select wire:model.live="clusterMinVolume" class="ml-1 text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white">
+                                                <option value="0">alle</option>
+                                                <option value="10">10</option>
+                                                <option value="50">50</option>
+                                                <option value="100">100</option>
+                                            </select>
+                                        </label>
+                                        <button wire:click="clusterRest" wire:loading.attr="disabled"
+                                            class="text-[12px] font-medium text-white rounded px-3 py-1.5" style="background:#0f766e">
+                                            Rest clustern
+                                            <span style="opacity:.8">({{ number_format($clusterable) }} KW · ~{{ number_format($clusterCostCents/100, 2, ',', '.') }} €)</span>
+                                        </button>
+                                    </div>
+                                @else
+                                    <span class="text-[11px] text-gray-400">→ nichts über der Schwelle zu clustern</span>
+                                @endif
+                            </div>
+
+                            <p class="text-[11px] text-gray-400 mt-1.5">Bündelt nur den <span class="font-medium">ungeclusterten</span> Rest zu neuen Themen (SERP-Overlap) — bereits zugeordnete Keywords bleiben unberührt.</p>
+
+                            @if($clusterFlash)
+                                <p class="text-[11px] mt-1.5" style="color:#0f766e">{{ $clusterFlash }}</p>
+                            @endif
+
+                            @php($cr = is_array($wirkungsraum->clustering_result ?? null) ? $wirkungsraum->clustering_result : null)
+                            @if(($wirkungsraum->clustering_status ?? null) === 'completed' && $cr && empty($cr['error']))
+                                <p class="text-[11px] mt-1.5" style="color:#15803d">✓ {{ (int) ($cr['clusters_created'] ?? 0) }} neue Cluster · {{ (int) ($cr['keywords_clustered'] ?? 0) }} Keywords geordnet · {{ (int) ($cr['singletons_remaining'] ?? 0) }} Einzelgänger übrig</p>
+                            @elseif(($wirkungsraum->clustering_status ?? null) === 'failed' || ($cr && ! empty($cr['error'])))
+                                <p class="text-[11px] mt-1.5" style="color:#b91c1c">Nach-Clustern fehlgeschlagen{{ $cr && ! empty($cr['error']) ? ': ' . $cr['error'] : '' }}.</p>
+                            @endif
                         </div>
                     @endif
                 </div>
