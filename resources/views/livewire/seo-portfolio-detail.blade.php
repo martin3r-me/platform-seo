@@ -455,12 +455,12 @@
                                     </div>
                                     <div class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">
                                         @foreach($nb['rooms'] as $roomIdx => $room)
-                                            <div class="rounded-md border border-gray-100 p-2" style="background:#fafafa">
+                                            <div wire:click="openRoom({{ $nbIdx }}, {{ $roomIdx }})" class="rounded-md border border-gray-100 p-2 cursor-pointer hover:border-gray-300" style="background:#fafafa">
                                                 <div class="flex items-center justify-between gap-2 mb-1">
                                                     <span class="text-[11px] font-medium {{ $room['is_rest'] ? 'text-gray-400' : 'text-gray-700' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}@if(! empty($room['pattern']))<span class="text-[8px] uppercase tracking-wide px-1 rounded bg-gray-200 text-gray-600 align-middle ml-1" title="Regel-Split nach Ort/Modifier — je ein Cluster">Muster</span>@endif @if(! empty($room['is_opportunity']))<span class="text-[8px] uppercase tracking-wide px-1 rounded bg-rose-100 text-rose-700 align-middle ml-1">Chance</span>@endif</span>
                                                     <span class="flex items-center gap-1.5 shrink-0">
                                                         <span class="text-[9px] text-gray-400 tabular-nums" title="Größe · Chance = erreichbarer Mehr-Traffic/Monat">{{ $room['size'] }} · <span style="color:#e11d48">↑{{ number_format($room['gap'] ?? 0) }}</span></span>
-                                                        <button wire:click="adoptRoom({{ $nbIdx }}, {{ $roomIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
+                                                        <button wire:click.stop="adoptRoom({{ $nbIdx }}, {{ $roomIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
                                                                 class="text-[9px] px-1.5 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
                                                     </span>
                                                 </div>
@@ -481,12 +481,12 @@
                         <div class="grid gap-2 mb-2" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
                             @foreach($sm['neighborhoods'] as $nbIdx => $nb)
                                 @if(empty($nb['rooms']))
-                                    <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                    <div wire:click="openSimple({{ $nbIdx }})" class="bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:border-gray-300">
                                         <div class="flex items-center justify-between gap-2 mb-1.5">
                                             <span class="text-[12px] font-medium text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $nb['label'] }}@if(! empty($nb['is_opportunity']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-rose-100 text-rose-700 align-middle ml-1">Chance</span>@endif</span>
                                             <span class="flex items-center gap-1.5 shrink-0">
                                                 <span class="text-[10px] text-gray-400 tabular-nums" title="Keywords · Potenzial ~Besuche/Mon bei Top-Rang / IST ~aktuell erreicht">{{ $nb['size'] }} KW · Pot ~{{ number_format($nb['potenzial'] ?? 0) }} / IST ~{{ number_format($nb['ist'] ?? 0) }}</span>
-                                                <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
+                                                <button wire:click.stop="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
                                                         class="text-[9px] px-1.5 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
                                             </span>
                                         </div>
@@ -539,6 +539,68 @@
                     <div class="bg-white rounded-lg border border-gray-200 p-4 text-[12px] text-gray-500">Noch keine Karte. Der Knopf liest die Keyword-Vektoren aus Qdrant und zeigt Nachbarschaften, Ausreißer und themenferne Keywords.</div>
                 @endif
             </div>
+
+            {{-- Zimmer-Detailansicht: Keywords + rankende URLs + Übernehmen --}}
+            @if($showRoomDetail && $roomDetail)
+                <div class="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto" style="background:rgba(0,0,0,0.4)" wire:click="closeRoomDetail">
+                    <div class="bg-white rounded-lg border border-gray-200 shadow-xl w-full max-w-3xl mt-10" wire:click.stop>
+                        <div class="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="text-[14px] font-semibold text-gray-800">{{ $roomDetail['label'] }}</div>
+                                <div class="text-[11px] text-gray-400 tabular-nums">{{ $roomDetail['size'] }} Keywords · Pot ~{{ number_format($roomDetail['potenzial']) }} / IST ~{{ number_format($roomDetail['ist']) }} · Chance <span style="color:#e11d48">↑{{ number_format($roomDetail['gap']) }}</span></div>
+                            </div>
+                            <button wire:click="closeRoomDetail" class="text-gray-400 hover:text-gray-700 text-[13px] shrink-0">schließen</button>
+                        </div>
+
+                        @if($roomDetail['situation'] === 'whitespace')
+                            <div class="px-4 py-2 text-[12px] bg-rose-100 text-rose-700">Weißraum — keine eigene Seite rankt dafür. Chance: neue Seite bauen.</div>
+                        @elseif($roomDetail['situation'] === 'cannibalization')
+                            <div class="px-4 py-2 text-[12px] bg-amber-100 text-amber-700">Kannibalisierung — {{ $roomDetail['own_ranking'] }} eigene Seiten konkurrieren um dieses Thema. Auf eine Pillar-Seite konsolidieren.</div>
+                        @else
+                            <div class="px-4 py-2 text-[12px] bg-gray-100 text-gray-600">Eine eigene Seite rankt bereits — vertiefen.</div>
+                        @endif
+
+                        <div class="grid md:grid-cols-2">
+                            <div class="p-4 border-r border-gray-100 overflow-y-auto" style="max-height:24rem">
+                                <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-2">Keywords ({{ count($roomDetail['keywords']) }}) · Vol · IST-Pos</div>
+                                <table class="w-full text-[12px]">
+                                    <tbody>
+                                        @foreach($roomDetail['keywords'] as $kw)
+                                            <tr class="border-b border-gray-50 last:border-0">
+                                                <td class="py-1 pr-2 text-gray-700">@if($kw['origin'] === 'competitor')<span style="color:#e11d48">◆</span> @endif{{ $kw['keyword'] }}</td>
+                                                <td class="py-1 px-2 text-right text-gray-500 tabular-nums">{{ number_format($kw['volume']) }}</td>
+                                                <td class="py-1 pl-2 text-right tabular-nums {{ $kw['position'] !== null ? 'text-gray-600' : 'text-gray-300' }}">{{ $kw['position'] !== null ? '#' . $kw['position'] : '—' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="p-4 overflow-y-auto" style="max-height:24rem">
+                                <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-2">Rankende URLs ({{ count($roomDetail['urls']) }})</div>
+                                @if(empty($roomDetail['urls']))
+                                    <div class="text-[12px] text-gray-400">Noch keine rankenden URLs erfasst.</div>
+                                @else
+                                    @foreach($roomDetail['urls'] as $u)
+                                        <div class="flex items-baseline justify-between gap-2 py-1 border-b border-gray-50 last:border-0 text-[12px]">
+                                            <span class="{{ $u['is_own'] ? 'text-gray-800 font-medium' : 'text-gray-500' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@if($u['is_own'])<span class="text-[9px] px-1 rounded bg-teal-100 text-teal-700">eigen</span> @endif{{ $u['domain'] }}{{ $u['path'] !== '/' ? $u['path'] : '' }}</span>
+                                            <span class="text-gray-400 tabular-nums shrink-0 text-[11px]">{{ $u['kw'] }} KW · #{{ $u['best'] }}</span>
+                                        </div>
+                                    @endforeach
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                            <span class="text-[11px] text-gray-400">„Übernehmen" prüft per SERP und macht einen echten Cluster (umkehrbar).</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button wire:click="closeRoomDetail" class="text-[12px] px-3 py-1.5 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50">Schließen</button>
+                                <button wire:click="adoptFromDetail" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
+                                        class="text-[12px] font-medium px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-700 disabled:opacity-50">Übernehmen → Cluster</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
 
             {{-- Wettbewerber-Benchmark (der Markt um den Verbund) --}}
             @if($competitors->isNotEmpty())

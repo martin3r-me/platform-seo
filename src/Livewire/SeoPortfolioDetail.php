@@ -9,6 +9,7 @@ use Platform\Seo\Jobs\BuildPortfolioSemanticMapJob;
 use Platform\Seo\Jobs\AdoptRoomJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoConversionSnapshot;
+use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlSnapshot;
@@ -423,6 +424,115 @@ class SeoPortfolioDetail extends Component
         $cost = count($ids) * (int) config('seo.cost_estimates.serp', 10);
         $this->clusterFlash = count($ids) . ' Keywords werden per SERP geprüft und als Cluster übernommen (~'
             . number_format($cost / 100, 2, ',', '.') . ' € · läuft im Hintergrund).';
+    }
+
+    // ── Zimmer-Detailansicht: welche Keywords + welche URLs hängen dran ──────────
+
+    public bool $showRoomDetail = false;
+
+    public ?array $roomDetail = null;
+
+    public function openRoom(int $nbIndex, int $roomIndex): void
+    {
+        $room = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.rooms.{$roomIndex}");
+        if (is_array($room)) {
+            $this->loadRoomDetail($room, $nbIndex, $roomIndex);
+        }
+    }
+
+    public function openSimple(int $nbIndex): void
+    {
+        $nb = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}");
+        if (is_array($nb)) {
+            $this->loadRoomDetail($nb, $nbIndex, null);
+        }
+    }
+
+    public function closeRoomDetail(): void
+    {
+        $this->showRoomDetail = false;
+        $this->roomDetail = null;
+    }
+
+    /** Übernehmen direkt aus dem Detail (nutzt die gespeicherten Indizes). */
+    public function adoptFromDetail(): void
+    {
+        if (! $this->roomDetail) {
+            return;
+        }
+        $nb = $this->roomDetail['nb_index'];
+        $ri = $this->roomDetail['room_index'];
+        $ri !== null ? $this->adoptRoom($nb, $ri) : $this->adoptSimple($nb);
+        $this->closeRoomDetail();
+    }
+
+    /**
+     * Lädt Keywords + rankende URLs eines Zimmers → zeigt sofort die Lage:
+     * Weißraum (keine eigene Seite), Kannibalisierung (mehrere eigene) oder besetzt.
+     *
+     * @param  array  $group  Zimmer/Nachbarschaft aus der semantischen Karte
+     */
+    protected function loadRoomDetail(array $group, int $nbIndex, ?int $roomIndex): void
+    {
+        $ids = array_values(array_filter(array_map('intval', $group['keyword_ids'] ?? [])));
+        if (empty($ids)) {
+            return;
+        }
+        $teamId = $this->seoSettings->team_id;
+
+        $kws = SeoKeyword::where('team_id', $teamId)->whereIn('id', $ids)
+            ->orderByDesc('search_volume')->get(['id', 'keyword', 'search_volume', 'cluster_id']);
+
+        // Rankende URLs (eigen + Wettbewerber) für die Keywords des Zimmers.
+        $rank = DB::table('seo_url_keywords as uk')
+            ->join('seo_urls as u', 'u.id', '=', 'uk.url_id')
+            ->whereIn('uk.keyword_id', $ids)
+            ->whereNotNull('uk.position')
+            ->get(['u.id as url_id', 'u.domain', 'u.path', 'u.is_own', 'uk.keyword_id', 'uk.position']);
+
+        // Beste EIGENE Position je Keyword (IST).
+        $ownPos = [];
+        $urlAgg = [];
+        foreach ($rank as $r) {
+            $pos = (int) $r->position;
+            if ($r->is_own) {
+                $kid = (int) $r->keyword_id;
+                $ownPos[$kid] = isset($ownPos[$kid]) ? min($ownPos[$kid], $pos) : $pos;
+            }
+            $uid = (int) $r->url_id;
+            if (! isset($urlAgg[$uid])) {
+                $urlAgg[$uid] = ['domain' => $r->domain, 'path' => $r->path, 'is_own' => (bool) $r->is_own, 'kw' => 0, 'best' => $pos];
+            }
+            $urlAgg[$uid]['kw']++;
+            $urlAgg[$uid]['best'] = min($urlAgg[$uid]['best'], $pos);
+        }
+
+        $keywords = $kws->map(fn ($k) => [
+            'keyword' => $k->keyword,
+            'volume' => (int) ($k->search_volume ?? 0),
+            'position' => $ownPos[$k->id] ?? null,
+            'origin' => isset($ownPos[$k->id]) ? 'own' : 'competitor',
+            'clustered' => $k->cluster_id !== null,
+        ])->all();
+
+        $urls = collect($urlAgg)->sortBy([['is_own', 'desc'], ['kw', 'desc']])->take(30)->values()->all();
+        $ownRanking = collect($urlAgg)->where('is_own', true)->count();
+        $situation = $ownRanking === 0 ? 'whitespace' : ($ownRanking >= 2 ? 'cannibalization' : 'single');
+
+        $this->roomDetail = [
+            'label' => $group['label'] ?? 'Zimmer',
+            'size' => $group['size'] ?? count($ids),
+            'potenzial' => $group['potenzial'] ?? 0,
+            'ist' => $group['ist'] ?? 0,
+            'gap' => $group['gap'] ?? 0,
+            'nb_index' => $nbIndex,
+            'room_index' => $roomIndex,
+            'keywords' => $keywords,
+            'urls' => $urls,
+            'own_ranking' => $ownRanking,
+            'situation' => $situation,
+        ];
+        $this->showRoomDetail = true;
     }
 
     /**
