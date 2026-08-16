@@ -153,6 +153,7 @@ class SeoSemanticMapService
                 'size' => count($members),
                 'volume' => array_sum(array_column($members, 'volume')),
                 'keywords' => array_slice($members, 0, 10), // Anzeige zeigt 8; size trägt den Rest
+                'keyword_ids' => array_values($comp),        // volle Menge fürs SERP-Übernehmen
                 'rooms' => $rooms,
                 'is_quarter' => ! empty($rooms),
             ];
@@ -315,6 +316,7 @@ class SeoSemanticMapService
                 'size' => count($m),
                 'volume' => array_sum(array_column($m, 'volume')),
                 'keywords' => array_slice($m, 0, 10),
+                'keyword_ids' => array_values($c),
                 'is_rest' => false,
             ];
         }
@@ -328,9 +330,11 @@ class SeoSemanticMapService
 
         // Rest: Quartier-Keywords, die in kein enges Zimmer fielen.
         $rest = [];
+        $restIds = [];
         foreach ($memberIds as $id) {
             if (! isset($inRoom[$id])) {
                 $rest[] = $this->row($byId[$id], $anchorScores[$id] ?? null);
+                $restIds[] = $id;
             }
         }
         if (! empty($rest)) {
@@ -340,6 +344,7 @@ class SeoSemanticMapService
                 'size' => count($rest),
                 'volume' => array_sum(array_column($rest, 'volume')),
                 'keywords' => array_slice($rest, 0, 10),
+                'keyword_ids' => array_values($restIds),
                 'is_rest' => true,
             ];
         }

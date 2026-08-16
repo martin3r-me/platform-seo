@@ -130,16 +130,68 @@ class SeoClusteringService
     }
 
     /**
+     * Ein „Zimmer" der semantischen Karte manifestieren: der semantische Vorschlag
+     * (Keyword-Menge) wird per SERP GEPRÜFT — bestätigt als 1 Cluster ODER in echte
+     * Seiten-Cluster gesplittet — und persistiert. Das ist der Punkt, an dem aus
+     * Bedeutung (billig, unscharf) eine SERP-Entscheidung (teuer, Grundwahrheit) wird.
+     * Scoped auf genau diese Keywords → billig. Neue Cluster hängen am Wirkungsraum.
+     *
+     * @param  int[]  $keywordIds
+     */
+    public function autoClusterForRoom(int $portfolioId, array $keywordIds, int $minOverlap = 3, ?int $deadlineTs = null): array
+    {
+        $portfolio = SeoPortfolio::find($portfolioId);
+        if (! $portfolio) {
+            return ['error' => 'Wirkungsraum nicht gefunden'];
+        }
+        $settings = SeoTeamSettings::where('team_id', $portfolio->team_id)->first();
+        if (! $settings) {
+            return ['error' => 'Keine SEO-Einstellungen für dieses Team'];
+        }
+
+        $keywordIds = array_values(array_filter(array_map('intval', $keywordIds)));
+        if (count($keywordIds) < 2) {
+            return ['error' => 'Zu wenige Keywords im Zimmer'];
+        }
+
+        $entityId = $this->linker->nodeIdsFor(SeoOrganizationLinker::ALIAS_PORTFOLIO, $portfolioId)[0] ?? null;
+
+        $portfolio->markClustering('running');
+
+        try {
+            $result = $this->autoCluster($settings, null, $minOverlap, null, $entityId, null, $deadlineTs, $keywordIds);
+
+            if (! empty($result['error'])) {
+                $portfolio->markClustering('failed', $result);
+            } elseif (($result['complete'] ?? true) === false) {
+                $portfolio->markClustering('running', $result);
+            } else {
+                $portfolio->markClustering('completed', $result);
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            $portfolio->markClustering('failed', ['error' => $e->getMessage()]);
+
+            throw $e;
+        }
+    }
+
+    /**
      * @param  int[]|null  $urlIds     Wenn gesetzt: nur Keywords dieser URLs clustern (kunden-scoped).
      * @param  int|null    $entityId   Wenn gesetzt: neue Cluster an diesen Org-Knoten hängen.
      * @param  int|null    $minVolume  Wenn gesetzt: nur Keywords mit >= diesem Suchvolumen (spart Budget/Rauschen).
+     * @param  int[]|null  $onlyKeywordIds  Wenn gesetzt: exakt diese Keywords (Zimmer-Übernahme), scoped.
      */
-    public function autoCluster(SeoTeamSettings $settings, ?User $user = null, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null, ?int $minVolume = null, ?int $deadlineTs = null): array
+    public function autoCluster(SeoTeamSettings $settings, ?User $user = null, int $minOverlap = 3, ?array $urlIds = null, ?int $entityId = null, ?int $minVolume = null, ?int $deadlineTs = null, ?array $onlyKeywordIds = null): array
     {
         $teamId = $settings->team_id;
 
         $query = SeoKeyword::where('team_id', $teamId)->whereNull('cluster_id');
-        if ($urlIds !== null) {
+        if ($onlyKeywordIds !== null) {
+            // Ein Zimmer übernehmen: SERP nur auf genau diese Keywords (billig, scoped).
+            $query->whereIn('id', $onlyKeywordIds);
+        } elseif ($urlIds !== null) {
             $query->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $urlIds));
         }
         if ($minVolume !== null) {

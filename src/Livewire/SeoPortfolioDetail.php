@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Platform\Seo\Jobs\ClusterPortfolioRestJob;
 use Platform\Seo\Jobs\BuildPortfolioSemanticMapJob;
+use Platform\Seo\Jobs\AdoptRoomJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoConversionSnapshot;
 use Platform\Seo\Models\SeoPortfolio;
@@ -373,6 +374,49 @@ class SeoPortfolioDetail extends Component
 
         $this->portfolio->markSemantic('running', null);
         BuildPortfolioSemanticMapJob::dispatch($this->portfolio->id);
+    }
+
+    /**
+     * Ein Zimmer eines Quartiers übernehmen: SERP-prüfen + als Cluster manifestieren.
+     * Keyword-IDs werden serverseitig aus der Karte gelöst (kein großes DOM-Array).
+     */
+    public function adoptRoom(int $nbIndex, int $roomIndex): void
+    {
+        $ids = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.rooms.{$roomIndex}.keyword_ids", []);
+        $this->adoptKeywords(is_array($ids) ? $ids : []);
+    }
+
+    /** Eine einfache Nachbarschaft (schon ein Thema) direkt übernehmen. */
+    public function adoptSimple(int $nbIndex): void
+    {
+        $ids = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.keyword_ids", []);
+        $this->adoptKeywords(is_array($ids) ? $ids : []);
+    }
+
+    /**
+     * Gemeinsamer Übernahme-Pfad: SERP-Clustering scoped auf diese Keywords,
+     * Ergebnis wird persistiert (der einzige schreibende Schritt der Semantik-Sicht).
+     *
+     * @param  int[]  $ids
+     */
+    protected function adoptKeywords(array $ids): void
+    {
+        if (($this->portfolio->clustering_status ?? null) === 'running') {
+            return;
+        }
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (count($ids) < 2) {
+            $this->clusterFlash = 'Zimmer zu klein zum Übernehmen (min. 2 Keywords).';
+
+            return;
+        }
+
+        $this->portfolio->markClustering('running');
+        AdoptRoomJob::dispatch($this->portfolio->id, $ids);
+
+        $cost = count($ids) * (int) config('seo.cost_estimates.serp', 10);
+        $this->clusterFlash = count($ids) . ' Keywords werden per SERP geprüft und als Cluster übernommen (~'
+            . number_format($cost / 100, 2, ',', '.') . ' € · läuft im Hintergrund).';
     }
 
     /**

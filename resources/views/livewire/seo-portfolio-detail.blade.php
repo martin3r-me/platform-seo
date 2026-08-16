@@ -407,7 +407,7 @@
             @endif
 
             {{-- Semantische Karte — die Wirkungsraum-Linse auf die Keyword-Bedeutungen (Slice 2) --}}
-            <div class="mb-8" {{ ($semantic['status'] ?? null) === 'running' ? 'wire:poll.5s' : '' }}>
+            <div class="mb-8" {{ (($semantic['status'] ?? null) === 'running' || ($portfolio->clustering_status ?? null) === 'running') ? 'wire:poll.5s' : '' }}>
                 <div class="flex items-start justify-between gap-3 mb-1">
                     <h2 class="text-[13px] font-semibold text-gray-700">Semantische Karte</h2>
                     <button wire:click="buildSemanticMap" wire:loading.attr="disabled"
@@ -416,7 +416,10 @@
                         {{ ($semantic['map'] ?? null) ? 'Neu aufbauen' : 'Karte aufbauen' }}
                     </button>
                 </div>
-                <p class="text-[11px] text-gray-400 mb-3 max-w-2xl">Die Keywords dieses Wirkungsraums nach <span class="font-medium">Bedeutung</span> geordnet — read-only, kein SERP. Nachbarschaften (zusammengehörige Themen), Ausreißer (ohne Nachbarn) und themenferne Keywords. Kosten: ein paar Cent, die Vektoren liegen schon in Qdrant.</p>
+                <p class="text-[11px] text-gray-400 mb-2 max-w-2xl">Die Keywords dieses Wirkungsraums nach <span class="font-medium">Bedeutung</span> geordnet — Vorschlag, kein SERP. Ein Zimmer <span class="font-medium">„übernehmen"</span> lässt SERP prüfen und macht daraus einen echten Cluster (billig, scoped, umkehrbar). Nichts wird gespeichert, bis du übernimmst.</p>
+                @if($clusterFlash)
+                    <p class="text-[11px] mb-3" style="color:#0f766e">{{ $clusterFlash }}</p>
+                @endif
 
                 @php($sm = $semantic['map'] ?? null)
                 @php($smStatus = $semantic['status'] ?? null)
@@ -436,7 +439,7 @@
 
                     @if(! empty($sm['neighborhoods']))
                         {{-- Quartiere (große Nachbarschaften, in Zimmer aufgelöst — Simulation, read-only) --}}
-                        @foreach($sm['neighborhoods'] as $nb)
+                        @foreach($sm['neighborhoods'] as $nbIdx => $nb)
                             @if(! empty($nb['rooms']))
                                 <div class="bg-white rounded-lg border border-gray-200 p-3 mb-2">
                                     <div class="flex items-baseline justify-between gap-2 mb-2">
@@ -446,11 +449,15 @@
                                         <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }} · {{ count($nb['rooms']) }} Zimmer</span>
                                     </div>
                                     <div class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">
-                                        @foreach($nb['rooms'] as $room)
+                                        @foreach($nb['rooms'] as $roomIdx => $room)
                                             <div class="rounded-md border border-gray-100 p-2" style="background:#fafafa">
-                                                <div class="flex items-baseline justify-between gap-2 mb-1">
+                                                <div class="flex items-center justify-between gap-2 mb-1">
                                                     <span class="text-[11px] font-medium {{ $room['is_rest'] ? 'text-gray-400' : 'text-gray-700' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}</span>
-                                                    <span class="text-[9px] text-gray-400 shrink-0 tabular-nums">{{ $room['size'] }}</span>
+                                                    <span class="flex items-center gap-1.5 shrink-0">
+                                                        <span class="text-[9px] text-gray-400 tabular-nums">{{ $room['size'] }}</span>
+                                                        <button wire:click="adoptRoom({{ $nbIdx }}, {{ $roomIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
+                                                                class="text-[9px] px-1.5 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
+                                                    </span>
                                                 </div>
                                                 <div class="flex flex-wrap gap-1">
                                                     @foreach(array_slice($room['keywords'], 0, 6) as $kw)
@@ -467,12 +474,16 @@
 
                         {{-- Einfache Nachbarschaften (schon je ein Thema) --}}
                         <div class="grid gap-2 mb-2" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
-                            @foreach($sm['neighborhoods'] as $nb)
+                            @foreach($sm['neighborhoods'] as $nbIdx => $nb)
                                 @if(empty($nb['rooms']))
                                     <div class="bg-white rounded-lg border border-gray-200 p-3">
-                                        <div class="flex items-baseline justify-between gap-2 mb-1.5">
+                                        <div class="flex items-center justify-between gap-2 mb-1.5">
                                             <span class="text-[12px] font-medium text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $nb['label'] }}</span>
-                                            <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }}</span>
+                                            <span class="flex items-center gap-1.5 shrink-0">
+                                                <span class="text-[10px] text-gray-400 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }}</span>
+                                                <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
+                                                        class="text-[9px] px-1.5 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
+                                            </span>
                                         </div>
                                         <div class="flex flex-wrap gap-1">
                                             @foreach(array_slice($nb['keywords'], 0, 8) as $kw)
