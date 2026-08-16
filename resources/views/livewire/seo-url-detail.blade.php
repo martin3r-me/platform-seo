@@ -697,6 +697,35 @@
                             @endif
                         </div>
 
+                        {{-- Conversion-Attribution je Landingpage — der SEO→Wert-Hebel --}}
+                        @if($seoUrl->conversion_pages)
+                            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                <div class="text-[13px] font-medium text-gray-900 mb-0.5">Conversions je Seite</div>
+                                <div class="text-[12px] text-gray-500 mb-3">Welche Landingpage konvertiert — der SEO→Wert-Hebel. Je Ziel die stärksten Seiten (30 T).</div>
+                                <div class="space-y-4">
+                                    @foreach($seoUrl->conversion_pages as $group)
+                                        <div>
+                                            <div class="flex items-baseline justify-between mb-1.5">
+                                                <span class="text-[12px] font-semibold text-gray-700">{{ $group['goal'] }}</span>
+                                                <span class="text-[11px] text-gray-400 tabular-nums">{{ number_format($group['visitors']) }} Conv. · Ø {{ number_format($group['rate'], 1) }}%</span>
+                                            </div>
+                                            <div class="overflow-x-auto">
+                                                <table class="w-full text-[12px]" style="min-width:360px">
+                                                    @foreach($group['pages'] as $p)
+                                                        <tr class="border-b border-gray-50 last:border-0">
+                                                            <td class="py-1.5 pr-3 text-gray-700" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $p['page'] }}</td>
+                                                            <td class="py-1.5 px-2 text-right text-gray-500 tabular-nums">{{ number_format($p['visitors']) }}</td>
+                                                            <td class="py-1.5 pl-2 text-right tabular-nums font-semibold" style="color:{{ $p['rate'] >= 20 ? '#15803d' : ($p['rate'] >= 5 ? '#b45309' : '#6b7280') }}">{{ number_format($p['rate'], 1) }}%</td>
+                                                        </tr>
+                                                    @endforeach
+                                                </table>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
                         {{-- Roll-up: Domain-Total (Parent + Kinder) --}}
                         <div class="grid grid-cols-2 gap-3">
                             <div class="bg-white rounded-lg border border-gray-200 p-4">

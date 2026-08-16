@@ -203,6 +203,7 @@ class PlausibleCollector implements SeoCollectorInterface
                     'limit' => 20,
                 ]);
                 $this->storeGoals($root, $goals['results'] ?? []);
+                $this->storeConversionPages($root, $siteId, $api, $goals['results'] ?? []);
             } catch (\Throwable $e) {
                 $errors[] = "goals {$domain}: ".$e->getMessage();
             }
@@ -279,6 +280,70 @@ class PlausibleCollector implements SeoCollectorInterface
             'top_goals' => $goals->take(8)->all(),
             'conversions_fetched_at' => now(),
         ]);
+    }
+
+    /**
+     * Conversion-Attribution je Landingpage: je Goal (Top-Goals) die konvertie-
+     * renden Seiten mit Rate — „welche SEO-Seite bringt die Bewerbungen". Ein
+     * event:page-Breakdown je Goal, gefiltert auf dieses Goal. Auf der Root-URL
+     * als JSON abgelegt (Site-Level). Der stärkste SEO→Wert-Hebel.
+     *
+     * @param  array<int,array<string,mixed>>  $goalResults
+     */
+    protected function storeConversionPages(SeoUrl $root, string $siteId, $api, array $goalResults): void
+    {
+        if (empty($goalResults)) {
+            return;
+        }
+
+        // Top-Goals nach Besuchern (die relevantesten), max 5 — begrenzt die Calls.
+        $topGoals = collect($goalResults)
+            ->sortByDesc(fn ($g) => (int) ($g['visitors'] ?? 0))
+            ->take(5);
+
+        $conversionPages = [];
+
+        foreach ($topGoals as $g) {
+            $goalName = (string) ($g['goal'] ?? '');
+            if ($goalName === '') {
+                continue;
+            }
+
+            try {
+                $bd = $api->getBreakdown(null, [
+                    'site_id' => $siteId,
+                    'property' => 'event:page',
+                    'period' => '30d',
+                    'metrics' => 'visitors,events,conversion_rate',
+                    'filters' => 'event:goal==' . $goalName,
+                    'limit' => 6,
+                ]);
+            } catch (\Throwable $e) {
+                continue; // Goal-Namen mit Sonderzeichen o.ä. — still überspringen.
+            }
+
+            $pages = collect($bd['results'] ?? [])
+                ->map(fn ($r) => [
+                    'page' => (string) ($r['page'] ?? ''),
+                    'visitors' => (int) ($r['visitors'] ?? 0),
+                    'events' => (int) ($r['events'] ?? 0),
+                    'rate' => (float) ($r['conversion_rate'] ?? 0),
+                ])
+                ->filter(fn ($p) => $p['events'] > 0 && $p['page'] !== '')
+                ->values()
+                ->all();
+
+            if (! empty($pages)) {
+                $conversionPages[] = [
+                    'goal' => $goalName,
+                    'visitors' => (int) ($g['visitors'] ?? 0),
+                    'rate' => (float) ($g['conversion_rate'] ?? 0),
+                    'pages' => $pages,
+                ];
+            }
+        }
+
+        $root->update(['conversion_pages' => $conversionPages ?: null]);
     }
 
     /**
