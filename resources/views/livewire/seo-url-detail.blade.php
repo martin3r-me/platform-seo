@@ -699,29 +699,64 @@
 
                         {{-- Conversion-Attribution je Landingpage — der SEO→Wert-Hebel --}}
                         @if($seoUrl->conversion_pages)
+                            @php
+                                $cpGroups = collect($seoUrl->conversion_pages);
+                                $activeGoal = $conversionGoal && $cpGroups->firstWhere('goal', $conversionGoal) ? $conversionGoal : ($cpGroups->first()['goal'] ?? null);
+                                $active = $cpGroups->firstWhere('goal', $activeGoal) ?? $cpGroups->first();
+                                $cpPages = collect($active['pages'] ?? [])->sortByDesc('visitors')->values();
+                                $cpBest = $cpPages->sortByDesc('rate')->first();
+                                $cpLeak = $cpPages->filter(fn ($p) => $p['rate'] < ($active['rate'] ?? 0))->sortByDesc('visitors')->first();
+                                $cpMaxRate = max(1, (float) $cpPages->max('rate'));
+                            @endphp
                             <div class="bg-white rounded-lg border border-gray-200 p-4">
                                 <div class="text-[13px] font-medium text-gray-900 mb-0.5">Conversions je Seite</div>
-                                <div class="text-[12px] text-gray-500 mb-3">Welche Landingpage konvertiert — der SEO→Wert-Hebel. Je Ziel die stärksten Seiten (30 T).</div>
-                                <div class="space-y-4">
-                                    @foreach($seoUrl->conversion_pages as $group)
-                                        <div>
-                                            <div class="flex items-baseline justify-between mb-1.5">
-                                                <span class="text-[12px] font-semibold text-gray-700">{{ $group['goal'] }}</span>
-                                                <span class="text-[11px] text-gray-400 tabular-nums">{{ number_format($group['visitors']) }} Conv. · Ø {{ number_format($group['rate'], 1) }}%</span>
-                                            </div>
-                                            <div class="overflow-x-auto">
-                                                <table class="w-full text-[12px]" style="min-width:360px">
-                                                    @foreach($group['pages'] as $p)
-                                                        <tr class="border-b border-gray-50 last:border-0">
-                                                            <td class="py-1.5 pr-3 text-gray-700" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $p['page'] }}</td>
-                                                            <td class="py-1.5 px-2 text-right text-gray-500 tabular-nums">{{ number_format($p['visitors']) }}</td>
-                                                            <td class="py-1.5 pl-2 text-right tabular-nums font-semibold" style="color:{{ $p['rate'] >= 20 ? '#15803d' : ($p['rate'] >= 5 ? '#b45309' : '#6b7280') }}">{{ number_format($p['rate'], 1) }}%</td>
-                                                        </tr>
-                                                    @endforeach
-                                                </table>
-                                            </div>
-                                        </div>
+                                <div class="text-[12px] text-gray-500 mb-3">Welche Landingpage bringt dieses Ziel — der SEO→Wert-Hebel (30 Tage). Ziel wählen:</div>
+
+                                {{-- Ziel-Switcher --}}
+                                <div class="flex items-center gap-1.5 flex-wrap mb-3">
+                                    @foreach($cpGroups as $g)
+                                        <button wire:click="$set('conversionGoal', @js($g['goal']))"
+                                                class="text-[12px] px-2.5 py-1 rounded-full border {{ $g['goal'] === $activeGoal ? 'border-transparent text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50' }}"
+                                                style="{{ $g['goal'] === $activeGoal ? 'background:#0f766e' : '' }}">
+                                            {{ $g['goal'] }} <span class="{{ $g['goal'] === $activeGoal ? 'opacity-70' : 'text-gray-400' }} tabular-nums">{{ number_format($g['visitors']) }}</span>
+                                        </button>
                                     @endforeach
+                                </div>
+
+                                {{-- Insight-Zeile --}}
+                                <div class="rounded-md px-3 py-2 mb-3 text-[12px]" style="background:#f0fdfa;color:#0f766e">
+                                    Ø <span class="font-semibold tabular-nums">{{ number_format($active['rate'], 1) }}%</span> Conversion-Rate.
+                                    @if($cpBest) Stärkste Seite <span class="font-semibold">{{ $cpBest['page'] }}</span> ({{ number_format($cpBest['rate'], 1) }}%) — ausbauen.@endif
+                                    @if($cpLeak && ($cpLeak['page'] ?? '') !== ($cpBest['page'] ?? '')) Größtes Leck <span class="font-semibold">{{ $cpLeak['page'] }}</span> ({{ number_format($cpLeak['rate'], 1) }}% bei {{ number_format($cpLeak['visitors']) }} Conv.) — optimieren.@endif
+                                </div>
+
+                                {{-- Tabelle: eine je gewähltem Ziel, beschriftet, mit Rate-Balken --}}
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-[12px]" style="min-width:440px">
+                                        <thead>
+                                            <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                                <th class="text-left py-1.5 pr-3">Landingpage</th>
+                                                <th class="text-right py-1.5 px-2">Conversions</th>
+                                                <th class="text-left py-1.5 pl-2" style="width:150px">Conversion-Rate</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($cpPages as $p)
+                                                <tr class="border-b border-gray-50 last:border-0">
+                                                    <td class="py-1.5 pr-3 text-gray-700" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $p['page'] }}">{{ $p['page'] }}</td>
+                                                    <td class="py-1.5 px-2 text-right text-gray-600 tabular-nums font-medium">{{ number_format($p['visitors']) }}</td>
+                                                    <td class="py-1.5 pl-2">
+                                                        <div class="flex items-center gap-2">
+                                                            <div class="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                                                <div class="h-full rounded-full" style="width:{{ max(3, (int) round($p['rate'] / $cpMaxRate * 100)) }}%;background:{{ $p['rate'] >= 20 ? '#15803d' : ($p['rate'] >= 5 ? '#b45309' : '#9ca3af') }}"></div>
+                                                            </div>
+                                                            <span class="tabular-nums font-semibold w-11 text-right" style="color:{{ $p['rate'] >= 20 ? '#15803d' : ($p['rate'] >= 5 ? '#b45309' : '#6b7280') }}">{{ number_format($p['rate'], 1) }}%</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         @endif

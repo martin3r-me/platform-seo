@@ -39,6 +39,9 @@ class SeoUrlDetail extends Component
     public string $plausibleSiteId = '';
     public ?array $plausibleTest = null;
 
+    // Conversion-Attribution: gewähltes Ziel (Switcher).
+    public ?string $conversionGoal = null;
+
     public function mount(SeoUrl $seoUrl)
     {
         $this->resolveSettings();
