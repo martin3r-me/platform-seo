@@ -207,6 +207,13 @@ class PlausibleCollector implements SeoCollectorInterface
             } catch (\Throwable $e) {
                 $errors[] = "goals {$domain}: ".$e->getMessage();
             }
+
+            // Organische Landingpages + Engagement (Verweildauer/Bounce je Einstiegsseite).
+            try {
+                $this->storeOrganicLandingPages($root, $siteId, $api);
+            } catch (\Throwable $e) {
+                $errors[] = "landing {$domain}: ".$e->getMessage();
+            }
         }
 
         if (! empty($errors)) {
@@ -344,6 +351,36 @@ class PlausibleCollector implements SeoCollectorInterface
         }
 
         $root->update(['conversion_pages' => $conversionPages ?: null]);
+    }
+
+    /**
+     * Organische Landingpages + Engagement: je organischer Einstiegsseite die
+     * Besucher, Verweildauer (Sek.) und Bounce-Rate (%). Zeigt, welche SEO-Türen
+     * den Traffic halten — das Bindeglied Ranking → Conversion. Auf der Root-URL.
+     */
+    protected function storeOrganicLandingPages(SeoUrl $root, string $siteId, $api): void
+    {
+        $bd = $api->getBreakdown(null, [
+            'site_id' => $siteId,
+            'property' => 'visit:entry_page',
+            'period' => '30d',
+            'metrics' => 'visitors,visit_duration,bounce_rate',
+            'filters' => config('seo.plausible.organic_filter', 'visit:channel==Organic Search'),
+            'limit' => 15,
+        ]);
+
+        $pages = collect($bd['results'] ?? [])
+            ->map(fn ($r) => [
+                'page' => (string) ($r['entry_page'] ?? ''),
+                'visitors' => (int) ($r['visitors'] ?? 0),
+                'duration' => (int) round((float) ($r['visit_duration'] ?? 0)),
+                'bounce' => (int) round((float) ($r['bounce_rate'] ?? 0)),
+            ])
+            ->filter(fn ($p) => $p['page'] !== '' && $p['visitors'] > 0)
+            ->values()
+            ->all();
+
+        $root->update(['organic_landing_pages' => $pages ?: null]);
     }
 
     /**

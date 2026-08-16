@@ -761,6 +761,36 @@
                             </div>
                         @endif
 
+                        {{-- Organische Landingpages + Engagement — hält die SEO-Tür den Traffic? --}}
+                        @if($seoUrl->organic_landing_pages)
+                            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                <div class="text-[13px] font-medium text-gray-900 mb-0.5">Organische Landingpages</div>
+                                <div class="text-[12px] text-gray-500 mb-3">Wo organische Besucher einsteigen — und ob die Seite sie hält (Verweildauer hoch, Bounce niedrig = gut). Das Bindeglied Ranking → Conversion (30 Tage).</div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-[12px]" style="min-width:460px">
+                                        <thead>
+                                            <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                                <th class="text-left py-1.5 pr-3">Einstiegsseite</th>
+                                                <th class="text-right py-1.5 px-2">Org. Besucher</th>
+                                                <th class="text-right py-1.5 px-2">Verweildauer</th>
+                                                <th class="text-right py-1.5 pl-2">Bounce</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($seoUrl->organic_landing_pages as $p)
+                                                <tr class="border-b border-gray-50 last:border-0">
+                                                    <td class="py-1.5 pr-3 text-gray-700" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $p['page'] }}">{{ $p['page'] }}</td>
+                                                    <td class="py-1.5 px-2 text-right text-gray-600 tabular-nums font-medium">{{ number_format($p['visitors']) }}</td>
+                                                    <td class="py-1.5 px-2 text-right tabular-nums" style="color:{{ $p['duration'] >= 120 ? '#15803d' : ($p['duration'] >= 45 ? '#b45309' : '#6b7280') }}">{{ $p['duration'] >= 60 ? intdiv($p['duration'], 60) . 'm ' . ($p['duration'] % 60) . 's' : $p['duration'] . 's' }}</td>
+                                                    <td class="py-1.5 pl-2 text-right tabular-nums font-semibold" style="color:{{ $p['bounce'] <= 40 ? '#15803d' : ($p['bounce'] <= 65 ? '#b45309' : '#b91c1c') }}">{{ $p['bounce'] }}%</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
+
                         {{-- Roll-up: Domain-Total (Parent + Kinder) --}}
                         <div class="grid grid-cols-2 gap-3">
                             <div class="bg-white rounded-lg border border-gray-200 p-4">
