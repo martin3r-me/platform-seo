@@ -366,14 +366,20 @@ class SeoPortfolioDetail extends Component
      * Semantische Karte (neu) aufbauen: die Wirkungsraum-Linse auf die Keyword-
      * Vektoren in Qdrant. Kein SERP, kein Content — nur sehen. Läuft im Hintergrund.
      */
-    public function buildSemanticMap(): void
+    /** Quelle der semantischen Karte: 'own' (Faden 1) oder 'both' (+Wettbewerber = Faden 2). */
+    public string $semanticSource = 'own';
+
+    public function buildSemanticMap(?string $source = null): void
     {
         if (($this->portfolio->semantic_status ?? null) === 'running') {
             return;
         }
+        if ($source !== null && in_array($source, ['own', 'both'], true)) {
+            $this->semanticSource = $source;
+        }
 
         $this->portfolio->markSemantic('running', null);
-        BuildPortfolioSemanticMapJob::dispatch($this->portfolio->id);
+        BuildPortfolioSemanticMapJob::dispatch($this->portfolio->id, $this->semanticSource === 'both');
     }
 
     /**

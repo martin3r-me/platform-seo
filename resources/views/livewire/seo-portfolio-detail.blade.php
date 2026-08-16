@@ -410,13 +410,14 @@
             <div class="mb-8" {{ (($semantic['status'] ?? null) === 'running' || ($portfolio->clustering_status ?? null) === 'running') ? 'wire:poll.5s' : '' }}>
                 <div class="flex items-start justify-between gap-3 mb-1">
                     <h2 class="text-[13px] font-semibold text-gray-700">Semantische Karte</h2>
-                    <button wire:click="buildSemanticMap" wire:loading.attr="disabled"
-                            @disabled(($semantic['status'] ?? null) === 'running')
-                            class="text-[11px] px-2.5 py-1 rounded bg-gray-900 text-white disabled:opacity-50 shrink-0">
-                        {{ ($semantic['map'] ?? null) ? 'Neu aufbauen' : 'Karte aufbauen' }}
-                    </button>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button wire:click="buildSemanticMap('own')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
+                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'own' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Faden 1 — ordnen, was wir schon haben">eigene</button>
+                        <button wire:click="buildSemanticMap('both')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
+                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'both' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Faden 2 — erobern: + Wettbewerber-Keywords (das Grau)">+ Wettbewerber</button>
+                    </div>
                 </div>
-                <p class="text-[11px] text-gray-400 mb-2 max-w-2xl">Die Keywords dieses Wirkungsraums nach <span class="font-medium">Bedeutung</span> geordnet — Vorschlag, kein SERP. Ein Zimmer <span class="font-medium">„übernehmen"</span> lässt SERP prüfen und macht daraus einen echten Cluster (billig, scoped, umkehrbar). Nichts wird gespeichert, bis du übernimmst.</p>
+                <p class="text-[11px] text-gray-400 mb-2 max-w-2xl">Die Keywords nach <span class="font-medium">Bedeutung</span> geordnet — Vorschlag, kein SERP. <span class="font-medium">eigene</span> = ordnen was wir haben · <span class="font-medium">+ Wettbewerber</span> = das <span style="color:#e11d48">Grau</span> (wozu ranken die, das uns fehlt). Ein Zimmer <span class="font-medium">„übernehmen"</span> lässt SERP prüfen und macht einen echten Cluster (umkehrbar). Nichts gespeichert, bis du übernimmst.</p>
                 @if($clusterFlash)
                     <p class="text-[11px] mb-3" style="color:#0f766e">{{ $clusterFlash }}</p>
                 @endif
@@ -433,6 +434,10 @@
                         <span><span class="font-semibold tabular-nums">{{ number_format($sm['stats']['total']) }}</span> Keywords</span>
                         <span><span class="font-semibold tabular-nums" style="color:#0f766e">{{ number_format($sm['stats']['neighborhoods']) }}</span> Nachbarschaften ({{ number_format($sm['stats']['grouped']) }} gruppiert)</span>
                         <span><span class="font-semibold tabular-nums" style="color:#b45309">{{ number_format($sm['stats']['outliers']) }}</span> Ausreißer</span>
+                        @if(($sm['source'] ?? 'own') === 'both')
+                            <span><span class="font-semibold tabular-nums" style="color:#e11d48">{{ number_format($sm['stats']['competitors'] ?? 0) }}</span> Wettbewerber-KW</span>
+                            <span><span class="font-semibold tabular-nums" style="color:#e11d48">{{ number_format($sm['stats']['opportunities'] ?? 0) }}</span> Chancen</span>
+                        @endif
                         @if(! empty($sm['built_at']))<span class="text-gray-400">· {{ \Illuminate\Support\Carbon::parse($sm['built_at'])->diffForHumans() }}</span>@endif
                         @if(! empty($sm['truncated']))<span class="text-gray-400">· auf {{ number_format($sm['cap']) }} volumenstärkste begrenzt</span>@endif
                     </div>
@@ -444,7 +449,7 @@
                                 <div class="bg-white rounded-lg border border-gray-200 p-3 mb-2">
                                     <div class="flex items-baseline justify-between gap-2 mb-2">
                                         <span class="text-[12px] font-semibold text-gray-700">
-                                            <span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-teal-100 text-teal-700 align-middle mr-1">Quartier</span>{{ $nb['label'] }}
+                                            <span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-teal-100 text-teal-700 align-middle mr-1">Quartier</span>{{ $nb['label'] }}@if(! empty($nb['is_opportunity']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-rose-100 text-rose-700 align-middle ml-1">Chance</span>@endif
                                         </span>
                                         <span class="text-[10px] text-gray-400 shrink-0 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }} · {{ count($nb['rooms']) }} Zimmer</span>
                                     </div>
@@ -452,7 +457,7 @@
                                         @foreach($nb['rooms'] as $roomIdx => $room)
                                             <div class="rounded-md border border-gray-100 p-2" style="background:#fafafa">
                                                 <div class="flex items-center justify-between gap-2 mb-1">
-                                                    <span class="text-[11px] font-medium {{ $room['is_rest'] ? 'text-gray-400' : 'text-gray-700' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}</span>
+                                                    <span class="text-[11px] font-medium {{ $room['is_rest'] ? 'text-gray-400' : 'text-gray-700' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}@if(! empty($room['is_opportunity']))<span class="text-[8px] uppercase tracking-wide px-1 rounded bg-rose-100 text-rose-700 align-middle ml-1">Chance</span>@endif</span>
                                                     <span class="flex items-center gap-1.5 shrink-0">
                                                         <span class="text-[9px] text-gray-400 tabular-nums">{{ $room['size'] }}</span>
                                                         <button wire:click="adoptRoom({{ $nbIdx }}, {{ $roomIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
@@ -461,7 +466,7 @@
                                                 </div>
                                                 <div class="flex flex-wrap gap-1">
                                                     @foreach(array_slice($room['keywords'], 0, 6) as $kw)
-                                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-white border border-gray-100 text-gray-600" title="Vol {{ number_format($kw['volume']) }}">@if(! $kw['clustered'])<span style="color:#0f766e">•</span> @endif{{ $kw['keyword'] }}</span>
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-white border border-gray-100 text-gray-600" title="Vol {{ number_format($kw['volume']) }}">@if(($kw['origin'] ?? 'own') === 'competitor')<span style="color:#e11d48">◆</span> @elseif(! $kw['clustered'])<span style="color:#0f766e">•</span> @endif{{ $kw['keyword'] }}</span>
                                                     @endforeach
                                                     @if($room['size'] > 6)<span class="text-[10px] text-gray-400 px-1 py-0.5">+{{ $room['size'] - 6 }}</span>@endif
                                                 </div>
@@ -478,7 +483,7 @@
                                 @if(empty($nb['rooms']))
                                     <div class="bg-white rounded-lg border border-gray-200 p-3">
                                         <div class="flex items-center justify-between gap-2 mb-1.5">
-                                            <span class="text-[12px] font-medium text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $nb['label'] }}</span>
+                                            <span class="text-[12px] font-medium text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $nb['label'] }}@if(! empty($nb['is_opportunity']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-rose-100 text-rose-700 align-middle ml-1">Chance</span>@endif</span>
                                             <span class="flex items-center gap-1.5 shrink-0">
                                                 <span class="text-[10px] text-gray-400 tabular-nums">{{ $nb['size'] }} KW · {{ number_format($nb['volume']) }}</span>
                                                 <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
@@ -487,7 +492,7 @@
                                         </div>
                                         <div class="flex flex-wrap gap-1">
                                             @foreach(array_slice($nb['keywords'], 0, 8) as $kw)
-                                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600" title="Vol {{ number_format($kw['volume']) }}">@if(! $kw['clustered'])<span style="color:#0f766e">•</span> @endif{{ $kw['keyword'] }}</span>
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600" title="Vol {{ number_format($kw['volume']) }}">@if(($kw['origin'] ?? 'own') === 'competitor')<span style="color:#e11d48">◆</span> @elseif(! $kw['clustered'])<span style="color:#0f766e">•</span> @endif{{ $kw['keyword'] }}</span>
                                             @endforeach
                                             @if($nb['size'] > 8)<span class="text-[10px] text-gray-400 px-1 py-0.5">+{{ $nb['size'] - 8 }}</span>@endif
                                         </div>
@@ -495,7 +500,7 @@
                                 @endif
                             @endforeach
                         </div>
-                        <p class="text-[10px] text-gray-400 mb-4"><span class="text-teal-700 font-medium">Quartier</span> = großes Feld, simuliert in Zimmer aufgelöst (nichts gespeichert) · <span style="color:#0f766e">•</span> = noch ungeclustert (Weißraum-Kandidat)</p>
+                        <p class="text-[10px] text-gray-400 mb-4"><span class="text-teal-700 font-medium">Quartier</span> = großes Feld in Zimmer aufgelöst · <span class="text-rose-700 font-medium">Chance</span> = überwiegend Wettbewerber-Keywords (Grau) · <span style="color:#0f766e">•</span> ungeclustert (eigen) · <span style="color:#e11d48">◆</span> Wettbewerber-Keyword</p>
                     @endif
 
                     <div class="grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">

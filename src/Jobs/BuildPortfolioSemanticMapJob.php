@@ -26,7 +26,7 @@ class BuildPortfolioSemanticMapJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(public int $portfolioId) {}
+    public function __construct(public int $portfolioId, public bool $includeCompetitors = false) {}
 
     public function handle(SeoSemanticMapService $service): void
     {
@@ -35,7 +35,7 @@ class BuildPortfolioSemanticMapJob implements ShouldQueue
             return;
         }
 
-        $result = $service->build($this->portfolioId);
+        $result = $service->build($this->portfolioId, $this->includeCompetitors);
 
         $portfolio->markSemantic(empty($result['error']) ? 'completed' : 'failed', $result);
     }

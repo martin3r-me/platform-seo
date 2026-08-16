@@ -2,10 +2,12 @@
 
 namespace Platform\Seo\Services;
 
+use Illuminate\Support\Facades\DB;
 use Platform\Core\Services\EmbeddingProviderRegistry;
 use Platform\Core\Services\EmbeddingStoreRegistry;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoPortfolio;
+use Platform\Seo\Models\SeoUrl;
 
 /**
  * Die „Wirkungsraum-Linse" auf den gemeinsamen Keyword-Vektorraum (Qdrant): liest
@@ -44,7 +46,7 @@ class SeoSemanticMapService
         protected EmbeddingStoreRegistry $stores,
     ) {}
 
-    public function build(int $portfolioId): array
+    public function build(int $portfolioId, bool $includeCompetitors = false): array
     {
         $portfolio = SeoPortfolio::find($portfolioId);
         if (! $portfolio) {
@@ -60,14 +62,40 @@ class SeoSemanticMapService
         $providerKey = $provider->getName();
         $modelKey = $provider->getModel();
 
-        $urlIds = $portfolio->effectiveUrlIds();
-        if (empty($urlIds)) {
+        $ownUrlIds = $portfolio->effectiveUrlIds();
+        if (empty($ownUrlIds)) {
             return ['error' => 'Keine eigenen URLs im Wirkungsraum'];
         }
 
-        // Ausschnitt (die Linse): Keywords der Wirkungsraum-URLs, volumenstark zuerst.
+        // --- Faden 1: eigene Keywords (was wir schon haben) ---
+        $ownKeywordIds = DB::table('seo_url_keywords')->whereIn('url_id', $ownUrlIds)
+            ->distinct()->pluck('keyword_id')->map('intval')->all();
+        $ownSet = array_flip($ownKeywordIds);
+
+        // --- Faden 2 (optional): Wettbewerber-Keywords (wozu ranken die = das Grau) ---
+        // Wettbewerber DIESES Wirkungsraums (teilen Keywords mit uns) → deren volle
+        // Keyword-Menge; die Teile, die NICHT in $ownSet sind, sind die Chance.
+        $compKeywordIds = [];
+        if ($includeCompetitors) {
+            $compDomains = collect(
+                app(SeoScopeMetrics::class)->forUrlIds($teamId, $ownUrlIds)['competitors'] ?? []
+            )->pluck('domain')->filter()->unique()->all();
+
+            if (! empty($compDomains)) {
+                $compUrlIds = SeoUrl::where('team_id', $teamId)->where('is_own', false)
+                    ->whereIn('domain', $compDomains)->pluck('id')->all();
+                if (! empty($compUrlIds)) {
+                    $compKeywordIds = DB::table('seo_url_keywords')->whereIn('url_id', $compUrlIds)
+                        ->distinct()->pluck('keyword_id')->map('intval')->all();
+                }
+            }
+        }
+
+        $allKeywordIds = array_values(array_unique(array_merge($ownKeywordIds, $compKeywordIds)));
+
+        // Ausschnitt (die Linse), volumenstark zuerst.
         $rows = SeoKeyword::where('team_id', $teamId)
-            ->whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $urlIds))
+            ->whereIn('id', $allKeywordIds)
             ->orderByDesc('search_volume')
             ->limit(self::SCOPE_CAP + 1)
             ->get(['id', 'keyword', 'search_volume', 'cluster_id']);
@@ -86,7 +114,8 @@ class SeoSemanticMapService
         // --- Anker (Identität des Wirkungsraums) für die Themenferne-Sicht ---
         // NUR die Cluster DIESES Wirkungsraums (aus den cluster_ids seiner Keywords),
         // nicht alle Team-Cluster — sonst verwässert Fremdes (z.B. SOVRA) den Anker.
-        $ownClusterIds = $rows->pluck('cluster_id')->filter()->unique()->values()->all();
+        $ownClusterIds = $rows->filter(fn ($r) => isset($ownSet[(int) $r->id]))
+            ->pluck('cluster_id')->filter()->unique()->values()->all();
         $ownClusterNames = empty($ownClusterIds) ? [] : \Platform\Seo\Models\SeoKeywordCluster::whereIn('id', $ownClusterIds)
             ->whereNotNull('name')->pluck('name')->all();
         $anchorText = $this->buildAnchorText($portfolio, $ownClusterNames);
@@ -138,17 +167,17 @@ class SeoSemanticMapService
             if (count($comp) < 2) {
                 continue;
             }
-            $members = array_map(fn ($id) => $this->row($byId[$id], $anchorScores[$id] ?? null), $comp);
+            $members = array_map(fn ($id) => $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet), $comp);
             usort($members, fn ($a, $b) => $b['volume'] <=> $a['volume']);
 
             // Großes Quartier → in Zimmer auflösen (SIMULATION, read-only): dasselbe
             // Kanten-Set, nur bei feinerer Schwelle re-partitioniert. Keine Persistenz.
             $rooms = [];
             if (count($comp) > self::ROOM_TRIGGER) {
-                $rooms = $this->rooms($comp, $adjacency, $byId, $anchorScores);
+                $rooms = $this->rooms($comp, $adjacency, $byId, $anchorScores, $ownSet);
             }
 
-            $neighborhoods[] = [
+            $neighborhoods[] = array_merge([
                 'label' => $members[0]['keyword'],
                 'size' => count($members),
                 'volume' => array_sum(array_column($members, 'volume')),
@@ -156,14 +185,14 @@ class SeoSemanticMapService
                 'keyword_ids' => array_values($comp),        // volle Menge fürs SERP-Übernehmen
                 'rooms' => $rooms,
                 'is_quarter' => ! empty($rooms),
-            ];
+            ], $this->provenance($members));
         }
         usort($neighborhoods, fn ($a, $b) => $b['volume'] <=> $a['volume']);
 
         $outliers = [];
         foreach ($idsInOrder as $id) {
             if (empty($adjacency[$id])) {
-                $outliers[] = $this->row($byId[$id], $anchorScores[$id] ?? null);
+                $outliers[] = $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet);
             }
         }
         usort($outliers, fn ($a, $b) => $b['volume'] <=> $a['volume']);
@@ -173,7 +202,7 @@ class SeoSemanticMapService
         $themefar = [];
         if (! empty($anchorScores)) {
             $themefar = $rows
-                ->map(fn ($k) => $this->row($k, $anchorScores[$k->id] ?? 0.0))
+                ->map(fn ($k) => $this->row($k, $anchorScores[$k->id] ?? 0.0, $ownSet))
                 ->sortBy('anchor_score')
                 ->take(self::LIST_CAP)
                 ->values()
@@ -181,17 +210,21 @@ class SeoSemanticMapService
         }
 
         $grouped = array_sum(array_map(fn ($n) => $n['size'], $neighborhoods));
+        $compTotal = $rows->reject(fn ($r) => isset($ownSet[(int) $r->id]))->count();
 
         return [
             'anchor' => $anchorText,
             'threshold' => self::NEIGHBOR_THRESHOLD,
             'truncated' => $truncated,
             'cap' => self::SCOPE_CAP,
+            'source' => $includeCompetitors ? 'both' : 'own',
             'stats' => [
                 'total' => $rows->count(),
+                'competitors' => $compTotal, // Wettbewerber-Herkunft (das Grau)
                 'neighborhoods' => count($neighborhoods),
                 'grouped' => $grouped,
                 'outliers' => count($outliers),
+                'opportunities' => count(array_filter($neighborhoods, fn ($n) => ! empty($n['is_opportunity']))),
             ],
             'neighborhoods' => array_slice($neighborhoods, 0, 40),
             'outliers' => array_slice($outliers, 0, self::LIST_CAP),
@@ -285,7 +318,7 @@ class SeoSemanticMapService
      * @param  int[]  $memberIds
      * @param  array<int, array<int, float>>  $adjacency
      */
-    protected function rooms(array $memberIds, array $adjacency, $byId, array $anchorScores): array
+    protected function rooms(array $memberIds, array $adjacency, $byId, array $anchorScores, array $ownSet): array
     {
         $memberSet = array_flip($memberIds);
         $sub = [];
@@ -306,19 +339,19 @@ class SeoSemanticMapService
             if (count($c) < 2) {
                 continue;
             }
-            $m = array_map(fn ($id) => $this->row($byId[$id], $anchorScores[$id] ?? null), $c);
+            $m = array_map(fn ($id) => $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet), $c);
             usort($m, fn ($a, $b) => $b['volume'] <=> $a['volume']);
             foreach ($c as $id) {
                 $inRoom[$id] = true;
             }
-            $rooms[] = [
+            $rooms[] = array_merge([
                 'label' => $m[0]['keyword'],
                 'size' => count($m),
                 'volume' => array_sum(array_column($m, 'volume')),
                 'keywords' => array_slice($m, 0, 10),
                 'keyword_ids' => array_values($c),
                 'is_rest' => false,
-            ];
+            ], $this->provenance($m));
         }
 
         // Kein echtes Auflösen (nur ein Zimmer) → Quartier flach lassen.
@@ -333,33 +366,54 @@ class SeoSemanticMapService
         $restIds = [];
         foreach ($memberIds as $id) {
             if (! isset($inRoom[$id])) {
-                $rest[] = $this->row($byId[$id], $anchorScores[$id] ?? null);
+                $rest[] = $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet);
                 $restIds[] = $id;
             }
         }
         if (! empty($rest)) {
             usort($rest, fn ($a, $b) => $b['volume'] <=> $a['volume']);
-            $rooms[] = [
+            $rooms[] = array_merge([
                 'label' => 'übrige (kein enges Zimmer)',
                 'size' => count($rest),
                 'volume' => array_sum(array_column($rest, 'volume')),
                 'keywords' => array_slice($rest, 0, 10),
                 'keyword_ids' => array_values($restIds),
                 'is_rest' => true,
-            ];
+            ], $this->provenance($rest));
         }
 
         return $rooms;
     }
 
-    protected function row($kw, ?float $anchorScore): array
+    protected function row($kw, ?float $anchorScore, array $ownSet): array
     {
         return [
             'id' => (int) $kw->id,
             'keyword' => (string) $kw->keyword,
             'volume' => (int) ($kw->search_volume ?? 0),
             'clustered' => $kw->cluster_id !== null,
+            // Herkunft (Faden 1 vs 2): 'own' = wir ranken dafür; 'competitor' = nur
+            // Wettbewerber ranken, wir nicht = das Grau/die Chance.
+            'origin' => isset($ownSet[(int) $kw->id]) ? 'own' : 'competitor',
             'anchor_score' => $anchorScore !== null ? round($anchorScore, 3) : null,
+        ];
+    }
+
+    /**
+     * Provenienz einer Gruppe: wie viele Keywords sind Wettbewerber-Herkunft und
+     * ist sie „Chance" (überwiegend Wettbewerber = Thema, das wir kaum besetzen)?
+     *
+     * @param  array<int, array>  $members
+     * @return array{comp_count:int,is_opportunity:bool}
+     */
+    protected function provenance(array $members): array
+    {
+        $comp = count(array_filter($members, fn ($m) => ($m['origin'] ?? 'own') === 'competitor'));
+        $total = count($members);
+
+        return [
+            'comp_count' => $comp,
+            'is_opportunity' => $total > 0 && ($comp / $total) >= 0.6,
         ];
     }
 }
