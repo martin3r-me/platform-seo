@@ -57,6 +57,14 @@ class UpdateUrlTool implements ToolContract
                     'type' => 'integer',
                     'description' => 'Boost: N Tage täglich SERP (0 = Boost beenden).',
                 ],
+                'plausible_enabled' => [
+                    'type' => 'boolean',
+                    'description' => 'Plausible-Opt-in: Traffic/Conversions für diese Domain sammeln.',
+                ],
+                'plausible_site_id' => [
+                    'type' => 'string',
+                    'description' => 'Plausible-Site-Name, falls ≠ Domain (z.B. „broichcatering.com" für Domain „broich.catering"). Leerer String = zurück auf Domain-Fallback.',
+                ],
             ],
         ];
     }
@@ -102,6 +110,14 @@ class UpdateUrlTool implements ToolContract
             if (array_key_exists('boost_days', $arguments)) {
                 $days = (int) $arguments['boost_days'];
                 $updates['boost_until'] = $days > 0 ? now()->addDays($days) : null;
+            }
+
+            if (isset($arguments['plausible_enabled'])) {
+                $updates['plausible_enabled'] = (bool) $arguments['plausible_enabled'];
+            }
+            if (array_key_exists('plausible_site_id', $arguments)) {
+                $sid = trim((string) $arguments['plausible_site_id']);
+                $updates['plausible_site_id'] = $sid !== '' ? $sid : null;
             }
 
             $wantsProfile = array_key_exists('data_profile', $arguments);
