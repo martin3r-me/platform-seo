@@ -94,6 +94,13 @@
             </div>
         </div>
 
+        {{-- Gemeinsames Scope-Panel — Ordnungsgrad + Durchdringung (Liste = Beobachten: nur Lesart) --}}
+        @if(($scope['coverage']['total'] ?? 0) > 0)
+            <div class="mb-4">
+                @include('seo::partials.scope-penetration', ['clusters' => $scope['clusters'], 'coverage' => $scope['coverage']])
+            </div>
+        @endif
+
         {{-- URLs Table + Detail Panel --}}
         <div class="flex gap-0 items-start">
             {{-- Left: URL List --}}

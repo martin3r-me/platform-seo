@@ -132,6 +132,14 @@ class SeoUrlListDetail extends Component
 
         $allChildIds = $childRelations->flatMap(fn ($rels) => $rels->pluck('target_url_id'));
 
+        // Gemeinsamer Scope-Kennzahlen-Kern (Ordnungsgrad/Durchdringung) über die
+        // Listen-URLs + ihre Unterseiten — dieselbe Lesart wie URL/Portfolio.
+        // Haltung Liste = Beobachten: nur lesen, keine Handlungs-Affordances.
+        $scopeIds = $rootUrlIds->merge($allChildIds)->unique()->values()->all();
+        $scopeTeamId = (int) ($rootUrls->first()->team_id ?? 0);
+        $scope = app(\Platform\Seo\Services\SeoScopeMetrics::class)
+            ->forUrlIds($scopeTeamId, $scopeIds);
+
         // Single bulk query for all child URLs
         $childUrlsMap = $allChildIds->isNotEmpty()
             ? SeoUrl::whereIn('id', $allChildIds)->get()->keyBy('id')
@@ -191,6 +199,7 @@ class SeoUrlListDetail extends Component
             'listUrls' => $listUrls,
             'availableUrls' => $availableUrls,
             'aggregated' => $aggregated,
+            'scope' => $scope,
             'listMonthlyCents' => app(\Platform\Seo\Services\SeoCostProjectionService::class)->listMonthlyCents($this->seoUrlList),
             'ownProfiles' => app(\Platform\Seo\Services\SeoDataProfileService::class)->availableProfiles(true),
         ])->layout('platform::layouts.app');
