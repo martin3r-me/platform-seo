@@ -51,19 +51,9 @@
                 <div class="flex items-center gap-3 flex-wrap">
                     <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Daten-Profil (Kunde)</span>
                     @php($__activeProfile = $this->nodeProfile())
-                    <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
 
-        {{-- BISECT7: @foreach-Block (55-66) raus --}}
+        {{-- BISECT8: nur @if(49)+@php(53)+@endif(76) --}}
 
-                    @if($__activeProfile === 'gemischt')
-                        <span class="text-[11px] text-amber-700" title="Die eigenen URLs dieses Kunden haben unterschiedliche Profile">gemischt</span>
-                    @endif
-                </div>
-                <div class="text-[12px] text-gray-500">
-                    <span class="text-gray-400 uppercase tracking-wide text-[10px]">Kosten</span>
-                    <span class="font-semibold text-gray-800 tabular-nums ml-1">{{ number_format($this->nodeMonthlyCents() / 100, 2, ',', '.') }} € / Monat</span>
-                </div>
-            </div>
         @endif
 
 
