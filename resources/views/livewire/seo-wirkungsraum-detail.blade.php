@@ -283,7 +283,7 @@
                 </div>
             @endif
 
-            <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: Entwicklung über Zeit · KI-Verteilung.</p>
+            <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: KI-Vorschläge in Aktionen (Cluster-Owner, Briefs) · Snapshots im Takt der Datensammlung.</p>
         </div>
 
         {{-- Add-URLs-Modal (nur eigene, kontrollierte URLs) --}}
