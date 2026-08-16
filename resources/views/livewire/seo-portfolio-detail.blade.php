@@ -22,11 +22,18 @@
                     @endif
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
-                    <button wire:click="analyze" wire:target="analyze" wire:loading.attr="disabled"
-                            class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-                        <span wire:loading.remove wire:target="analyze">🤖 Verteilung vorschlagen</span>
-                        <span wire:loading wire:target="analyze">Analysiere…</span>
-                    </button>
+                    @if($health['can_distribute'])
+                        <button wire:click="analyze" wire:target="analyze" wire:loading.attr="disabled"
+                                class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                            <span wire:loading.remove wire:target="analyze">🤖 Verteilung vorschlagen</span>
+                            <span wire:loading wire:target="analyze">Analysiere…</span>
+                        </button>
+                    @else
+                        <span class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-300 cursor-not-allowed inline-flex items-center gap-1.5"
+                              title="{{ $health['block_reason'] }}">
+                            🔒 Verteilung vorschlagen
+                        </span>
+                    @endif
                     <button wire:click="openAddUrls" class="text-[13px] font-medium px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-700">
                         + URLs hinzufügen
                     </button>
@@ -78,7 +85,56 @@
                     <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($agg['urls']) }}</div>
                 </div>
             </div>
-            <p class="text-[11px] text-gray-400 mb-6">Zahlen auf Property-Ebene — jede Mitglieds-URL inkl. ihrer eigenen Unterseiten, über den Verbund dedupliziert (deckungsgleich mit der URL-Detailseite).</p>
+            <p class="text-[11px] text-gray-400 mb-4">Zahlen auf Property-Ebene — jede Mitglieds-URL inkl. ihrer eigenen Unterseiten, über den Verbund dedupliziert (deckungsgleich mit der URL-Detailseite).</p>
+
+            {{-- Reifegrad — der Optimierungs-Trichter (Phase = erstes Gate, das reißt) --}}
+            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                <div class="flex items-baseline justify-between mb-3">
+                    <h2 class="text-[13px] font-semibold text-gray-700">Reifegrad</h2>
+                    <span class="text-[11px] text-gray-400">Optimierungs-Trichter — ein Schritt nach dem anderen.</span>
+                </div>
+
+                {{-- Stepper --}}
+                <div class="flex items-center gap-1 mb-3 flex-wrap">
+                    @foreach($health['phases'] as $i => $ph)
+                        @php($c = $ph['status'] === 'done' ? '#15803d' : ($ph['status'] === 'current' ? '#0f766e' : '#d1d5db'))
+                        @if($i > 0)
+                            <div class="h-px w-4" style="background:{{ $ph['status'] === 'locked' ? '#e5e7eb' : '#99c9c2' }}"></div>
+                        @endif
+                        <span class="inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md"
+                              style="color:{{ $c }};{{ $ph['status'] === 'current' ? 'background:#f0fdfa;font-weight:600;' : '' }}">
+                            {{ $ph['status'] === 'done' ? '✓' : ($ph['status'] === 'current' ? '●' : '○') }}
+                            {{ $ph['label'] }}
+                        </span>
+                    @endforeach
+                </div>
+
+                {{-- Aktueller Zug --}}
+                <div class="rounded-md px-3 py-2.5 mb-3" style="background:#f0fdfa">
+                    <div class="text-[12px] text-gray-700">
+                        <span class="font-semibold" style="color:#0f766e">Du bist in „{{ $health['current_label'] }}"</span>
+                        — nächster Zug: <span class="font-medium">{{ $health['next_action'] }}</span>
+                    </div>
+                    <div class="text-[11px] text-gray-500 mt-0.5">{{ $health['reason'] }}</div>
+                </div>
+
+                {{-- Dimensionen (was wir heute messen) --}}
+                <div class="grid grid-cols-2 gap-4">
+                    @foreach(['ordnung' => 'Ordnung', 'durchdringung' => 'Durchdringung'] as $key => $label)
+                        @php($v = $health['dimensions'][$key] ?? 0)
+                        <div>
+                            <div class="flex items-center justify-between text-[11px] mb-1">
+                                <span class="text-gray-500">{{ $label }}</span>
+                                <span class="tabular-nums text-gray-700 font-medium">{{ $v }}%</span>
+                            </div>
+                            <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                <div class="h-full rounded-full {{ $v >= 70 ? 'bg-green-500' : ($v >= 30 ? 'bg-amber-500' : 'bg-gray-300') }}" style="width: {{ max(2, $v) }}%"></div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                <p class="text-[11px] text-gray-400 mt-3">Weitere Dimensionen (Suchperformance · Seiten-Qualität · Wirkung) folgen, sobald GSC/On-Page/Plausible-Daten erhoben sind.</p>
+            </div>
 
             {{-- Verbund-Entwicklung über Zeit — der Nordstern: steigt die gemeinsame Sichtbarkeit? --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">

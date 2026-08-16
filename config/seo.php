@@ -219,6 +219,18 @@ return [
     | DataForSeo Cost Estimates (cents per action)
     |--------------------------------------------------------------------------
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Portfolio-Reifegrad — Gates (Schwellen), keine Engine.
+    |--------------------------------------------------------------------------
+    | Der Reifegrad-Trichter messen→ordnen→verteilen→vertiefen→konvertieren.
+    | Die Phase = das erste Gate, das reißt. Opinionated Defaults; hier tweakbar.
+    */
+    'portfolio_gates' => [
+        'ordnungsgrad_min' => 70,   // % Keywords in Cluster, um verteilen zu dürfen
+        'durchdringung_min' => 50,  // Ø IST/SOLL % je Cluster für „vertieft"
+    ],
+
     'cost_estimates' => [
         'search_volume' => 5,
         'serp' => 10,

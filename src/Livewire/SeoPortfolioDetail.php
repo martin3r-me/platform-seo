@@ -10,6 +10,7 @@ use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlSnapshot;
 use Platform\Seo\Services\SeoPortfolioAdvisor;
+use Platform\Seo\Services\SeoPortfolioHealth;
 use Platform\Seo\Services\SeoScopeMetrics;
 
 /**
@@ -150,6 +151,14 @@ class SeoPortfolioDetail extends Component
      */
     public function analyze(): void
     {
+        // Hartes Gate: keine Verteilung auf ungeordneten Daten (Garbage-in).
+        $health = app(SeoPortfolioHealth::class)->evaluate($this->portfolio);
+        if (! $health['can_distribute']) {
+            $this->advice = ['error' => 'Verteilung gesperrt — ' . $health['block_reason'] . ' Erst ordnen, dann aussteuern.'];
+
+            return;
+        }
+
         $pv = $this->propertyView();
         $members = $pv['members'];
         $totals = $pv['memberTotals'];
@@ -285,6 +294,7 @@ class SeoPortfolioDetail extends Component
         $clusterable = $this->clusterableCount($effectiveIds, $this->clusterMinVolume);
 
         return view('seo::livewire.seo-portfolio-detail', [
+            'health' => app(SeoPortfolioHealth::class)->evaluate($this->portfolio),
             'members' => $pv['members'],
             'memberTotals' => $pv['memberTotals'],
             'agg' => $pv['agg'],
