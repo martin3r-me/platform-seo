@@ -8,6 +8,7 @@ use Platform\Seo\Jobs\ClusterWirkungsraumRestJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlSnapshot;
 use Platform\Seo\Models\SeoWirkungsraum;
 use Platform\Seo\Services\SeoWirkungsraumAdvisor;
 
@@ -148,6 +149,49 @@ class SeoWirkungsraumDetail extends Component
     }
 
     /**
+     * Verbund-Entwicklung über Zeit: Sichtbarkeit des Wirkungsraums je
+     * Snapshot-Tag (Summe über die Mitglieds-URLs). Ehrlich sparse — jeder
+     * Punkt ist eine echte Messung, keine Kalender-Interpolation. Die Frequenz
+     * folgt der Snapshot-Kadenz (siehe seo-snapshot-cadence). Empty-State-first:
+     * mit 0/1 Punkt zeigt die UI den Rahmen, nicht eine erfundene Kurve.
+     */
+    protected function trend(array $memberIds): array
+    {
+        $empty = ['points' => [], 'count' => 0, 'since' => null, 'current' => null, 'delta' => null];
+        if (empty($memberIds)) {
+            return $empty;
+        }
+
+        $rows = SeoUrlSnapshot::whereIn('url_id', $memberIds)
+            ->where('snapshot_date', '>=', now()->subDays(90))
+            ->selectRaw('snapshot_date, SUM(visibility_score) as total_visibility')
+            ->groupBy('snapshot_date')
+            ->orderBy('snapshot_date')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return $empty;
+        }
+
+        $points = $rows->map(fn ($r) => [
+            'date' => \Illuminate\Support\Carbon::parse($r->snapshot_date)->format('Y-m-d'),
+            'visibility' => (float) $r->total_visibility,
+        ])->values()->all();
+
+        $count = count($points);
+        $current = $points[$count - 1]['visibility'];
+        $first = $points[0]['visibility'];
+
+        return [
+            'points' => $points,
+            'count' => $count,
+            'since' => $points[0]['date'],
+            'current' => $current,
+            'delta' => $count >= 2 ? $current - $first : null,
+        ];
+    }
+
+    /**
      * Durchdringung je Cluster: SOLL (Ziel-Keywords, an Mitglieds-URLs gehängt)
      * vs. IST (davon rankend = Pivot-Position gesetzt). Plus ungeclusterter Rest
      * (wild rankend). Der Kern-Steuer-Fakt des Wirkungsraums.
@@ -252,6 +296,7 @@ class SeoWirkungsraumDetail extends Component
             'competitors' => $this->competitors($memberIds),
             'clusterable' => $clusterable,
             'clusterCostCents' => $clusterable * (int) config('seo.cost_estimates.serp', 10),
+            'trend' => $this->trend($memberIds),
         ])->layout('platform::layouts.app');
     }
 }

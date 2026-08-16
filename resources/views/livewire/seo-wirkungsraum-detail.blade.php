@@ -79,6 +79,44 @@
                 </div>
             </div>
 
+            {{-- Verbund-Entwicklung über Zeit — der Nordstern: steigt die gemeinsame Sichtbarkeit? --}}
+            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                <div class="flex items-baseline justify-between mb-2">
+                    <div>
+                        <h2 class="text-[13px] font-semibold text-gray-700">Verbund-Entwicklung</h2>
+                        <p class="text-[11px] text-gray-400">Gemeinsame Sichtbarkeit über Zeit — der Nordstern.</p>
+                    </div>
+                    @if($trend['count'] >= 2 && $trend['delta'] !== null)
+                        @php($up = $trend['delta'] >= 0)
+                        <span class="text-[12px] font-semibold tabular-nums" style="color:{{ $up ? '#15803d' : '#be123c' }}">
+                            {{ $up ? '▲' : '▼' }} {{ number_format(abs($trend['delta']), 0) }}
+                            <span class="font-normal text-gray-400">seit Start</span>
+                        </span>
+                    @endif
+                </div>
+
+                @if($trend['count'] === 0)
+                    <div class="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center">
+                        <p class="text-[12px] text-gray-500">Noch keine Messpunkte.</p>
+                        <p class="text-[11px] text-gray-400 mt-0.5">Die Verbund-Entwicklung erscheint, sobald der erste Snapshot gelaufen ist — im Takt, in dem neue Daten eingesammelt werden.</p>
+                    </div>
+                @elseif($trend['count'] === 1)
+                    <div class="rounded-lg border border-dashed border-gray-200 px-4 py-4 flex items-center justify-between gap-4">
+                        <div>
+                            <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($trend['current'], 0) }}</div>
+                            <div class="text-[11px] text-gray-400">1 Messpunkt seit {{ \Illuminate\Support\Carbon::parse($trend['since'])->format('d.m.Y') }}</div>
+                        </div>
+                        <p class="text-[11px] text-gray-400 max-w-[220px] text-right">Die Linie entsteht ab dem zweiten Messpunkt — der Rahmen steht schon.</p>
+                    </div>
+                @else
+                    @include('seo::partials.sparkline', ['data' => array_column($trend['points'], 'visibility'), 'color' => '#0f766e', 'height' => 120, 'type' => 'area'])
+                    <div class="flex items-center justify-between mt-1 text-[11px] text-gray-400">
+                        <span>{{ \Illuminate\Support\Carbon::parse($trend['since'])->format('d.m.') }} → {{ \Illuminate\Support\Carbon::parse($trend['points'][count($trend['points']) - 1]['date'])->format('d.m.Y') }}</span>
+                        <span>{{ $trend['count'] }} Messpunkte</span>
+                    </div>
+                @endif
+            </div>
+
             {{-- Mitglieder --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>
             <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
