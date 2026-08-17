@@ -26,6 +26,46 @@
                 <p class="text-[13px] text-gray-500 -mt-3">{{ $cluster->description }}</p>
             @endif
 
+            {{-- Pillar-Seite — welche Seite besitzt dieses Thema (Ziel aller Cluster-Keywords) --}}
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-start justify-between gap-3 flex-wrap">
+                    <div class="min-w-0">
+                        <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Pillar-Seite</div>
+                        @if($pillarUrl)
+                            <a href="{{ route('seo.urls.show', $pillarUrl) }}" wire:navigate class="text-[13px] font-medium text-[#166EE1] hover:underline break-all">{{ $pillarUrl->url }}</a>
+                            <div class="text-[11px] text-gray-400 mt-0.5">Besitzt das Thema — Ziel aller Cluster-Keywords.</div>
+                        @else
+                            <div class="text-[13px] text-gray-500">Noch keine Pillar-Seite bestimmt.</div>
+                            <div class="text-[11px] text-gray-400 mt-0.5">Welche eine Seite soll dieses Thema besitzen?</div>
+                        @endif
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <select x-data
+                                x-on:change="if($event.target.value){ $wire.setPillarUrl(parseInt($event.target.value)); }"
+                                class="text-[12px] border border-gray-300 rounded-md px-2.5 py-1.5 bg-white text-gray-700 max-w-[300px]">
+                            <option value="">{{ $pillarUrl ? 'Pillar ändern…' : 'Pillar wählen…' }}</option>
+                            @if($pillarCandidates->isNotEmpty())
+                                <optgroup label="Rankt für dieses Thema">
+                                    @foreach($pillarCandidates as $c)
+                                        <option value="{{ $c->id }}" @if($pillarUrl && (int) $pillarUrl->id === (int) $c->id) selected @endif>{{ $c->path ?: '/' }} · {{ $c->kw_covered }} KW</option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                            @if($otherOwnUrls->isNotEmpty())
+                                <optgroup label="Andere eigene Seiten">
+                                    @foreach($otherOwnUrls as $u)
+                                        <option value="{{ $u->id }}" @if($pillarUrl && (int) $pillarUrl->id === (int) $u->id) selected @endif>{{ $u->path ?: '/' }}</option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                        </select>
+                        @if($pillarUrl)
+                            <button wire:click="clearPillarUrl" class="text-[12px] text-gray-400 hover:text-red-600 px-2 py-1.5 whitespace-nowrap">entfernen</button>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
             {{-- Kontext-Zuweisung --}}
             @if(!empty($contextNodes) || !empty($availableNodes))
                 <div class="flex items-center gap-2 flex-wrap">
@@ -91,6 +131,49 @@
                         <div class="text-[12px] text-gray-300 py-4 text-center">Noch keine Zeitreihe</div>
                     @endif
                 </div>
+            </div>
+
+            {{-- GSC-IST — echte Google-Zahlen für dieses Thema (30 Tage), getrennt von den SERP-KPIs oben --}}
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-[13px] font-semibold text-gray-700">GSC-IST <span class="text-[11px] font-normal text-gray-400">· echte Google-Zahlen, 30 Tage</span></h2>
+                    @if($gscIst['kw_total'] > 0)
+                        <span class="text-[11px] text-gray-400 tabular-nums">{{ $gscIst['kw_ranked'] }}/{{ $gscIst['kw_total'] }} Begriffe sichtbar</span>
+                    @endif
+                </div>
+                @if($gscIst['impressions'] > 0)
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div>
+                            <div class="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Klicks</div>
+                            <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($gscIst['clicks']) }}</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Impressionen</div>
+                            <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($gscIst['impressions']) }}</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Ø echte Pos.</div>
+                            <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $gscIst['avg_position'] !== null ? number_format($gscIst['avg_position'], 1) : '—' }}</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Lücke</div>
+                            <div class="text-2xl font-bold tabular-nums" style="color:#b45309">{{ number_format($gscIst['gap']) }}</div>
+                            <div class="text-[10px] text-gray-400 mt-1">Potenzial ~{{ number_format($gscIst['potential']) }}/Mon</div>
+                        </div>
+                    </div>
+                    @php $fill = $gscIst['potential'] > 0 ? min(100, (int) round($gscIst['clicks'] / $gscIst['potential'] * 100)) : 0; @endphp
+                    <div class="mt-3">
+                        <div class="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+                            <span>IST {{ number_format($gscIst['clicks']) }} Klicks</span>
+                            <span>Potenzial {{ number_format($gscIst['potential']) }}</span>
+                        </div>
+                        <div class="h-2 rounded-full bg-gray-100 overflow-hidden">
+                            <div class="h-full rounded-full" style="width:{{ max(2, $fill) }}%;background:{{ $cluster->color ?: '#0e6e78' }}"></div>
+                        </div>
+                    </div>
+                @else
+                    <div class="text-[12px] text-gray-400 py-3">Noch keine GSC-Daten für dieses Thema. Der nächtliche Collector füllt sie, sobald Google die Seiten für diese Begriffe zeigt.</div>
+                @endif
             </div>
 
             {{-- Content-Briefs --}}
