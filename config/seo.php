@@ -95,8 +95,9 @@ return [
                 'what'  => 'Manuelle Gruppen von URLs — nützlich für Projekte oder Auswertungen. Für die strategische Sicht nutze eher Cluster oder Kontext.',
             ],
             'urls' => [
-                'title' => 'URLs',
-                'what'  => 'Die Atome des Moduls: jede registrierte Seite wird zentral gemessen (Keywords, Rankings, Backlinks, On-Page). „Nach Kontext" gruppiert sie am Org-Baum.',
+                'title' => 'URLs — die Basis, nur lesend',
+                'what'  => 'Das Fundament: jede Seite konsolidiert hier all ihre Daten (Keywords, Rankings, GSC, Traffic) und berichtet an ihre Org-Knoten zurück. Die eine echte Unterscheidung ist eigen (wir beeinflussen den Inhalt) vs. fremd. Gehandelt wird nicht hier — dafür ziehst du URLs in einen Wirkungsraum.',
+                'next'  => ['label' => 'Im Wirkungsraum handeln', 'route' => 'seo.portfolios'],
             ],
             'competitors' => [
                 'title' => 'Wettbewerber',
