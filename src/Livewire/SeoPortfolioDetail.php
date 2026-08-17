@@ -41,6 +41,20 @@ class SeoPortfolioDetail extends Component
 
     public ?string $clusterFlash = null;
 
+    /**
+     * Angezeigte Reifegrad-Phase (gated Werkbank). null = aktuelles Gate.
+     * Der Stepper ist klickbar — man kann jede Phase ansteuern, ohne Funktion
+     * zu verlieren; gezeigt wird immer nur das Werkzeug einer Phase.
+     */
+    public ?string $viewPhase = null;
+
+    private const PHASES = ['messen', 'ordnen', 'verteilen', 'vertiefen', 'konvertieren'];
+
+    public function setPhase(string $phase): void
+    {
+        $this->viewPhase = in_array($phase, self::PHASES, true) ? $phase : null;
+    }
+
     public function mount(SeoPortfolio $seoPortfolio): void
     {
         $this->resolveSettings();
@@ -618,8 +632,16 @@ class SeoPortfolioDetail extends Component
 
         $clusterable = $this->clusterableCount($effectiveIds, $this->clusterMinVolume);
 
+        // Reifegrad + aktive (angezeigte) Phase — gated Werkbank: nur das
+        // Werkzeug einer Phase zeigen, Default = aktuelles Gate.
+        $health = app(SeoPortfolioHealth::class)->evaluate($this->portfolio);
+        $activePhase = in_array($this->viewPhase, self::PHASES, true) ? $this->viewPhase : $health['current'];
+        $activePhaseLabel = collect($health['phases'])->firstWhere('key', $activePhase)['label'] ?? $activePhase;
+
         return view('seo::livewire.seo-portfolio-detail', [
-            'health' => app(SeoPortfolioHealth::class)->evaluate($this->portfolio),
+            'health' => $health,
+            'activePhase' => $activePhase,
+            'activePhaseLabel' => $activePhaseLabel,
             'members' => $pv['members'],
             'memberTotals' => $pv['memberTotals'],
             'agg' => $pv['agg'],

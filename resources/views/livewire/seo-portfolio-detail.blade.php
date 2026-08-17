@@ -99,20 +99,29 @@
                     <span class="text-[11px] text-gray-400">Optimierungs-Trichter — ein Schritt nach dem anderen.</span>
                 </div>
 
-                {{-- Stepper --}}
+                {{-- Stepper — klickbar: steuert, welches Phasen-Werkzeug unten gezeigt wird --}}
                 <div class="flex items-center gap-1 mb-3 flex-wrap">
                     @foreach($health['phases'] as $i => $ph)
-                        @php($c = $ph['status'] === 'done' ? '#15803d' : ($ph['status'] === 'current' ? '#0f766e' : '#d1d5db'))
+                        @php($c = $ph['status'] === 'done' ? '#15803d' : ($ph['status'] === 'current' ? '#0f766e' : '#9ca3af'))
                         @if($i > 0)
                             <div class="h-px w-4" style="background:{{ $ph['status'] === 'locked' ? '#e5e7eb' : '#99c9c2' }}"></div>
                         @endif
-                        <span class="inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md"
-                              style="color:{{ $c }};{{ $ph['status'] === 'current' ? 'background:#f0fdfa;font-weight:600;' : '' }}">
+                        <button type="button" wire:click="setPhase('{{ $ph['key'] }}')"
+                              class="inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md cursor-pointer hover:bg-gray-50 transition-colors"
+                              style="color:{{ $c }};{{ $ph['status'] === 'current' ? 'background:#f0fdfa;font-weight:600;' : '' }}{{ $ph['key'] === $activePhase ? 'box-shadow: inset 0 -2px 0 #0f766e;' : '' }}">
                             {{ $ph['status'] === 'done' ? '✓' : ($ph['status'] === 'current' ? '●' : '○') }}
                             {{ $ph['label'] }}
-                        </span>
+                        </button>
                     @endforeach
                 </div>
+
+                {{-- Hinweis, wenn man ein anderes als das aktuelle Gate ansieht --}}
+                @if($activePhase !== $health['current'])
+                    <div class="text-[11px] text-gray-500 mb-3 -mt-1">
+                        Du siehst das Werkzeug für „{{ $activePhaseLabel }}".
+                        <button type="button" wire:click="setPhase('{{ $health['current'] }}')" class="hover:underline" style="color:#0f766e">→ zurück zum aktuellen Zug</button>
+                    </div>
+                @endif
 
                 {{-- Aktueller Zug --}}
                 <div class="rounded-md px-3 py-2.5 mb-3" style="background:#f0fdfa">
@@ -187,6 +196,7 @@
                 @endif
             </div>
 
+            @if(in_array($activePhase, ['konvertieren']))
             {{-- Wirkung im Verbund — die Plausible-Fakten aufs Portfolio gehoben --}}
             @if($verbundWirkung['has_data'])
                 <div class="mb-6">
@@ -311,6 +321,9 @@
                 </div>
             @endif
 
+            @endif
+
+            @if(in_array($activePhase, ['messen', 'ordnen', 'verteilen']))
             {{-- Mitglieder --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>
             <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
@@ -350,6 +363,9 @@
                 </table>
             </div>
 
+            @endif
+
+            @if(in_array($activePhase, ['ordnen', 'vertiefen']))
             {{-- Durchdringung je Cluster (IST rankend / SOLL laut Cluster) --}}
             @if($penetration['clusters']->isNotEmpty() || $penetration['unclustered'])
                 <div class="mt-8">
@@ -408,6 +424,9 @@
                 </div>
             @endif
 
+            @endif
+
+            @if(in_array($activePhase, ['ordnen', 'verteilen', 'vertiefen']))
             {{-- Semantische Karte — die Wirkungsraum-Linse auf die Keyword-Bedeutungen (Slice 2) --}}
             <div class="mb-8" {{ (($semantic['status'] ?? null) === 'running' || ($portfolio->clustering_status ?? null) === 'running') ? 'wire:poll.5s' : '' }}>
                 <div class="flex items-start justify-between gap-3 mb-1">
@@ -542,6 +561,8 @@
                 @endif
             </div>
 
+            @endif
+
             {{-- Zimmer-Detailansicht: Keywords + rankende URLs + Übernehmen --}}
             @if($showRoomDetail && $roomDetail)
                 <div class="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto" style="background:rgba(0,0,0,0.4)" wire:click="closeRoomDetail">
@@ -604,6 +625,7 @@
                 </div>
             @endif
 
+            @if(in_array($activePhase, ['verteilen', 'vertiefen']))
             {{-- Wettbewerber-Benchmark (der Markt um den Verbund) --}}
             @if($competitors->isNotEmpty())
                 <div class="mt-8">
@@ -643,6 +665,8 @@
                         </table>
                     </div>
                 </div>
+            @endif
+
             @endif
 
             <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: KI-Vorschläge in Aktionen (Cluster-Owner, Briefs) · Snapshots im Takt der Datensammlung.</p>
