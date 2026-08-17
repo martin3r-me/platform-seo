@@ -1,5 +1,10 @@
 # Wirkungsraum — Steuer-Scope für Verbund-Sichtbarkeit
 
+> ⚠️ **Teilweise überholt.** Das Zwei-Haltungen-Modell (Liste vs. Wirkungsraum) unten ist durch
+> [`NORDSTERN.md`](NORDSTERN.md) **revidiert**: „Liste" entfällt als eigenes Konzept — es gibt nur
+> den Wirkungsraum (gemischte URLs, eigen+extern; Beobachten ist eine Haltung, kein Typ). Bei
+> Widerspruch gilt NORDSTERN.md. Die restlichen Abschnitte (eigene Entität, Rückbericht, Scope-Metrik) bleiben gültig.
+
 > **Namens-Abbildung:** „Wirkungsraum" ist der deutsche **Produkt-/UI-Begriff** (Oberfläche, Doku).
 > Im **Code/Schema** heißt die Entität englisch **`SeoPortfolio` / `seo_portfolios`** (Konvention der
 > Codebase). Route `seo.portfolios`, Tools `seo.portfolios.*` / `seo.portfolio_urls.*`, morph-Alias
