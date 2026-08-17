@@ -150,8 +150,8 @@
                 </div>
             </div>
 
-            {{-- Tabs — 4 primäre Datensichten + „Mehr" für die selteneren (Backlinks/On-Page/AI/Beziehungen).
-                 Block-@php (Datei-Konvention: kein inline @php, sonst Raw-Block-ParseError). --}}
+            {{-- Tabs — 4 primaere Datensichten + „Mehr" fuer die selteneren (Backlinks/On-Page/AI/Beziehungen).
+                 Block-Direktive (Datei-Konvention: keine inline-Variante, sonst Raw-Block-ParseError). --}}
             @php
                 $secondaryTabs = ['backlinks' => 'Backlinks', 'onpage' => 'On-Page', 'ai' => 'AI-Sichtbarkeit', 'relationships' => 'Beziehungen'];
                 $inSecondary = in_array($activeTab, array_keys($secondaryTabs), true);
