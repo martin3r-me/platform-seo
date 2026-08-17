@@ -110,6 +110,34 @@ GSC-IST („X/Y Begriffe sichtbar", echte Position, Klicks, Lücke) führt.
 
 ---
 
+## Zimmer-Modell — die Werkbank arbeitet die Frontier ab
+
+Die semantische Karte zeigt nur **ungeordnete Nachfrage** (Frontier): geclusterte/
+abgestellte Keywords sind raus, der Rest schrumpft mit der Ordnung (Laufzeit sinkt).
+Ein **Zimmer** ist ein Cluster-in-Entstehung — der Cluster-Lebenszyklus trägt es:
+
+- **Bewertung: Score = Chance × Fit × Winnability.** Chance = Pot − IST · Fit =
+  anchor_score (Nähe zum Kern-Thema, dämpft Fremd-Rausch) · Winnability = 1−KD/100
+  (dämpft Unrankbares). **Intent** sichtbar (kein Intent-Mix in eine Seite).
+- **Aktionen am Zimmer:** *merken* (→ Kandidaten-Cluster, verlässt die Frontier) ·
+  *integrieren* (nah an bestehendem Cluster → dort rein, nicht neu — Verwandtschaft
+  IMMER sichtbar) · *übernehmen* (SERP → aktiver Cluster) · *abstellen* (Keywords
+  stilllegen).
+
+## Zwei-Achsen-Gesundheit — die Werkbank sieht beide Enden
+
+Die Ehe aus Nachfrage (Cluster) und Angebot (Seiten) muss gesund sein:
+
+- **Nachfrage-Ende (Zimmer):** on-topic? gewinnbar? nah an einem Cluster?
+- **Angebots-Ende (Seiten):** bedient eine Seite **ein** Thema oder zu viele
+  (Verwässerung/Kannibalisierung)? ranken wir für etwas, das wir **nicht** wollen?
+  → Aktionen: *fokussieren* (ein Thema besitzen, Rest umziehen) · **zurückbauen**
+  (Seite abschaffen/umbauen/re-targeten — De-Invest, wenn wir nicht ranken wollen).
+
+**Ehrliche Grenze (nicht naiv sein):** die Werkbank *zielt und misst* (Targeting,
+Priorisierung, GSC-IST). *Gewonnen* wird mit Content/Autorität/E-E-A-T — das lebt im
+Flynk-Hand-off. Und die Front verschiebt sich Richtung AI-Antworten/GEO.
+
 ## Der Regelkreis
 
 **sehen → entscheiden → handeln → messen → sehen.** Die Maschine *sieht und plant* stark; der
