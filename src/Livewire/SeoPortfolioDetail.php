@@ -10,6 +10,7 @@ use Platform\Seo\Jobs\AdoptRoomJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoConversionSnapshot;
 use Platform\Seo\Models\SeoKeyword;
+use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlSnapshot;
@@ -478,6 +479,111 @@ class SeoPortfolioDetail extends Component
         $ri = $this->roomDetail['room_index'];
         $ri !== null ? $this->adoptRoom($nb, $ri) : $this->adoptSimple($nb);
         $this->closeRoomDetail();
+    }
+
+    // ── Zimmer-Aktionen: merken (Kandidaten-Cluster) · abstellen (stilllegen) ────
+
+    public function rememberRoom(int $nbIndex, int $roomIndex): void
+    {
+        $room = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.rooms.{$roomIndex}");
+        if (is_array($room)) {
+            $this->rememberKeywords($room['keyword_ids'] ?? [], $room['label'] ?? 'Gemerktes Thema');
+            $this->spliceRoom($nbIndex, $roomIndex);
+        }
+    }
+
+    public function rememberSimple(int $nbIndex): void
+    {
+        $nb = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}");
+        if (is_array($nb)) {
+            $this->rememberKeywords($nb['keyword_ids'] ?? [], $nb['label'] ?? 'Gemerktes Thema');
+            $this->spliceRoom($nbIndex, null);
+        }
+    }
+
+    public function retireRoom(int $nbIndex, int $roomIndex): void
+    {
+        $ids = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.rooms.{$roomIndex}.keyword_ids", []);
+        $this->retireKeywords(is_array($ids) ? $ids : []);
+        $this->spliceRoom($nbIndex, $roomIndex);
+    }
+
+    public function retireSimple(int $nbIndex): void
+    {
+        $ids = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.keyword_ids", []);
+        $this->retireKeywords(is_array($ids) ? $ids : []);
+        $this->spliceRoom($nbIndex, null);
+    }
+
+    /**
+     * Merken = Kandidaten-Cluster ohne SERP (verlässt die Frontier). Die
+     * Keywords bekommen cluster_id → fallen aus der Karte, tauchen als Cluster
+     * (status=candidate) auf, „übernehmen" validiert später per SERP.
+     *
+     * @param  int[]  $ids
+     */
+    protected function rememberKeywords(array $ids, string $label): void
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (empty($ids)) {
+            return;
+        }
+
+        $cluster = SeoKeywordCluster::create([
+            'team_id' => $this->portfolio->team_id,
+            'name' => mb_substr(trim($label), 0, 120),
+            'status' => SeoKeywordCluster::STATUS_CANDIDATE,
+            'keyword_count' => count($ids),
+        ]);
+
+        SeoKeyword::where('team_id', $this->portfolio->team_id)
+            ->whereIn('id', $ids)
+            ->whereNull('cluster_id')
+            ->update(['cluster_id' => $cluster->id]);
+
+        $this->clusterFlash = count($ids) . ' Keywords gemerkt als Kandidaten-Cluster „' . $cluster->name . '" (ohne SERP).';
+    }
+
+    /**
+     * Abstellen = Keywords stilllegen (Außenseiter/Rausch). retired_at gesetzt →
+     * raus aus der Frontier. Umkehrbar.
+     *
+     * @param  int[]  $ids
+     */
+    protected function retireKeywords(array $ids): void
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (empty($ids)) {
+            return;
+        }
+
+        SeoKeyword::where('team_id', $this->portfolio->team_id)
+            ->whereIn('id', $ids)
+            ->update(['retired_at' => now()]);
+
+        $this->clusterFlash = count($ids) . ' Keywords abgestellt (raus aus der Karte, umkehrbar).';
+    }
+
+    /**
+     * Entfernt ein Zimmer/eine Nachbarschaft sofort aus der gespeicherten Karte
+     * (visuelles Feedback ohne teuren Neubau).
+     */
+    protected function spliceRoom(int $nbIndex, ?int $roomIndex): void
+    {
+        $map = $this->portfolio->semantic_map;
+        if (! is_array($map) || ! isset($map['neighborhoods'][$nbIndex])) {
+            return;
+        }
+
+        if ($roomIndex === null) {
+            unset($map['neighborhoods'][$nbIndex]);
+            $map['neighborhoods'] = array_values($map['neighborhoods']);
+        } elseif (isset($map['neighborhoods'][$nbIndex]['rooms'][$roomIndex])) {
+            unset($map['neighborhoods'][$nbIndex]['rooms'][$roomIndex]);
+            $map['neighborhoods'][$nbIndex]['rooms'] = array_values($map['neighborhoods'][$nbIndex]['rooms']);
+        }
+
+        $this->portfolio->update(['semantic_map' => $map]);
     }
 
     /**

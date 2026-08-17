@@ -526,9 +526,11 @@
                                                                 <td class="py-1.5 px-2 text-right tabular-nums" style="color:#e11d48">↑{{ number_format($room['gap'] ?? 0) }}</td>
                                                                 <td class="py-1.5 px-2 text-right tabular-nums font-semibold text-gray-800" title="Chance × Fit × Winnability">{{ number_format($room['score'] ?? 0) }}</td>
                                                                 <td class="py-1.5 px-2 text-right whitespace-nowrap">
-                                                                    <button wire:click="openRoom({{ $nbIdx }}, {{ $roomIdx }})" class="text-[11px] text-gray-500 hover:text-gray-800 mr-2">Details</button>
+                                                                    <button wire:click="openRoom({{ $nbIdx }}, {{ $roomIdx }})" class="text-[11px] text-gray-400 hover:text-gray-700 mr-1.5">Details</button>
+                                                                    <button wire:click="rememberRoom({{ $nbIdx }}, {{ $roomIdx }})" class="text-[11px] text-gray-500 hover:text-gray-800 mr-1.5" title="als Kandidaten-Cluster merken (ohne SERP)">merken</button>
                                                                     <button wire:click="adoptRoom({{ $nbIdx }}, {{ $roomIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
-                                                                            class="text-[11px] px-2 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
+                                                                            class="text-[11px] px-2 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40 mr-1.5" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
+                                                                    <button wire:click="retireRoom({{ $nbIdx }}, {{ $roomIdx }})" class="text-[11px] text-gray-400 hover:text-rose-600" title="abstellen — Keywords stilllegen (umkehrbar)">abstellen</button>
                                                                 </td>
                                                             </tr>
                                                         @endforeach
@@ -544,9 +546,11 @@
                                                     @if($nb['size'] > 8)<span class="text-[10px] text-gray-400">+{{ $nb['size'] - 8 }}</span>@endif
                                                 </div>
                                                 <span class="shrink-0 whitespace-nowrap">
-                                                    <button wire:click="openSimple({{ $nbIdx }})" class="text-[11px] text-gray-500 hover:text-gray-800 mr-2">Details</button>
+                                                    <button wire:click="openSimple({{ $nbIdx }})" class="text-[11px] text-gray-400 hover:text-gray-700 mr-1.5">Details</button>
+                                                    <button wire:click="rememberSimple({{ $nbIdx }})" class="text-[11px] text-gray-500 hover:text-gray-800 mr-1.5" title="als Kandidaten-Cluster merken (ohne SERP)">merken</button>
                                                     <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
-                                                            class="text-[11px] px-2 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
+                                                            class="text-[11px] px-2 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40 mr-1.5" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
+                                                    <button wire:click="retireSimple({{ $nbIdx }})" class="text-[11px] text-gray-400 hover:text-rose-600" title="abstellen — Keywords stilllegen (umkehrbar)">abstellen</button>
                                                 </span>
                                             </div>
                                         @endif

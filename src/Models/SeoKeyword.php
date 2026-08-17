@@ -19,6 +19,7 @@ class SeoKeyword extends Model implements HasDisplayName
         'cluster_id',
         'keyword',
         'origin',
+        'retired_at',
         'search_volume',
         'cpc_cents',
         'competition',
@@ -53,6 +54,7 @@ class SeoKeyword extends Model implements HasDisplayName
         'trends_fetched_at' => 'datetime',
         'dataforseo_raw' => 'array',
         'last_fetched_at' => 'datetime',
+        'retired_at' => 'datetime',
     ];
 
     protected static function booted(): void

@@ -117,6 +117,7 @@ class SeoSemanticMapService
         $rows = SeoKeyword::where('team_id', $teamId)
             ->whereIn('id', $allKeywordIds)
             ->whereNull('cluster_id') // Frontier: geordnete (geclusterte) Keywords sind raus — die Karte zeigt nur den ungeordneten Rest
+            ->whereNull('retired_at') // abgestellte (Außenseiter/Rausch) ebenfalls raus
             ->when(self::VOLUME_FLOOR > 0, fn ($q) => $q->where('search_volume', '>=', self::VOLUME_FLOOR))
             ->orderByDesc('search_volume')
             ->limit(self::SCOPE_CAP + 1)
