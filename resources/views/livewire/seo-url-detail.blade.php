@@ -574,42 +574,171 @@
                     @endif
                 @endif
 
-                {{-- GSC Tab --}}
+                {{-- GSC Tab — echte Google-Sichtbarkeit: Kennzahlen, Discovery, CTR-Chancen --}}
                 @if($activeTab === 'gsc')
-                    @if($gscData->isNotEmpty())
-                        <section class="bg-white rounded-lg border border-gray-200">
-                            <table class="w-full text-[13px]">
-                                <thead>
-                                    <tr class="border-b border-gray-200 text-left">
-                                        <th class="px-4 py-3">Keyword</th>
-                                        <th class="px-4 py-3 text-right">Impressionen</th>
-                                        <th class="px-4 py-3 text-right">Klicks</th>
-                                        <th class="px-4 py-3 text-right">CTR</th>
-                                        <th class="px-4 py-3 text-right">Ø Position</th>
-                                        <th class="px-4 py-3 text-right">Datum</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    @foreach($gscData as $gsc)
-                                        <tr class="hover:bg-blue-50/50 transition-colors">
-                                            <td class="px-4 py-2.5 font-medium text-gray-900">{{ $gsc->keyword?->keyword ?? '—' }}</td>
-                                            <td class="px-4 py-2.5 text-right text-gray-600">{{ number_format($gsc->impressions) }}</td>
-                                            <td class="px-4 py-2.5 text-right text-gray-600">{{ number_format($gsc->clicks) }}</td>
-                                            <td class="px-4 py-2.5 text-right text-gray-600">{{ number_format($gsc->ctr * 100, 1) }}%</td>
-                                            <td class="px-4 py-2.5 text-right">@include('seo::partials.position-badge', ['position' => round($gsc->avg_position), 'change' => null])</td>
-                                            <td class="px-4 py-2.5 text-right text-[11px] text-gray-400">{{ $gsc->date?->format('d.m.Y') ?? '—' }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </section>
-                        @if($hasMore)
-                            <div x-data x-intersect="$wire.loadMore()" class="py-4 text-center">
-                                <div wire:loading.delay wire:target="loadMore" class="text-[12px] text-gray-400">Laden...</div>
+                    @if($seoUrl->gsc_fetched_at)
+                        <div class="space-y-6">
+                            {{-- Skalar-Kennzahlen (28 Tage, echte Google-Zahlen) --}}
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                    <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Klicks (28T)</div>
+                                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($seoUrl->gsc_clicks_28d) }}</div>
+                                </div>
+                                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                    <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Impressionen (28T)</div>
+                                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ number_format($seoUrl->gsc_impressions_28d) }}</div>
+                                </div>
+                                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                    <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Ø CTR</div>
+                                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $seoUrl->gsc_ctr_28d !== null ? number_format($seoUrl->gsc_ctr_28d * 100, 1) . '%' : '—' }}</div>
+                                </div>
+                                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                    <div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Ø Position</div>
+                                    <div class="text-2xl font-bold text-gray-900 tabular-nums">{{ $seoUrl->gsc_avg_position !== null ? number_format($seoUrl->gsc_avg_position, 1) : '—' }}</div>
+                                </div>
                             </div>
-                        @endif
+
+                            {{-- Sichtbarkeits-Verlauf --}}
+                            @if(count($gscTrend ?? []) >= 2)
+                                <div class="bg-white rounded-lg border border-gray-200 p-3">
+                                    <div class="text-[11px] text-gray-500 mb-1">Klick-Verlauf <span class="text-gray-400">(28-Tage-Wert je Messung)</span></div>
+                                    @include('seo::partials.sparkline', ['data' => array_column($gscTrend, 'clicks'), 'color' => '#166EE1', 'height' => 50, 'type' => 'area'])
+                                    <div class="text-[11px] text-gray-400 mt-1">{{ count($gscTrend) }} Messpunkte seit {{ \Illuminate\Support\Carbon::parse($gscTrend[0]['date'])->format('d.m.Y') }}</div>
+                                </div>
+                            @endif
+
+                            {{-- Query-Discovery — Ranking-Begriffe OHNE getracktes Keyword: die Goldader Richtung Cluster --}}
+                            @if(!empty($seoUrl->gsc_discovered_queries))
+                                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                    <div class="text-[13px] font-medium text-gray-900 mb-0.5">Query-Discovery <span class="text-[11px] font-normal text-gray-400">· {{ count($seoUrl->gsc_discovered_queries) }} Begriffe</span></div>
+                                    <div class="text-[12px] text-gray-500 mb-3">Begriffe, für die Google diese Seite zeigt, die wir aber <span class="font-medium">noch nicht als Keyword führen</span>. Rohstoff für neue Keywords &amp; Cluster — die eigentliche Ernte.</div>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-[12px]" style="min-width:460px">
+                                            <thead>
+                                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                                    <th class="text-left py-1.5 pr-3">Begriff</th>
+                                                    <th class="text-right py-1.5 px-2">Impr.</th>
+                                                    <th class="text-right py-1.5 px-2">Klicks</th>
+                                                    <th class="text-right py-1.5 pl-2">Ø Pos.</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($seoUrl->gsc_discovered_queries as $q)
+                                                    <tr class="border-b border-gray-50 last:border-0">
+                                                        <td class="py-1.5 pr-3 text-gray-700" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $q['query'] }}">{{ $q['query'] }}</td>
+                                                        <td class="py-1.5 px-2 text-right text-gray-600 tabular-nums">{{ number_format($q['impressions']) }}</td>
+                                                        <td class="py-1.5 px-2 text-right text-gray-600 tabular-nums">{{ number_format($q['clicks']) }}</td>
+                                                        <td class="py-1.5 pl-2 text-right tabular-nums font-medium" style="color:{{ $q['position'] <= 10 ? '#15803d' : ($q['position'] <= 20 ? '#b45309' : '#9ca3af') }}">{{ number_format($q['position'], 1) }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- CTR-Chancen — Seite 1, aber schwache CTR: Title/Snippet-Hebel --}}
+                            @if(!empty($seoUrl->gsc_ctr_opportunities))
+                                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                    <div class="text-[13px] font-medium text-gray-900 mb-0.5">CTR-Chancen <span class="text-[11px] font-normal text-gray-400">· {{ count($seoUrl->gsc_ctr_opportunities) }}</span></div>
+                                    <div class="text-[12px] text-gray-500 mb-3">Begriffe auf <span class="font-medium">Seite 1</span> mit schwacher Klickrate — die Position steht, nur das Snippet klickt nicht. Billigster Hebel: Title &amp; Meta-Description schärfen.</div>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-[12px]" style="min-width:460px">
+                                            <thead>
+                                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                                    <th class="text-left py-1.5 pr-3">Begriff</th>
+                                                    <th class="text-right py-1.5 px-2">Ø Pos.</th>
+                                                    <th class="text-right py-1.5 px-2">Impr.</th>
+                                                    <th class="text-right py-1.5 pl-2">CTR</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($seoUrl->gsc_ctr_opportunities as $q)
+                                                    <tr class="border-b border-gray-50 last:border-0">
+                                                        <td class="py-1.5 pr-3 text-gray-700" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $q['query'] }}">{{ $q['query'] }}</td>
+                                                        <td class="py-1.5 px-2 text-right tabular-nums font-medium text-gray-700">{{ number_format($q['position'], 1) }}</td>
+                                                        <td class="py-1.5 px-2 text-right text-gray-600 tabular-nums">{{ number_format($q['impressions']) }}</td>
+                                                        <td class="py-1.5 pl-2 text-right tabular-nums font-semibold" style="color:#b91c1c">{{ number_format($q['ctr'] * 100, 1) }}%</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Top-Queries — wofür diese Seite tatsächlich rankt (getrackt markiert) --}}
+                            @if(!empty($seoUrl->gsc_top_queries))
+                                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                                    <div class="text-[13px] font-medium text-gray-900 mb-0.5">Top-Begriffe dieser Seite</div>
+                                    <div class="text-[12px] text-gray-500 mb-3">Wonach Google diese Seite am meisten zeigt (28 Tage). <span class="inline-block px-1 py-px rounded bg-green-100 text-green-700 text-[10px]">getrackt</span> = bereits als Keyword geführt.</div>
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full text-[12px]" style="min-width:480px">
+                                            <thead>
+                                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                                    <th class="text-left py-1.5 pr-3">Begriff</th>
+                                                    <th class="text-right py-1.5 px-2">Impr.</th>
+                                                    <th class="text-right py-1.5 px-2">Klicks</th>
+                                                    <th class="text-right py-1.5 px-2">CTR</th>
+                                                    <th class="text-right py-1.5 pl-2">Ø Pos.</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach($seoUrl->gsc_top_queries as $q)
+                                                    <tr class="border-b border-gray-50 last:border-0">
+                                                        <td class="py-1.5 pr-3 text-gray-700" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ $q['query'] }}">
+                                                            {{ $q['query'] }}
+                                                            @if($q['tracked'] ?? false)<span class="ml-1 inline-block px-1 py-px rounded bg-green-100 text-green-700 text-[10px] align-middle">getrackt</span>@endif
+                                                        </td>
+                                                        <td class="py-1.5 px-2 text-right text-gray-600 tabular-nums">{{ number_format($q['impressions']) }}</td>
+                                                        <td class="py-1.5 px-2 text-right text-gray-600 tabular-nums">{{ number_format($q['clicks']) }}</td>
+                                                        <td class="py-1.5 px-2 text-right text-gray-500 tabular-nums">{{ number_format($q['ctr'] * 100, 1) }}%</td>
+                                                        <td class="py-1.5 pl-2 text-right tabular-nums font-medium" style="color:{{ $q['position'] <= 10 ? '#15803d' : ($q['position'] <= 20 ? '#b45309' : '#9ca3af') }}">{{ number_format($q['position'], 1) }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Pfad-Ebene: GSC-Klicks pro URL (Parent + Kind-Pfade) --}}
+                            @if($childUrls->isNotEmpty())
+                                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                    <table class="w-full text-[13px]">
+                                        <thead class="bg-gray-50 text-gray-500">
+                                            <tr>
+                                                <th class="px-4 py-2.5 text-left font-medium">Pfad</th>
+                                                <th class="px-4 py-2.5 text-right font-medium">Klicks (28T)</th>
+                                                <th class="px-4 py-2.5 text-right font-medium">Impr. (28T)</th>
+                                                <th class="px-4 py-2.5 text-right font-medium">Ø Pos.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100">
+                                            <tr class="bg-gray-50/40">
+                                                <td class="px-4 py-2.5 font-medium text-gray-900">{{ $seoUrl->path ?: '/' }}</td>
+                                                <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($seoUrl->gsc_clicks_28d) }}</td>
+                                                <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($seoUrl->gsc_impressions_28d) }}</td>
+                                                <td class="px-4 py-2.5 text-right tabular-nums">{{ $seoUrl->gsc_avg_position !== null ? number_format($seoUrl->gsc_avg_position, 1) : '—' }}</td>
+                                            </tr>
+                                            @foreach($childUrls->sortByDesc('gsc_clicks_28d') as $child)
+                                                <tr>
+                                                    <td class="px-4 py-2.5 text-gray-700">{{ $child->path ?: '/' }}</td>
+                                                    <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($child->gsc_clicks_28d) }}</td>
+                                                    <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($child->gsc_impressions_28d) }}</td>
+                                                    <td class="px-4 py-2.5 text-right tabular-nums">{{ $child->gsc_avg_position !== null ? number_format($child->gsc_avg_position, 1) : '—' }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                    <div class="px-4 py-2 text-[11px] text-gray-400 border-t border-gray-100">Zuletzt aktualisiert: {{ $seoUrl->gsc_fetched_at->format('d.m.Y H:i') }} · Quelle Google Search Console</div>
+                                </div>
+                            @endif
+                        </div>
                     @else
-                        <div class="p-8 text-center text-[13px] text-gray-400">Keine GSC-Daten vorhanden.</div>
+                        <div class="p-8 text-center text-[13px] text-gray-400">
+                            Noch keine GSC-Daten. Der nächtliche Collector holt sie, sobald eine verifizierte Search-Console-Property für <span class="font-medium">{{ $seoUrl->domain }}</span> gematcht wird.
+                        </div>
                     @endif
                 @endif
 

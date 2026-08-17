@@ -512,9 +512,23 @@ class SeoUrlDetail extends Component
             ->map(fn ($s) => ['date' => $s->snapshot_date->format('Y-m-d'), 'value' => (int) $s->conversions_30d])
             ->all();
 
+        // GSC-Sichtbarkeits-Verlauf dieser URL (Clicks + Ø-Position je Snapshot).
+        $gscTrend = \Platform\Seo\Models\SeoGscSnapshot::where('url_id', $this->seoUrl->id)
+            ->where('snapshot_date', '>=', now()->subDays(90))
+            ->orderBy('snapshot_date')
+            ->get()
+            ->map(fn ($s) => [
+                'date' => $s->snapshot_date->format('Y-m-d'),
+                'clicks' => (int) $s->clicks_28d,
+                'impressions' => (int) $s->impressions_28d,
+                'position' => (float) $s->avg_position,
+            ])
+            ->all();
+
         return view('seo::livewire.seo-url-detail', [
             'scope' => $scope,
             'conversionTrend' => $conversionTrend,
+            'gscTrend' => $gscTrend,
             'contextNodes' => $contextNodes,
             'availableNodes' => $availableNodes,
             'effectiveProfile' => $profileSvc->effectiveProfile($this->seoUrl),

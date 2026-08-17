@@ -9,6 +9,7 @@ use Platform\Integrations\Services\IntegrationConnectionResolver;
 use Platform\Seo\Contracts\SeoCollectorInterface;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoTeamSettings;
+use Platform\Seo\Models\SeoGscSnapshot;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlGscData;
 
@@ -30,6 +31,9 @@ class GscCollector implements SeoCollectorInterface
 {
     /** GSC-Daten reifen einige Tage nach — wir fragen einen finalisierten Tag ab. */
     protected const DATA_LAG_DAYS = 3;
+
+    /** Fenster für die denormalisierte Zusammenfassung (GSC-natives Standardfenster). */
+    protected const WINDOW_DAYS = 28;
 
     public function __construct(
         protected GoogleSearchConsoleApiService $gscApi,
@@ -177,6 +181,16 @@ class GscCollector implements SeoCollectorInterface
                 $touchedUrlIds[$url->id] = true;
             }
 
+            // 3) 28-Tage-Zusammenfassung je URL (Denorm + Discovery + CTR-Chancen +
+            //    Snapshot) — spiegelt das Plausible-Denorm-Muster, damit der Tab
+            //    ohne Live-API rendert und die echte Google-Sichtbarkeit Richtung
+            //    Wirkungsraum trägt.
+            try {
+                $this->collectSummary($api, $siteUrl, $date, $urlByPath, $keywordMap, $touchedUrlIds);
+            } catch (\Throwable $e) {
+                $errors[] = "summary {$domain}: ".$e->getMessage();
+            }
+
             // Timestamp für alle URLs dieser Property, die Daten bekommen haben.
             foreach (array_keys($touchedUrlIds) as $urlId) {
                 $url = $domainUrls->firstWhere('id', $urlId);
@@ -222,6 +236,145 @@ class GscCollector implements SeoCollectorInterface
                 'avg_position' => (float) ($row['position'] ?? 0),
             ]
         );
+    }
+
+    /**
+     * Rollt ein 28-Tage-Fenster je URL auf und legt die denormalisierte
+     * GSC-Schicht + einen Snapshot ab. Zwei Fenster-Queries pro Property:
+     *  - [page]        → exakte Skalar-Rollups (Clicks/Impr./CTR/Position)
+     *  - [page, query] → Query-Aufschlüsselung: Top-Begriffe, Discovery
+     *                    (ungetrackte Ranking-Begriffe), CTR-Chancen (Seite 1,
+     *                    schwache CTR).
+     *
+     * @param  array<string, SeoUrl>  $urlByPath
+     * @param  array<string, int>     $keywordMap
+     * @param  array<int, bool>       $touchedUrlIds  (per Referenz ergänzt)
+     */
+    protected function collectSummary($api, string $siteUrl, string $date, array $urlByPath, array $keywordMap, array &$touchedUrlIds): void
+    {
+        $endDate = $date;
+        $startDate = now()->subDays(self::DATA_LAG_DAYS + self::WINDOW_DAYS - 1)->toDateString();
+        $snapshotDate = now()->toDateString();
+
+        // (a) Skalar-Rollup je Seite.
+        $pageRows = $api->querySearchAnalytics(null, $siteUrl, [
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'dimensions' => ['page'],
+            'rowLimit' => 25000,
+            'type' => 'web',
+            'dataState' => 'final',
+        ]);
+
+        /** @var array<int, array{clicks:int,impressions:int,ctr:float,position:float}> $scalars */
+        $scalars = [];
+        foreach ($pageRows['rows'] ?? [] as $row) {
+            $url = $this->matchUrl($row['keys'][0] ?? null, $urlByPath);
+            if (! $url) {
+                continue;
+            }
+            $scalars[$url->id] = [
+                'clicks' => (int) round((float) ($row['clicks'] ?? 0)),
+                'impressions' => (int) round((float) ($row['impressions'] ?? 0)),
+                'ctr' => (float) ($row['ctr'] ?? 0),
+                'position' => (float) ($row['position'] ?? 0),
+            ];
+        }
+
+        // (b) Query-Aufschlüsselung je Seite.
+        $queryRows = $api->querySearchAnalytics(null, $siteUrl, [
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'dimensions' => ['page', 'query'],
+            'rowLimit' => 25000,
+            'type' => 'web',
+            'dataState' => 'final',
+        ]);
+
+        /** @var array<int, array<int, array<string, mixed>>> $queriesByUrl */
+        $queriesByUrl = [];
+        foreach ($queryRows['rows'] ?? [] as $row) {
+            $url = $this->matchUrl($row['keys'][0] ?? null, $urlByPath);
+            if (! $url) {
+                continue;
+            }
+            $query = trim((string) ($row['keys'][1] ?? ''));
+            if ($query === '') {
+                continue;
+            }
+            $queriesByUrl[$url->id][] = [
+                'query' => $query,
+                'clicks' => (int) round((float) ($row['clicks'] ?? 0)),
+                'impressions' => (int) round((float) ($row['impressions'] ?? 0)),
+                'ctr' => (float) ($row['ctr'] ?? 0),
+                'position' => round((float) ($row['position'] ?? 0), 1),
+                'tracked' => isset($keywordMap[mb_strtolower($query)]),
+            ];
+        }
+
+        // Je URL: Denorm-Felder + Snapshot schreiben.
+        foreach ($scalars as $urlId => $s) {
+            $rows = $queriesByUrl[$urlId] ?? [];
+
+            // nach Impressionen sortiert = Sichtbarkeits-Reihenfolge.
+            usort($rows, fn ($a, $b) => $b['impressions'] <=> $a['impressions']);
+
+            $topQueries = array_slice($rows, 0, 20);
+
+            $discovered = array_values(array_filter($rows, fn ($r) => ! $r['tracked']));
+            $discovered = array_slice($discovered, 0, 25);
+
+            // CTR-Chancen: Seite 1 (Pos ≤ 10), genug Impressionen, CTR deutlich
+            // unter der positionsüblichen Erwartung → Title/Snippet-Hebel.
+            $opps = array_values(array_filter($rows, function ($r) {
+                if ($r['position'] > 10 || $r['position'] < 1 || $r['impressions'] < 30) {
+                    return false;
+                }
+
+                return $r['ctr'] < 0.5 * $this->expectedCtr($r['position']);
+            }));
+            usort($opps, fn ($a, $b) => $b['impressions'] <=> $a['impressions']);
+            $opps = array_slice($opps, 0, 15);
+
+            // Direkt per Query aktualisieren (kein Model-Reload nötig).
+            SeoUrl::whereKey($urlId)->update([
+                'gsc_clicks_28d' => $s['clicks'],
+                'gsc_impressions_28d' => $s['impressions'],
+                'gsc_ctr_28d' => $s['ctr'],
+                'gsc_avg_position' => round($s['position'], 2),
+                'gsc_top_queries' => $topQueries,
+                'gsc_discovered_queries' => $discovered,
+                'gsc_ctr_opportunities' => $opps,
+                'gsc_fetched_at' => now(),
+            ]);
+
+            SeoGscSnapshot::updateOrCreate(
+                ['url_id' => $urlId, 'snapshot_date' => $snapshotDate],
+                [
+                    'clicks_28d' => $s['clicks'],
+                    'impressions_28d' => $s['impressions'],
+                    'ctr' => $s['ctr'],
+                    'avg_position' => round($s['position'], 2),
+                ]
+            );
+
+            $touchedUrlIds[$urlId] = true;
+        }
+    }
+
+    /**
+     * Grobe positionsübliche CTR-Erwartung (organisch) — Baseline für die
+     * CTR-Chancen-Erkennung, nicht als exakte Prognose gedacht.
+     */
+    protected function expectedCtr(float $position): float
+    {
+        return match (true) {
+            $position <= 1.5 => 0.28,
+            $position <= 2.5 => 0.15,
+            $position <= 3.5 => 0.10,
+            $position <= 5.5 => 0.07,
+            default => 0.03,
+        };
     }
 
     /**

@@ -60,6 +60,14 @@ class SeoUrl extends Model
         'conversions_fetched_at',
         'plausible_enabled',
         'plausible_site_id',
+        'gsc_clicks_28d',
+        'gsc_impressions_28d',
+        'gsc_ctr_28d',
+        'gsc_avg_position',
+        'gsc_top_queries',
+        'gsc_discovered_queries',
+        'gsc_ctr_opportunities',
+        'gsc_fetched_at',
         'redirect_url',
         'redirect_detected_at',
         'meta',
@@ -101,6 +109,14 @@ class SeoUrl extends Model
         'traffic_sources' => 'array',
         'conversions_fetched_at' => 'datetime',
         'plausible_enabled' => 'boolean',
+        'gsc_clicks_28d' => 'integer',
+        'gsc_impressions_28d' => 'integer',
+        'gsc_ctr_28d' => 'decimal:4',
+        'gsc_avg_position' => 'decimal:2',
+        'gsc_top_queries' => 'array',
+        'gsc_discovered_queries' => 'array',
+        'gsc_ctr_opportunities' => 'array',
+        'gsc_fetched_at' => 'datetime',
         'redirect_detected_at' => 'datetime',
         'meta' => 'array',
     ];
@@ -181,6 +197,11 @@ class SeoUrl extends Model
     public function gscData(): HasMany
     {
         return $this->hasMany(SeoUrlGscData::class, 'url_id');
+    }
+
+    public function gscSnapshots(): HasMany
+    {
+        return $this->hasMany(SeoGscSnapshot::class, 'url_id');
     }
 
     public function traffic(): HasMany
