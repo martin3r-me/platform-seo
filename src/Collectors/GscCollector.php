@@ -230,23 +230,39 @@ class GscCollector implements SeoCollectorInterface
      */
     protected function matchProperty(string $domain, array $properties): ?string
     {
-        $candidates = [
-            'sc-domain:'.$domain,
-            'https://'.$domain.'/',
-            'http://'.$domain.'/',
-            'https://www.'.$domain.'/',
-            'http://www.'.$domain.'/',
-        ];
+        // Statt Kandidaten aus UNSERER Domain zu bauen: alle GSC-Properties
+        // auf ihre nackte Domain normalisieren und gegen unsere matchen.
+        // So matchen sc-domain:, https://, http://, www. automatisch.
+        $target = $this->bareDomain($domain);
 
-        foreach ($candidates as $candidate) {
-            foreach ($properties as $property) {
-                if (strcasecmp($property, $candidate) === 0) {
-                    return $property;
-                }
+        // Alias für echte Domain-Wechsel (unsere URL läuft unter anderer
+        // registrierter Domain als die GSC-Property, z.B. broich.catering →
+        // broichcatering.com). Kein Format-, sondern ein Domain-Unterschied.
+        $aliases = config('seo.gsc_aliases', []);
+        $targetAlias = isset($aliases[$target]) ? $this->bareDomain((string) $aliases[$target]) : null;
+
+        foreach ($properties as $property) {
+            $bare = $this->bareDomain((string) $property);
+            if ($bare === $target || ($targetAlias !== null && $bare === $targetAlias)) {
+                return $property;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Reduziert eine GSC-Property ODER unsere Domain auf die nackte Domain:
+     * sc-domain:, Protokoll, www. und Trailing-Slash entfernt.
+     */
+    protected function bareDomain(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('#^sc-domain:#', '', $value);
+        $value = preg_replace('#^https?://#', '', $value);
+        $value = preg_replace('#^www\.#', '', $value);
+
+        return rtrim($value, '/');
     }
 
     /**

@@ -274,6 +274,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | GSC Domain-Aliases — für Fälle, wo unsere URL unter einer anderen
+    | registrierten Domain läuft als die verifizierte Search-Console-Property.
+    | Kein Format-Unterschied (www/https), sondern echte Domain-Zuordnung.
+    | Schlüssel = nackte Domain unserer URL, Wert = nackte Domain der Property.
+    |--------------------------------------------------------------------------
+    */
+    'gsc_aliases' => [
+        'broich.catering' => 'broichcatering.com',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Pipeline — URL pipeline orchestrator settings
     |--------------------------------------------------------------------------
     */
