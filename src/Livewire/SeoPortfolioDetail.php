@@ -586,6 +586,81 @@ class SeoPortfolioDetail extends Component
         $this->portfolio->update(['semantic_map' => $map]);
     }
 
+    // ── Seiten-Gesundheit (Angebots-Achse): unfokussiert + Kannibalisierung ─────
+
+    /**
+     * @param  int[]  $ownUrlIds
+     * @return array{unfocused: array, cannibalized: array}
+     */
+    protected function pageHealth(array $ownUrlIds): array
+    {
+        if (empty($ownUrlIds)) {
+            return ['unfocused' => [], 'cannibalized' => []];
+        }
+
+        // Unfokussiert: eigene Seiten, die für Keywords aus VIELEN Clustern ranken.
+        $unfocusedRows = DB::table('seo_url_keywords as uk')
+            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+            ->whereIn('uk.url_id', $ownUrlIds)
+            ->whereNotNull('uk.position')
+            ->whereNotNull('k.cluster_id')
+            ->groupBy('uk.url_id')
+            ->havingRaw('COUNT(DISTINCT k.cluster_id) >= 3')
+            ->select('uk.url_id', DB::raw('COUNT(DISTINCT k.cluster_id) as cluster_count'), DB::raw('COUNT(DISTINCT uk.keyword_id) as kw_count'))
+            ->orderByDesc('cluster_count')
+            ->limit(15)
+            ->get();
+        $urlsById = SeoUrl::whereIn('id', $unfocusedRows->pluck('url_id'))->get(['id', 'url', 'path'])->keyBy('id');
+        $unfocused = $unfocusedRows->map(fn ($r) => [
+            'url' => $urlsById->get($r->url_id),
+            'cluster_count' => (int) $r->cluster_count,
+            'kw_count' => (int) $r->kw_count,
+        ])->filter(fn ($r) => $r['url'])->values()->all();
+
+        // Kannibalisierung konkret: Keywords, für die ≥2 eigene Seiten ranken.
+        $cannRows = DB::table('seo_url_keywords as uk')
+            ->whereIn('uk.url_id', $ownUrlIds)
+            ->whereNotNull('uk.position')
+            ->groupBy('uk.keyword_id')
+            ->havingRaw('COUNT(DISTINCT uk.url_id) >= 2')
+            ->select('uk.keyword_id', DB::raw('COUNT(DISTINCT uk.url_id) as url_count'))
+            ->orderByDesc('url_count')
+            ->limit(15)
+            ->get();
+
+        $cannibalized = [];
+        $cannKwIds = $cannRows->pluck('keyword_id')->all();
+        if (! empty($cannKwIds)) {
+            $kwById = SeoKeyword::whereIn('id', $cannKwIds)->get(['id', 'keyword', 'search_volume'])->keyBy('id');
+            $pairs = DB::table('seo_url_keywords as uk')
+                ->join('seo_urls as u', 'u.id', '=', 'uk.url_id')
+                ->whereIn('uk.keyword_id', $cannKwIds)
+                ->whereIn('uk.url_id', $ownUrlIds)
+                ->whereNotNull('uk.position')
+                ->select('uk.keyword_id', 'u.id as url_id', 'u.path', 'uk.position')
+                ->orderBy('uk.position')
+                ->get()
+                ->groupBy('keyword_id');
+
+            foreach ($cannRows as $r) {
+                $kw = $kwById->get($r->keyword_id);
+                if (! $kw) {
+                    continue;
+                }
+                $urls = ($pairs->get($r->keyword_id) ?? collect())
+                    ->map(fn ($p) => ['url_id' => (int) $p->url_id, 'path' => $p->path ?: '/', 'position' => (int) $p->position])
+                    ->values()->all();
+                $cannibalized[] = [
+                    'keyword' => (string) $kw->keyword,
+                    'volume' => (int) $kw->search_volume,
+                    'urls' => $urls,
+                ];
+            }
+        }
+
+        return ['unfocused' => $unfocused, 'cannibalized' => $cannibalized];
+    }
+
     /**
      * Lädt Keywords + rankende URLs eines Zimmers → zeigt sofort die Lage:
      * Weißraum (keine eigene Seite), Kannibalisierung (mehrere eigene) oder besetzt.
@@ -748,6 +823,9 @@ class SeoPortfolioDetail extends Component
             'health' => $health,
             'activePhase' => $activePhase,
             'activePhaseLabel' => $activePhaseLabel,
+            'pageHealth' => in_array($activePhase, ['verteilen', 'vertiefen'], true)
+                ? $this->pageHealth($effectiveIds)
+                : ['unfocused' => [], 'cannibalized' => []],
             'members' => $pv['members'],
             'memberTotals' => $pv['memberTotals'],
             'agg' => $pv['agg'],

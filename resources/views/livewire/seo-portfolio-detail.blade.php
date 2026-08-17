@@ -663,6 +663,67 @@
             @endif
 
             @if(in_array($activePhase, ['verteilen', 'vertiefen']))
+            {{-- Seiten-Gesundheit (Angebots-Achse): unfokussierte Seiten + konkrete Kannibalisierung --}}
+            <div class="mb-8">
+                <div class="flex items-baseline justify-between gap-3 mb-1">
+                    <h2 class="text-[13px] font-semibold text-gray-700">Seiten-Gesundheit</h2>
+                    <span class="text-[11px] text-gray-400">Angebots-Achse — bedient jede Seite ein Thema?</span>
+                </div>
+                <p class="text-[11px] text-gray-400 mb-3 max-w-2xl">Wo eine Seite zu viele Themen bedient (verwässert) oder mehrere eigene Seiten um dasselbe Keyword ranken (Kannibalisierung). Ziel: „ein Thema = eine Seite".</p>
+
+                @if(empty($pageHealth['unfocused']) && empty($pageHealth['cannibalized']))
+                    <div class="bg-white rounded-lg border border-gray-200 p-4 text-[12px] text-gray-500">✓ Keine unfokussierten Seiten und keine Kannibalisierung gefunden.</div>
+                @else
+                    @if(! empty($pageHealth['unfocused']))
+                        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-3">
+                            <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wide text-gray-400 flex justify-between">
+                                <span>Unfokussierte Seiten ({{ count($pageHealth['unfocused']) }})</span>
+                                <span>ranken für ≥ 3 Themen</span>
+                            </div>
+                            <table class="w-full text-[12px]">
+                                <tbody>
+                                    @foreach($pageHealth['unfocused'] as $p)
+                                        <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                                            <td class="px-3 py-2"><a href="{{ route('seo.urls.show', $p['url']) }}" wire:navigate class="text-[#166EE1] hover:underline">{{ $p['url']->path ?: '/' }}</a></td>
+                                            <td class="px-3 py-2 text-right tabular-nums"><span class="font-semibold text-rose-600">{{ $p['cluster_count'] }}</span> <span class="text-gray-400">Themen</span></td>
+                                            <td class="px-3 py-2 text-right tabular-nums text-gray-500">{{ $p['kw_count'] }} KW</td>
+                                            <td class="px-3 py-2 text-right"><a href="{{ route('seo.urls.show', $p['url']) }}" wire:navigate class="text-[11px] text-gray-500 hover:text-gray-800">fokussieren →</a></td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+
+                    @if(! empty($pageHealth['cannibalized']))
+                        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wide text-gray-400 flex justify-between">
+                                <span>Kannibalisierung ({{ count($pageHealth['cannibalized']) }})</span>
+                                <span>mehrere eigene Seiten · ein Keyword</span>
+                            </div>
+                            <table class="w-full text-[12px]">
+                                <tbody>
+                                    @foreach($pageHealth['cannibalized'] as $c)
+                                        <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50 align-top">
+                                            <td class="px-3 py-2" style="white-space:nowrap"><span class="font-medium text-gray-700">{{ $c['keyword'] }}</span> <span class="text-[10px] text-gray-400 tabular-nums">Vol {{ number_format($c['volume']) }}</span></td>
+                                            <td class="px-3 py-2">
+                                                <div class="flex flex-wrap gap-1.5">
+                                                    @foreach($c['urls'] as $u)
+                                                        <span class="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{{ $u['path'] }} <span class="text-gray-400">P{{ $u['position'] }}</span></span>
+                                                    @endforeach
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                @endif
+            </div>
+            @endif
+
+            @if(in_array($activePhase, ['verteilen', 'vertiefen']))
             {{-- Wettbewerber-Benchmark (der Markt um den Verbund) --}}
             @if($competitors->isNotEmpty())
                 <div class="mt-8">
