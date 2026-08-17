@@ -82,6 +82,10 @@ return [
                 'what'  => 'Konkrete Maßnahmen, die das Modul aus den Signalen ableitet — nach Wirkung priorisiert. Das ist die Handlungsliste.',
                 'next'  => ['label' => 'Betroffene URLs ansehen', 'route' => 'seo.urls'],
             ],
+            'wirkungsraum' => [
+                'title' => 'Wirkungsraum — hier wird gehandelt',
+                'what'  => 'Der einzige Handlungsort: du steuerst eine Menge von URLs (eigene wie fremde) auf ein Ziel. Die Reifegrad-Leiste oben ist klickbar — die Werkbank zeigt immer nur das Werkzeug einer Phase (messen → ordnen → verteilen → vertiefen → konvertieren), nicht alles auf einmal. Klick eine Phase, um ihr Werkzeug zu sehen.',
+            ],
             'clusters' => [
                 'title' => 'Cluster',
                 'what'  => 'Die strategische Einheit: Keywords zu Themen gebündelt. Abdeckung, Sichtbarkeit und Trajektorie zeigen, ob ein Thema gewonnen wird.',

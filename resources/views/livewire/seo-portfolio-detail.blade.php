@@ -40,6 +40,9 @@
                 </div>
             </div>
 
+            {{-- Defensive Hilfe: was ist ein Wirkungsraum + wie funktioniert die gated Werkbank (wegklickbar) --}}
+            @include('seo::partials.help-banner', ['lens' => 'wirkungsraum'])
+
             {{-- KI-Verteilungs-Vorschlag --}}
             @if($advice)
                 <div class="mb-6 bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -96,7 +99,7 @@
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
                 <div class="flex items-baseline justify-between mb-3">
                     <h2 class="text-[13px] font-semibold text-gray-700">Reifegrad</h2>
-                    <span class="text-[11px] text-gray-400">Optimierungs-Trichter — ein Schritt nach dem anderen.</span>
+                    <span class="text-[11px] text-gray-400">Optimierungs-Trichter — klick eine Phase für ihr Werkzeug.</span>
                 </div>
 
                 {{-- Stepper — klickbar: steuert, welches Phasen-Werkzeug unten gezeigt wird --}}
