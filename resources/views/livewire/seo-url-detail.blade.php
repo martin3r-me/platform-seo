@@ -91,64 +91,96 @@
                 </div>
             </div>
 
-            {{-- Daten-Profil & Kosten --}}
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <h2 class="text-[13px] font-semibold text-gray-700">Daten-Profil</h2>
-                    <div class="text-[12px] text-gray-500">
-                        <span class="text-gray-400 uppercase tracking-wide text-[10px]">Kosten</span>
-                        <span class="font-semibold text-gray-800 tabular-nums ml-1">{{ number_format($profileMonthlyCents / 100, 2, ',', '.') }} € / Monat</span>
+            {{-- Datenstatus — Sammlung (Profil/Kosten/Boost) + Aktualität, zusammengeklappt.
+                 Lesend zuerst; die Schalter bleiben erreichbar, ziehen aber laut Zielbild in
+                 den Wirkungsraum. Alpine statt <details>, damit Livewire-Re-Renders es offen lassen. --}}
+            <div x-data="{ open: false }" class="bg-white rounded-lg border border-gray-200">
+                <button type="button" @click="open = !open"
+                        class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
+                    <div class="flex items-center gap-2 text-[13px] flex-wrap">
+                        <span class="font-semibold text-gray-700">Datenstatus</span>
+                        <span class="text-gray-300">·</span>
+                        <span class="text-gray-500">Profil <span class="font-medium text-gray-700">{{ ucfirst($effectiveProfile) }}</span></span>
+                        <span class="text-gray-300">·</span>
+                        <span class="text-gray-500 tabular-nums">{{ number_format($profileMonthlyCents / 100, 2, ',', '.') }} € / Monat</span>
                     </div>
-                </div>
+                    <span class="text-[11px] text-gray-400 shrink-0" x-text="open ? 'schließen ▴' : 'Sammlung & Aktualität ▾'"></span>
+                </button>
 
-                {{-- Profil-Wahl (Leiter je is_own) --}}
-                <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
-                    @foreach($availableProfiles as $p)
-                        <button wire:click="setProfile('{{ $p }}')"
-                                class="px-3 py-1.5 text-[12px] rounded-md transition-colors {{ $effectiveProfile === $p ? 'bg-white text-gray-900 font-medium shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
-                            {{ ucfirst($p) }}
-                        </button>
-                    @endforeach
-                </div>
+                <div x-show="open" style="display:none" class="px-4 pb-4 pt-4 border-t border-gray-100 space-y-4">
+                    {{-- Aktualität pro Collector --}}
+                    @include('seo::partials.data-freshness-panel', ['url' => $seoUrl])
 
-                {{-- Kosten-Aufschlüsselung + Boost --}}
-                <div class="flex items-start justify-between gap-4 mt-3 flex-wrap">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                        @forelse($profileCostBreakdown as $line)
-                            <span class="text-[11px] px-2 py-0.5 bg-gray-50 text-gray-600 border border-gray-200 rounded">
-                                {{ $line['collector'] }} · {{ $line['monthly_cents'] > 0 ? number_format($line['monthly_cents']/100, 2, ',', '.').' €' : 'gratis' }}
-                            </span>
-                        @empty
-                            <span class="text-[11px] text-gray-400">Profil „Aus" — es werden keine Daten geholt.</span>
-                        @endforelse
-                    </div>
+                    {{-- Sammlung — Profil + Boost --}}
+                    <div>
+                        <div class="text-[11px] text-gray-400 mb-1.5">Sammlung <span class="text-gray-300">·</span> <span class="italic">Einstellungen ziehen laut Zielbild in den Wirkungsraum</span></div>
+                        <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
+                            @foreach($availableProfiles as $p)
+                                <button wire:click="setProfile('{{ $p }}')"
+                                        class="px-3 py-1.5 text-[12px] rounded-md transition-colors {{ $effectiveProfile === $p ? 'bg-white text-gray-900 font-medium shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
+                                    {{ ucfirst($p) }}
+                                </button>
+                            @endforeach
+                        </div>
 
-                    <div class="flex items-center gap-2">
-                        @if($seoUrl->isBoostActive())
-                            <span class="text-[11px] px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded">Boost bis {{ $seoUrl->boost_until->format('d.m.') }}</span>
-                            <button wire:click="setBoost(0)" class="text-[11px] text-gray-500 hover:text-gray-700">beenden</button>
-                        @else
-                            <button wire:click="setBoost({{ (int) config('seo.boost.default_days', 14) }})"
-                                    class="text-[11px] px-2 py-1 rounded border border-gray-200 text-gray-600 hover:border-gray-300">
-                                ⚡ Boost ({{ (int) config('seo.boost.default_days', 14) }} T täglich SERP)
-                            </button>
-                        @endif
+                        <div class="flex items-start justify-between gap-4 mt-3 flex-wrap">
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                @forelse($profileCostBreakdown as $line)
+                                    <span class="text-[11px] px-2 py-0.5 bg-gray-50 text-gray-600 border border-gray-200 rounded">
+                                        {{ $line['collector'] }} · {{ $line['monthly_cents'] > 0 ? number_format($line['monthly_cents']/100, 2, ',', '.').' €' : 'gratis' }}
+                                    </span>
+                                @empty
+                                    <span class="text-[11px] text-gray-400">Profil „Aus" — es werden keine Daten geholt.</span>
+                                @endforelse
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                @if($seoUrl->isBoostActive())
+                                    <span class="text-[11px] px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded">Boost bis {{ $seoUrl->boost_until->format('d.m.') }}</span>
+                                    <button wire:click="setBoost(0)" class="text-[11px] text-gray-500 hover:text-gray-700">beenden</button>
+                                @else
+                                    <button wire:click="setBoost({{ (int) config('seo.boost.default_days', 14) }})"
+                                            class="text-[11px] px-2 py-1 rounded border border-gray-200 text-gray-600 hover:border-gray-300">
+                                        ⚡ Boost ({{ (int) config('seo.boost.default_days', 14) }} T täglich SERP)
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {{-- Datenaktualität pro Collector --}}
-            @include('seo::partials.data-freshness-panel', ['url' => $seoUrl])
-
-            {{-- Tabs --}}
+            {{-- Tabs — 4 primäre Datensichten + „Mehr" für die selteneren (Backlinks/On-Page/AI/Beziehungen).
+                 Block-@php (Datei-Konvention: kein inline @php, sonst Raw-Block-ParseError). --}}
+            @php
+                $secondaryTabs = ['backlinks' => 'Backlinks', 'onpage' => 'On-Page', 'ai' => 'AI-Sichtbarkeit', 'relationships' => 'Beziehungen'];
+                $inSecondary = in_array($activeTab, array_keys($secondaryTabs), true);
+            @endphp
             <div>
                 <div class="flex items-center gap-1 border-b border-gray-200 mb-6">
-                    @foreach(['keywords' => 'Keywords', 'rankings' => 'Rankings', 'backlinks' => 'Backlinks', 'onpage' => 'On-Page', 'gsc' => 'GSC', 'plausible' => 'Plausible', 'ai' => 'AI-Sichtbarkeit', 'relationships' => 'Beziehungen'] as $tab => $label)
+                    @foreach(['keywords' => 'Keywords', 'rankings' => 'Rankings', 'gsc' => 'GSC', 'plausible' => 'Plausible'] as $tab => $label)
                         <button wire:click="setTab('{{ $tab }}')"
                                 class="px-4 py-3 text-[13px] font-medium transition-colors {{ $activeTab === $tab ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700' }}">
                             {{ $label }}
                         </button>
                     @endforeach
+
+                    {{-- Mehr — seltenere Datensichten, weggeklappt (nicht gelöscht) --}}
+                    <div x-data="{ open: false }" class="relative">
+                        <button type="button" @click="open = !open"
+                                class="px-4 py-3 text-[13px] font-medium transition-colors inline-flex items-center gap-1 {{ $inSecondary ? 'text-[#166EE1] border-b-2 border-[#166EE1]' : 'text-gray-500 hover:text-gray-700' }}">
+                            {{ $inSecondary ? $secondaryTabs[$activeTab] : 'Mehr' }} <span class="text-[10px]">▾</span>
+                        </button>
+                        <div x-show="open" @click.outside="open = false" style="display:none"
+                             class="absolute left-0 top-full z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[170px]">
+                            @foreach($secondaryTabs as $tab => $label)
+                                <button wire:click="setTab('{{ $tab }}')" @click="open = false"
+                                        class="block w-full text-left px-3 py-1.5 text-[13px] {{ $activeTab === $tab ? 'text-[#166EE1] font-medium bg-blue-50/50' : 'text-gray-600 hover:bg-gray-50' }}">
+                                    {{ $label }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
 
                 {{-- Keywords Tab — KWFinder-style split panel --}}
