@@ -60,8 +60,15 @@ class KeywordMetricsCollector implements SeoCollectorInterface
         // Collect all keywords from all URLs that need metrics refresh
         $keywordsToFetch = collect();
         foreach ($urls as $url) {
-            $keywords = $url->keywords()->whereNull('seo_keywords.last_fetched_at')
-                ->orWhere('seo_keywords.last_fetched_at', '<', now()->subDays(7))
+            // Bedingung klammern — sonst löst SQL-Präzedenz das OR aus der
+            // Pivot-Bindung (url_id) und zieht teamweit alle veralteten Keywords
+            // (sprengt das DFS-Bulk-Limit → leere Antwort). So bleibt es auf die
+            // Keywords DIESER URL beschränkt: nie geholt ODER älter als 7 Tage.
+            $keywords = $url->keywords()
+                ->where(function ($q) {
+                    $q->whereNull('seo_keywords.last_fetched_at')
+                        ->orWhere('seo_keywords.last_fetched_at', '<', now()->subDays(7));
+                })
                 ->get();
             foreach ($keywords as $kw) {
                 $keywordsToFetch->put($kw->id, $kw);
