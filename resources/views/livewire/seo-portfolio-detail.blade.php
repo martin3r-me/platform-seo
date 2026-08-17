@@ -435,6 +435,8 @@
                 <div class="flex items-start justify-between gap-3 mb-1">
                     <h2 class="text-[13px] font-semibold text-gray-700">Semantische Karte</h2>
                     <div class="flex items-center gap-1 shrink-0">
+                        <a href="{{ route('seo.portfolios.kosmos', $portfolio) }}"
+                           class="text-[11px] px-2.5 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 mr-1" title="Die Themen als 3D-Kosmos erkunden">🌌 Kosmos</a>
                         <button wire:click="buildSemanticMap('own')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
                                 class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'own' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Faden 1 — ordnen, was wir schon haben">eigene</button>
                         <button wire:click="buildSemanticMap('both')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
