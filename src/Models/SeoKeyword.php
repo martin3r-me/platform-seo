@@ -18,6 +18,7 @@ class SeoKeyword extends Model implements HasDisplayName
         'team_id',
         'cluster_id',
         'keyword',
+        'origin',
         'search_volume',
         'cpc_cents',
         'competition',

@@ -24,8 +24,13 @@ use Platform\Seo\Models\SeoUrlGscData;
  * Persistenz je URL in seo_url_gsc_data:
  *  - eine Aggregat-Zeile pro Seite (keyword_id = null): Gesamt-Impressions/Clicks/
  *    CTR/Ø-Position — so bekommt jede URL immer ihre GSC-Gesamtwerte.
- *  - Detailzeilen nur für Queries, die bereits als SeoKeyword existieren
- *    (keine automatische Keyword-Anlage → respektiert die kuratierte Keyword-Liste).
+ *  - Detailzeilen für getrackte Keywords (Zeitreihe).
+ *
+ * Der 28-Tage-Summary-Pass (collectSummary) legt zusätzlich die denormalisierte
+ * GSC-Schicht je URL ab UND promoviert entdeckte Queries (echte Google-Anfragen
+ * ohne getracktes Keyword) generell zu SeoKeywords mit origin='gsc'. Ab dann
+ * laufen sie wie jedes andere Keyword — der KeywordMetricsCollector zieht das
+ * DataForSeo-Volumen nach. Rauschboden via seo.gsc_promote_min_impressions.
  */
 class GscCollector implements SeoCollectorInterface
 {
@@ -34,6 +39,9 @@ class GscCollector implements SeoCollectorInterface
 
     /** Fenster für die denormalisierte Zusammenfassung (GSC-natives Standardfenster). */
     protected const WINDOW_DAYS = 28;
+
+    /** Untertgrenze, ab der eine entdeckte Query zum Keyword promoviert wird (Rauschboden). */
+    protected const PROMOTE_MIN_IMPRESSIONS = 3;
 
     public function __construct(
         protected GoogleSearchConsoleApiService $gscApi,
@@ -186,7 +194,7 @@ class GscCollector implements SeoCollectorInterface
             //    ohne Live-API rendert und die echte Google-Sichtbarkeit Richtung
             //    Wirkungsraum trägt.
             try {
-                $this->collectSummary($api, $siteUrl, $date, $urlByPath, $keywordMap, $touchedUrlIds);
+                $this->collectSummary($api, (int) $settings->team_id, $siteUrl, $date, $urlByPath, $keywordMap, $touchedUrlIds);
             } catch (\Throwable $e) {
                 $errors[] = "summary {$domain}: ".$e->getMessage();
             }
@@ -250,8 +258,14 @@ class GscCollector implements SeoCollectorInterface
      * @param  array<string, int>     $keywordMap
      * @param  array<int, bool>       $touchedUrlIds  (per Referenz ergänzt)
      */
-    protected function collectSummary($api, string $siteUrl, string $date, array $urlByPath, array $keywordMap, array &$touchedUrlIds): void
+    protected function collectSummary($api, int $teamId, string $siteUrl, string $date, array $urlByPath, array $keywordMap, array &$touchedUrlIds): void
     {
+        // Pfad-Map → id-Map für den Pivot-Attach der promovierten Keywords.
+        $urlById = [];
+        foreach ($urlByPath as $u) {
+            $urlById[$u->id] = $u;
+        }
+
         $endDate = $date;
         $startDate = now()->subDays(self::DATA_LAG_DAYS + self::WINDOW_DAYS - 1)->toDateString();
         $snapshotDate = now()->toDateString();
@@ -321,8 +335,37 @@ class GscCollector implements SeoCollectorInterface
 
             $topQueries = array_slice($rows, 0, 20);
 
-            $discovered = array_values(array_filter($rows, fn ($r) => ! $r['tracked']));
-            $discovered = array_slice($discovered, 0, 25);
+            $untracked = array_values(array_filter($rows, fn ($r) => ! $r['tracked']));
+
+            // Promotion: entdeckte Queries generell als Keyword übernehmen
+            // (Quelle gsc). Ab dann laufen sie wie jedes andere Keyword — der
+            // KeywordMetricsCollector zieht das Volumen bei DataForSeo nach
+            // (last_fetched_at bleibt null → wird beim nächsten Lauf gefüllt).
+            // Rauschboden: nur Queries mit belastbaren Impressionen.
+            $promoteFloor = (int) config('seo.gsc_promote_min_impressions', self::PROMOTE_MIN_IMPRESSIONS);
+            $urlModel = $urlById[$urlId] ?? null;
+            if ($urlModel) {
+                foreach ($untracked as $u) {
+                    if ($u['impressions'] < $promoteFloor) {
+                        continue;
+                    }
+
+                    $kw = SeoKeyword::firstOrCreate(
+                        ['team_id' => $teamId, 'keyword' => mb_strtolower($u['query'])],
+                        ['origin' => 'gsc', 'search_volume' => 0],
+                    );
+
+                    $urlModel->keywords()->syncWithoutDetaching([
+                        $kw->id => [
+                            'position' => min(65535, max(1, (int) round($u['position']))),
+                            'position_updated_at' => now(),
+                        ],
+                    ]);
+                }
+            }
+
+            // Für die Tab-Anzeige die Top-25 entdeckten (noch ungetrackten) Begriffe.
+            $discovered = array_slice($untracked, 0, 25);
 
             // CTR-Chancen: Seite 1 (Pos ≤ 10), genug Impressionen, CTR deutlich
             // unter der positionsüblichen Erwartung → Title/Snippet-Hebel.

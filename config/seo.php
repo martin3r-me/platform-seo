@@ -286,6 +286,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | GSC Query-Discovery — ab wie vielen 28-Tage-Impressionen eine entdeckte
+    | Query (Ranking-Begriff ohne getracktes Keyword) generell zum Keyword
+    | (origin='gsc') promoviert wird. Rauschboden gegen Ein-Impression-Tippfehler.
+    |--------------------------------------------------------------------------
+    */
+    'gsc_promote_min_impressions' => 3,
+
+    /*
+    |--------------------------------------------------------------------------
     | Pipeline — URL pipeline orchestrator settings
     |--------------------------------------------------------------------------
     */
