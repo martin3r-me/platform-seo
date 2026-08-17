@@ -496,31 +496,35 @@
                                     <div x-show="open" style="display:none" class="bg-gray-50/40 border-t border-gray-100 px-2 py-1.5">
                                         @if(! empty($nb['rooms']))
                                             <div class="overflow-x-auto">
-                                                <table class="w-full text-[12px]" style="min-width:640px">
+                                                <table class="w-full text-[12px]" style="min-width:780px">
                                                     <thead>
                                                         <tr class="text-[9px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                                                             <th class="text-left font-medium py-1 px-2">Zimmer</th>
                                                             <th class="text-left font-medium py-1 px-2">Typ</th>
+                                                            <th class="text-left font-medium py-1 px-2">Intent</th>
                                                             <th class="text-right font-medium py-1 px-2">KWs</th>
                                                             <th class="text-right font-medium py-1 px-2">Pot</th>
-                                                            <th class="text-right font-medium py-1 px-2">IST</th>
+                                                            <th class="text-right font-medium py-1 px-2" title="Nähe zum eigenen Kern-Thema">Fit</th>
                                                             <th class="text-right font-medium py-1 px-2">↑Chance</th>
+                                                            <th class="text-right font-medium py-1 px-2" title="Chance × Fit × Winnability">Score</th>
                                                             <th class="text-right font-medium py-1 px-2">Aktion</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         @foreach($nb['rooms'] as $roomIdx => $room)
                                                             <tr class="border-b border-gray-50 last:border-0 hover:bg-white">
-                                                                <td class="py-1.5 px-2 text-gray-700" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}@if(! empty($room['pattern']))<span class="text-[8px] uppercase px-1 rounded bg-gray-200 text-gray-600 ml-1">Muster</span>@endif</td>
+                                                                <td class="py-1.5 px-2 text-gray-700" style="max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}@if(! empty($room['pattern']))<span class="text-[8px] uppercase px-1 rounded bg-gray-200 text-gray-600 ml-1">Muster</span>@endif</td>
                                                                 <td class="py-1.5 px-2">
                                                                     @if(! empty($room['is_opportunity']))<span class="text-[9px] px-1.5 py-0.5 rounded" style="background:#b3a79433;color:#8a7a63">Grau</span>
                                                                     @elseif(! empty($room['is_rest']))<span class="text-[9px] text-gray-400">übrige</span>
                                                                     @else<span class="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">Weißraum</span>@endif
                                                                 </td>
+                                                                <td class="py-1.5 px-2">@if(! empty($room['intent']))<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{{ $room['intent'] }}</span>@else<span class="text-gray-300 text-[10px]">—</span>@endif</td>
                                                                 <td class="py-1.5 px-2 text-right tabular-nums text-gray-500">{{ $room['size'] }}</td>
                                                                 <td class="py-1.5 px-2 text-right tabular-nums text-gray-600">{{ number_format($room['potenzial'] ?? 0) }}</td>
-                                                                <td class="py-1.5 px-2 text-right tabular-nums text-gray-600">{{ number_format($room['ist'] ?? 0) }}</td>
-                                                                <td class="py-1.5 px-2 text-right tabular-nums font-medium" style="color:#e11d48">↑{{ number_format($room['gap'] ?? 0) }}</td>
+                                                                <td class="py-1.5 px-2 text-right tabular-nums" style="color:{{ ($room['fit'] ?? 0) >= 0.6 ? '#15803d' : (($room['fit'] ?? 0) >= 0.35 ? '#b45309' : '#9ca3af') }}" title="Nähe zum eigenen Kern-Thema">{{ round(($room['fit'] ?? 0) * 100) }}%</td>
+                                                                <td class="py-1.5 px-2 text-right tabular-nums" style="color:#e11d48">↑{{ number_format($room['gap'] ?? 0) }}</td>
+                                                                <td class="py-1.5 px-2 text-right tabular-nums font-semibold text-gray-800" title="Chance × Fit × Winnability">{{ number_format($room['score'] ?? 0) }}</td>
                                                                 <td class="py-1.5 px-2 text-right whitespace-nowrap">
                                                                     <button wire:click="openRoom({{ $nbIdx }}, {{ $roomIdx }})" class="text-[11px] text-gray-500 hover:text-gray-800 mr-2">Details</button>
                                                                     <button wire:click="adoptRoom({{ $nbIdx }}, {{ $roomIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')

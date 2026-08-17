@@ -116,10 +116,11 @@ class SeoSemanticMapService
         // (unter VOLUME_FLOOR) kommt gar nicht rein — die Kopf-Seite deckt ihn mit ab.
         $rows = SeoKeyword::where('team_id', $teamId)
             ->whereIn('id', $allKeywordIds)
+            ->whereNull('cluster_id') // Frontier: geordnete (geclusterte) Keywords sind raus — die Karte zeigt nur den ungeordneten Rest
             ->when(self::VOLUME_FLOOR > 0, fn ($q) => $q->where('search_volume', '>=', self::VOLUME_FLOOR))
             ->orderByDesc('search_volume')
             ->limit(self::SCOPE_CAP + 1)
-            ->get(['id', 'keyword', 'search_volume', 'cluster_id']);
+            ->get(['id', 'keyword', 'search_volume', 'cluster_id', 'keyword_difficulty', 'search_intent']);
 
         $truncated = $rows->count() > self::SCOPE_CAP;
         if ($truncated) {
@@ -220,10 +221,9 @@ class SeoSemanticMapService
                 'is_quarter' => ! empty($rooms),
             ], $this->groupStats($members));
         }
-        // Nach OPPORTUNITY sortieren (größte ungehobene Nachfrage zuerst): Grau
-        // (Wettbewerber, IST=0) und eigen-aber-schlecht-platziert steigen nach oben,
-        // schon gewonnene Themen (kleiner Gap) sinken.
-        usort($neighborhoods, fn ($a, $b) => ($b['gap'] ?? 0) <=> ($a['gap'] ?? 0));
+        // Nach SCORE sortieren (Chance × Fit × Winnability): on-topic-gewinnbare
+        // Nachfrage zuerst; Fremd-Rausch und Unrankbares sinken trotz hoher Chance.
+        usort($neighborhoods, fn ($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
 
         $outliers = [];
         foreach ($idsInOrder as $id) {
@@ -456,7 +456,7 @@ class SeoSemanticMapService
                 'pattern' => $g['pattern'], // gesetzt = per Geo/Modifier-Regel entstanden
             ], $this->groupStats($m));
         }
-        usort($rooms, fn ($a, $b) => ($b['gap'] ?? 0) <=> ($a['gap'] ?? 0));
+        usort($rooms, fn ($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
 
         // Rest: Quartier-Keywords, die in kein Zimmer fielen (lose Ränder).
         $rest = [];
@@ -590,7 +590,20 @@ class SeoSemanticMapService
             // IST: geschätzt erreichter Traffic bei aktueller Position (0 = ranken nicht).
             'reach' => (int) round($volume * $this->ctr($position)),
             'anchor_score' => $anchorScore !== null ? round($anchorScore, 3) : null,
+            // Gewinnbarkeit (aus Keyword-Difficulty) + Intent — für die kontextuelle Bewertung.
+            'winnability' => $this->winnability($kw->keyword_difficulty ?? null),
+            'intent' => $kw->search_intent ?? null,
         ];
+    }
+
+    /** Gewinnbarkeit aus Keyword-Difficulty: 0 (unmöglich) … 1 (leicht). null = unbekannt → neutral-optimistisch. */
+    protected function winnability(?int $kd): float
+    {
+        if ($kd === null) {
+            return 0.55;
+        }
+
+        return max(0.08, round(1 - $kd / 100, 3));
     }
 
     /** Grobe CTR je Position (organisch) — für die IST-Schätzung. null/keine = 0. */
@@ -630,13 +643,38 @@ class SeoSemanticMapService
         $volume = array_sum(array_column($members, 'volume'));
         $ist = array_sum(array_column($members, 'reach'));
         $potenzial = (int) round($volume * self::TOP_CTR); // Ceiling: als würden wir top ranken
+        $gap = max(0, $potenzial - $ist);
+
+        // Fit = wie nah am eigenen Kern-Thema (Ø anchor_score) — dämpft Fremd-Rausch.
+        $anchors = array_values(array_filter(array_column($members, 'anchor_score'), fn ($a) => $a !== null));
+        $fit = ! empty($anchors) ? round(array_sum($anchors) / count($anchors), 3) : 0.5;
+
+        // Winnability = Ø Gewinnbarkeit (aus KD) — dämpft unrealistisch schweres Volumen.
+        $winn = $total > 0 ? round(array_sum(array_column($members, 'winnability')) / $total, 3) : 0.5;
+
+        // Intent = dominante Suchintention der Gruppe.
+        $intents = array_values(array_filter(array_column($members, 'intent')));
+        $intent = null;
+        if (! empty($intents)) {
+            $counts = array_count_values($intents);
+            arsort($counts);
+            $intent = (string) array_key_first($counts);
+        }
+
+        // Score = Chance × Fit × Winnability. On-Topic-Gewinnbares steigt,
+        // volumenstarker Fremd-Rausch / Unrankbares sinkt trotz hoher Chance.
+        $score = (int) round($gap * $fit * $winn);
 
         return [
             'comp_count' => $comp,
             'is_opportunity' => $total > 0 && ($comp / $total) >= 0.6,
             'potenzial' => $potenzial,
             'ist' => $ist,
-            'gap' => max(0, $potenzial - $ist),
+            'gap' => $gap,
+            'fit' => $fit,
+            'winnability' => $winn,
+            'intent' => $intent,
+            'score' => $score,
         ];
     }
 }
