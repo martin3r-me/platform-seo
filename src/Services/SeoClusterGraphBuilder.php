@@ -2,6 +2,7 @@
 
 namespace Platform\Seo\Services;
 
+use Illuminate\Support\Facades\DB;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoPortfolio;
@@ -57,6 +58,7 @@ class SeoClusterGraphBuilder
                 $id = 'n'.$ni.'r'.$ri;
                 $node = $this->roomNode($id, $room, $clusterByKeyword, $clusters);
                 $node['quarter'] = (string) ($nb['label'] ?? '');
+                $node['region'] = $ni; // Quartier-Index → Region-Farbe im Kosmos
                 $nodes[] = $node;
 
                 if ($hubId === null) {
@@ -68,6 +70,42 @@ class SeoClusterGraphBuilder
             }
         }
 
+        // Beitragende eigene URLs je Node (ein Batch-Query über alle Keyword-IDs).
+        $allKwIds = [];
+        foreach ($nodes as $n) {
+            foreach ($n['keyword_ids'] as $kid) {
+                $allKwIds[$kid] = true;
+            }
+        }
+        if (! empty($allKwIds)) {
+            $byKw = [];
+            DB::table('seo_url_keywords as uk')
+                ->join('seo_urls as u', 'u.id', '=', 'uk.url_id')
+                ->whereIn('uk.keyword_id', array_keys($allKwIds))
+                ->where('u.is_own', true)
+                ->where('u.team_id', $portfolio->team_id)
+                ->whereNotNull('uk.position')
+                ->select('uk.keyword_id', 'u.domain', 'u.path')
+                ->get()
+                ->each(function ($r) use (&$byKw) {
+                    $byKw[$r->keyword_id][] = ($r->domain ?? '').($r->path ?: '/');
+                });
+
+            foreach ($nodes as &$n) {
+                $paths = [];
+                foreach ($n['keyword_ids'] as $kid) {
+                    foreach ($byKw[$kid] ?? [] as $p) {
+                        $paths[$p] = ($paths[$p] ?? 0) + 1;
+                    }
+                }
+                arsort($paths);
+                $n['urls'] = array_slice(array_keys($paths), 0, 6);
+            }
+            unset($n);
+        }
+
+        $regions = count(array_unique(array_column($nodes, 'region')));
+
         return [
             'nodes' => $nodes,
             'links' => $links,
@@ -75,6 +113,7 @@ class SeoClusterGraphBuilder
                 'empty' => false,
                 'source' => $map['source'] ?? 'own',
                 'built_at' => $map['built_at'] ?? null,
+                'regions' => $regions,
                 'counts' => [
                     'nodes' => count($nodes),
                     'own' => count(array_filter($nodes, fn ($n) => $n['landtype'] === 'own')),

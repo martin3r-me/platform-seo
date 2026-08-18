@@ -75,11 +75,11 @@
 
             <div class="k-top">
                 <h1>{{ $portfolio->name }} · Kosmos</h1>
-                <span class="sub">{{ $meta['counts']['nodes'] ?? 0 }} Themen · Größe = Potenzial · Leuchten = Wirkungsgrad</span>
+                <span class="sub">{{ $meta['counts']['nodes'] ?? 0 }} Themen · {{ $meta['regions'] ?? 0 }} Quartiere · Größe = Potenzial · Farbe = Quartier · Ring = Wirkungsgrad</span>
                 <div class="k-legend">
-                    <div class="lk" style="color:#2f9e44"><span class="sw"></span> Weißraum <span class="n">{{ $meta['counts']['white'] ?? 0 }}</span></div>
-                    <div class="lk" style="color:#14b8a6"><span class="sw"></span> besetzt <span class="n">{{ $meta['counts']['own'] ?? 0 }}</span></div>
-                    <div class="lk" style="color:#b3a794"><span class="sw"></span> Grau <span class="n">{{ $meta['counts']['grau'] ?? 0 }}</span></div>
+                    <div class="lk" style="color:#c3cfe2"><span class="sw" style="background:#e8eef7;box-shadow:none"></span> besetzt <span class="n">{{ $meta['counts']['own'] ?? 0 }}</span></div>
+                    <div class="lk" style="color:#c3cfe2"><span class="sw" style="background:#8ea0bd;box-shadow:none"></span> Weißraum <span class="n">{{ $meta['counts']['white'] ?? 0 }}</span></div>
+                    <div class="lk" style="color:#c3cfe2"><span class="sw" style="background:#49566d;box-shadow:none"></span> Grau <span class="n">{{ $meta['counts']['grau'] ?? 0 }}</span></div>
                 </div>
                 <div class="k-hint">Ziehen = drehen · Rad = zoom · Klick = Thema · <a href="{{ route('seo.portfolios.show', $portfolio) }}">← Wirkungsraum</a></div>
             </div>
@@ -106,6 +106,10 @@
                     <div class="t">Keywords im Thema</div>
                     <div class="chips" id="k-chips"></div>
                 </div>
+                <div class="k-kw" style="padding-top:0">
+                    <div class="t">Beitragende Seiten</div>
+                    <div class="chips" id="k-urls"></div>
+                </div>
                 <div class="k-act" id="k-actions"></div>
             </aside>
         </div>
@@ -118,6 +122,20 @@
             const LAND = { own:0x14b8a6, white:0x2f9e44, grau:0xb3a794 };
             const LANDLABEL = { own:'besetzt — wir ranken', white:'Weißraum — baubar, noch nicht besetzt', grau:'Grau — Wettbewerber / erobern' };
             const LANDCSS = { own:'#14b8a6', white:'#2f9e44', grau:'#b3a794' };
+
+            // Region-Farbe je Quartier (Golden-Angle-Hue = gut verteilt), Sättigung nach Land-Typ.
+            function hsl2rgb(h, s, l){
+                h = ((h % 360) + 360) % 360 / 360;
+                const a = s * Math.min(l, 1 - l);
+                const f = n => { const k = (n + h * 12) % 12; const c = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1))); return Math.round(255 * c); };
+                return (f(0) << 16) | (f(8) << 8) | f(4);
+            }
+            function regionColor(node){
+                const hue = ((node.region || 0) * 137.508) % 360;
+                const sat = node.landtype === 'grau' ? 0.12 : (node.landtype === 'own' ? 0.66 : 0.52);
+                const lig = node.landtype === 'grau' ? 0.52 : 0.57;
+                return hsl2rgb(hue, sat, lig);
+            }
             const fmt = n => n>=1000 ? (n/1000).toFixed(n>=10000?0:1).replace('.',',')+'k' : String(Math.round(n||0));
 
             function boot(){
@@ -143,7 +161,7 @@
                 const g = new THREE.Group();
                 const r = 3 + Math.sqrt(node.val) / 5.5;
                 node.__r = r;
-                const col = LAND[node.landtype] ?? LAND.white;
+                const col = regionColor(node); // Farbe = Quartier (Region), Sättigung = Land-Typ
                 const emissive = 0.12 + (node.wirkungsgrad||0)*0.5 + (node.adopted ? 0.22 : 0);
                 const sphere = new THREE.Mesh(
                     new THREE.SphereGeometry(r, 26, 26),
@@ -196,9 +214,10 @@
                     .onNodeClick(node => { focusNode(Graph, node); showPanel(node); })
                     .onBackgroundClick(() => hidePanel());
 
-                // Kräfte etwas lockern für einen luftigen Kosmos
-                Graph.d3Force('charge').strength(-120);
-                if(Graph.d3Force('link')) Graph.d3Force('link').distance(l => 26 + (l.w||1)*8);
+                // Kräfte: stark abstoßen + lange Kanten → auseinandergezogen, reisbar.
+                Graph.d3Force('charge').strength(-320);
+                if(Graph.d3Force('link')) Graph.d3Force('link').distance(l => 55 + (l.w||1)*10);
+                Graph.d3VelocityDecay(0.28);
 
                 // Weltraum: Sterne + Licht
                 const scene = Graph.scene();
@@ -245,6 +264,8 @@
                 bar.style.background = pct>=50 ? '#22c55e' : (pct>=20 ? '#f59e0b' : '#ef4444');
                 const chips = (node.kw_sample||[]).map(k => `<span>${k}</span>`).join('') || '<span style="opacity:.5">—</span>';
                 document.getElementById('k-chips').innerHTML = chips;
+                const urls = (node.urls||[]).map(u => `<span>${u}</span>`).join('') || '<span style="opacity:.5">noch keine eigene Seite</span>';
+                document.getElementById('k-urls').innerHTML = urls;
                 const act = document.getElementById('k-actions');
                 act.innerHTML = node.adopted
                     ? `<a class="k-btn primary" href="/seo/clusters/${node.cluster_id}">Cluster öffnen →</a>`
