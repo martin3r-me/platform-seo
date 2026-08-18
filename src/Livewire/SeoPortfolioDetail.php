@@ -399,7 +399,9 @@ class SeoPortfolioDetail extends Component
      * Vektoren in Qdrant. Kein SERP, kein Content — nur sehen. Läuft im Hintergrund.
      */
     /** Quelle der semantischen Karte: 'own' (Faden 1) oder 'both' (+Wettbewerber = Faden 2). */
-    public string $semanticSource = 'own';
+    // Default 'both': die Karte zeigt eigene UND Wettbewerber-Keywords zusammen
+    // (Besitz-Mix je Themenfeld/Cluster) — man braucht beide, nicht entweder/oder.
+    public string $semanticSource = 'both';
 
     public function buildSemanticMap(?string $source = null): void
     {

@@ -489,13 +489,13 @@
                     <div class="flex items-center gap-1 shrink-0">
                         <a href="{{ route('seo.portfolios.kosmos', $portfolio) }}"
                            class="text-[11px] px-2.5 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 mr-1" title="Die Themen als 3D-Kosmos erkunden">🌌 Kosmos</a>
-                        <button wire:click="buildSemanticMap('own')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
-                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'own' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Faden 1 — ordnen, was wir schon haben">eigene</button>
                         <button wire:click="buildSemanticMap('both')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
-                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'both' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Faden 2 — erobern: + Wettbewerber-Keywords (das Grau)">+ Wettbewerber</button>
+                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'both' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Eigene + Wettbewerber-Keywords zusammen — Besitz-Mix je Feld (ordnen + erobern)">beide</button>
+                        <button wire:click="buildSemanticMap('own')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
+                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'own' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Nur eigene Keywords — ohne die Wettbewerber-Lücke">nur eigene</button>
                     </div>
                 </div>
-                <p class="text-[11px] text-gray-400 mb-2 max-w-2xl">Die Keywords nach <span class="font-medium">Bedeutung</span> geordnet — Vorschlag, kein SERP. <span class="font-medium">eigene</span> = ordnen was wir haben · <span class="font-medium">+ Wettbewerber</span> = das <span style="color:#e11d48">Grau</span> (wozu ranken die, das uns fehlt). Einen <span class="font-medium">Cluster übernehmen</span> lässt SERP prüfen und macht einen echten Cluster (umkehrbar). Nichts gespeichert, bis du übernimmst.</p>
+                <p class="text-[11px] text-gray-400 mb-2 max-w-2xl">Die Keywords nach <span class="font-medium">Bedeutung</span> geordnet — Vorschlag, kein SERP. Jedes Feld zeigt den <span class="font-medium">Besitz-Mix</span>: <span style="color:#0f766e">eigen</span> (rankt schon → ordnen) vs. <span style="color:#e11d48">Lücke</span> (nur Wettbewerber ranken → erobern). Einen <span class="font-medium">Cluster übernehmen</span> lässt SERP prüfen und macht einen echten Cluster (umkehrbar). Nichts gespeichert, bis du übernimmst.</p>
                 @if($clusterFlash)
                     <p class="text-[11px] mb-3" style="color:#0f766e">{{ $clusterFlash }}</p>
                 @endif
@@ -537,8 +537,14 @@
                                             @if(! empty($nb['is_opportunity']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-rose-100 text-rose-700 shrink-0">Chance</span>@endif
                                         </span>
                                         <span class="text-[11px] text-gray-500 tabular-nums shrink-0 flex gap-3">
-                                            <span>{{ $nb['size'] }} KW</span>
-                                            <span class="text-gray-400">{{ ! empty($nb['rooms']) ? count($nb['rooms']).' Zi' : '—' }}</span>
+                                            @php($nbOwn = ($nb['size'] ?? 0) - ($nb['comp_count'] ?? 0))
+                                            <span class="inline-flex items-center gap-1.5" title="{{ $nbOwn }} eigen · {{ $nb['comp_count'] ?? 0 }} Wettbewerber-Lücke (von {{ $nb['size'] }} KW)">
+                                                <span class="inline-block h-1.5 w-10 rounded-full overflow-hidden align-middle" style="background:#fecdd3">
+                                                    <span class="block h-full" style="background:#0f766e;width:{{ ($nb['size'] ?? 0) > 0 ? round($nbOwn / $nb['size'] * 100) : 0 }}%"></span>
+                                                </span>
+                                                <span class="tabular-nums"><span style="color:#0f766e">{{ $nbOwn }}</span><span class="text-gray-300">/</span><span style="color:#e11d48">{{ $nb['comp_count'] ?? 0 }}</span></span>
+                                            </span>
+                                            <span class="text-gray-400">{{ ! empty($nb['rooms']) ? count($nb['rooms']).' Cl' : '—' }}</span>
                                             <span>Pot {{ number_format($nb['potenzial'] ?? 0) }}</span>
                                             <span>IST {{ number_format($nb['ist'] ?? 0) }}</span>
                                             <span class="font-medium" style="color:#e11d48">↑{{ number_format($nb['gap'] ?? 0) }}</span>

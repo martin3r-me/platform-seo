@@ -6,7 +6,7 @@
                 <th class="text-left font-medium py-1 px-2">Cluster</th>
                 <th class="text-left font-medium py-1 px-2">Typ</th>
                 <th class="text-left font-medium py-1 px-2">Intent</th>
-                <th class="text-right font-medium py-1 px-2">KWs</th>
+                <th class="text-right font-medium py-1 px-2" title="Besitz-Mix: eigen (rankt) / Wettbewerber-Lücke">KWs · Mix</th>
                 <th class="text-right font-medium py-1 px-2">Pot</th>
                 <th class="text-right font-medium py-1 px-2" title="Nähe zum eigenen Kern-Thema">Fit</th>
                 <th class="text-right font-medium py-1 px-2">↑Chance</th>
@@ -30,7 +30,15 @@
                             @else<span class="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">Weißraum</span>@endif
                         </td>
                         <td class="py-1.5 px-2">@if(! empty($room['intent']))<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{{ $room['intent'] }}</span>@else<span class="text-gray-300 text-[10px]">—</span>@endif</td>
-                        <td class="py-1.5 px-2 text-right tabular-nums text-gray-500">{{ $room['size'] }}</td>
+                        <td class="py-1.5 px-2 text-right tabular-nums text-gray-500">
+                            @php($rOwn = ($room['size'] ?? 0) - ($room['comp_count'] ?? 0))
+                            <span class="inline-flex items-center gap-1 justify-end" title="{{ $rOwn }} eigen · {{ $room['comp_count'] ?? 0 }} Wettbewerber-Lücke (von {{ $room['size'] }})">
+                                <span class="inline-block h-1.5 w-7 rounded-full overflow-hidden align-middle" style="background:#fecdd3">
+                                    <span class="block h-full" style="background:#0f766e;width:{{ ($room['size'] ?? 0) > 0 ? round($rOwn / $room['size'] * 100) : 0 }}%"></span>
+                                </span>
+                                <span class="text-[11px]"><span style="color:#0f766e">{{ $rOwn }}</span><span class="text-gray-300">/</span><span style="color:#e11d48">{{ $room['comp_count'] ?? 0 }}</span></span>
+                            </span>
+                        </td>
                         <td class="py-1.5 px-2 text-right tabular-nums text-gray-600">{{ number_format($room['potenzial'] ?? 0) }}</td>
                         <td class="py-1.5 px-2 text-right tabular-nums" style="color:{{ ($room['fit'] ?? 0) >= 0.6 ? '#15803d' : (($room['fit'] ?? 0) >= 0.35 ? '#b45309' : '#9ca3af') }}" title="Nähe zum eigenen Kern-Thema">{{ round(($room['fit'] ?? 0) * 100) }}%</td>
                         <td class="py-1.5 px-2 text-right tabular-nums" style="color:#e11d48">↑{{ number_format($room['gap'] ?? 0) }}</td>
