@@ -522,6 +522,62 @@ class SeoPortfolioDetail extends Component
         $this->spliceRoom($nbIndex, null);
     }
 
+    // ── A+.3: Thema einer Firma im Verbund zuordnen (Routing) ───────────────────
+
+    public function assignRoomToCompany(int $nbIndex, int $roomIndex, string $domain): void
+    {
+        $room = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.rooms.{$roomIndex}");
+        if (is_array($room)) {
+            $this->assignKeywordsToCompany($room['keyword_ids'] ?? [], $room['label'] ?? 'Thema', $domain);
+            $this->spliceRoom($nbIndex, $roomIndex);
+        }
+    }
+
+    public function assignSimpleToCompany(int $nbIndex, string $domain): void
+    {
+        $nb = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}");
+        if (is_array($nb)) {
+            $this->assignKeywordsToCompany($nb['keyword_ids'] ?? [], $nb['label'] ?? 'Thema', $domain);
+            $this->spliceRoom($nbIndex, null);
+        }
+    }
+
+    /**
+     * Thema → Firma: Kandidaten-Cluster mit Pillar = beste eigene URL dieser
+     * Domain. „Themen sauber auf die Firmen verteilen" (der Verbund-Job).
+     *
+     * @param  int[]  $ids
+     */
+    protected function assignKeywordsToCompany(array $ids, string $label, string $domain): void
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if ($ids === []) {
+            return;
+        }
+
+        $pillarUrlId = SeoUrl::where('team_id', $this->portfolio->team_id)
+            ->where('domain', $domain)
+            ->where('is_own', true)
+            ->orderByDesc('visibility_score')
+            ->value('id');
+
+        $cluster = SeoKeywordCluster::create([
+            'team_id' => $this->portfolio->team_id,
+            'name' => mb_substr(trim($label), 0, 120),
+            'status' => SeoKeywordCluster::STATUS_CANDIDATE,
+            'keyword_count' => count($ids),
+            'pillar_url_id' => $pillarUrlId,
+        ]);
+
+        SeoKeyword::where('team_id', $this->portfolio->team_id)
+            ->whereIn('id', $ids)
+            ->whereNull('cluster_id')
+            ->update(['cluster_id' => $cluster->id]);
+
+        $this->clusterFlash = count($ids) . ' Keywords „' . $cluster->name . '" → ' . $domain
+            . ' zugeordnet' . ($pillarUrlId ? ' (Pillar gesetzt)' : '') . '.';
+    }
+
     /**
      * Integrieren = Keywords in ein BESTEHENDES Cluster einhängen (statt neues).
      * Nutzt die Zentroid-Verwandtschaft der Karte. Keine Doppelvergabe (nur unclustered).

@@ -77,6 +77,12 @@ class SeoSemanticMapService
     /** Nähe-Schwelle, ab der ein Zimmer als „nah an Cluster X" gilt. */
     protected const NEAR_CLUSTER_THRESHOLD = 0.60;
 
+    /** domain => Repräsentanten-Vektor (Firmen-Feld im Verbund) für das Routing. */
+    protected array $companyVecs = [];
+
+    /** Schwelle, ab der ein Zimmer klar zu einer Firma „gehört". */
+    protected const COMPANY_THRESHOLD = 0.48;
+
     public function __construct(
         protected EmbeddingProviderRegistry $providers,
         protected EmbeddingStoreRegistry $stores,
@@ -224,6 +230,9 @@ class SeoSemanticMapService
         $this->allVectors = $vectors;
         $this->vecPosById = array_flip($idsInOrder);
         $this->prepareClusterVectors($teamId, $provider);
+        // A+.3: Firmen-Felder (Domains der Mitglieder) als Zentroide → Themen-Routing
+        // im Verbund („kellner jobs" gehört zu Rheingedeck, nicht zu Broich-Catering).
+        $this->prepareCompanyVectors($ownUrlIds, $provider);
 
         $neighborhoods = [];
         foreach ($components as $comp) {
@@ -249,6 +258,7 @@ class SeoSemanticMapService
                 'rooms' => $rooms,
                 'is_quarter' => ! empty($rooms),
                 'near_cluster' => $this->nearestClusterFor($comp),
+                'company' => $this->nearestCompanyFor($comp),
             ], $this->groupStats($members));
         }
         // Nach SCORE sortieren (Chance × Fit × Winnability): on-topic-gewinnbare
@@ -485,6 +495,7 @@ class SeoSemanticMapService
                 'is_rest' => false,
                 'pattern' => $g['pattern'], // gesetzt = per Geo/Modifier-Regel entstanden
                 'near_cluster' => $this->nearestClusterFor($c),
+                'company' => $this->nearestCompanyFor($c),
             ], $this->groupStats($m));
         }
         usort($rooms, fn ($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
@@ -816,6 +827,112 @@ class SeoSemanticMapService
             'name' => (string) ($this->clustersById[$bestCid]->name ?? 'Cluster'),
             'sim' => round($bestSim, 3),
         ];
+    }
+
+    /** Firmen-Felder (Domains der Mitglieder) als Repräsentanten-Vektoren. */
+    protected function prepareCompanyVectors(array $ownUrlIds, $provider): void
+    {
+        $this->companyVecs = [];
+        if (empty($ownUrlIds)) {
+            return;
+        }
+
+        $byDomain = SeoUrl::whereIn('id', $ownUrlIds)->get(['id', 'domain'])
+            ->filter(fn ($u) => ! empty($u->domain))
+            ->groupBy('domain');
+        if ($byDomain->count() < 2) {
+            return; // Routing lohnt nur im Verbund (≥ 2 Firmen)
+        }
+
+        $texts = [];
+        $domains = [];
+        foreach ($byDomain as $domain => $group) {
+            $top = DB::table('seo_url_keywords as uk')
+                ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+                ->whereIn('uk.url_id', $group->pluck('id')->all())
+                ->orderByDesc('k.search_volume')
+                ->limit(15)->pluck('k.keyword')->unique()->take(15)->all();
+            $text = trim(((string) $domain) . ' ' . implode(' ', $top));
+            if ($text === '') {
+                continue;
+            }
+            $texts[] = $text;
+            $domains[] = (string) $domain;
+        }
+        if (empty($texts)) {
+            return;
+        }
+
+        $vecs = $this->embedBatched($provider, $texts);
+        foreach ($domains as $i => $d) {
+            if (isset($vecs[$i]) && is_array($vecs[$i])) {
+                $this->companyVecs[$d] = $vecs[$i];
+            }
+        }
+    }
+
+    /**
+     * Firma im Verbund, zu deren Feld eine Keyword-Gruppe am besten passt.
+     *
+     * @param  int[]  $memberIds
+     * @return array{domain:string,sim:float}|null
+     */
+    protected function nearestCompanyFor(array $memberIds): ?array
+    {
+        if (empty($this->companyVecs) || empty($memberIds)) {
+            return null;
+        }
+
+        $centroid = null;
+        $n = 0;
+        foreach ($memberIds as $id) {
+            $idx = $this->vecPosById[$id] ?? null;
+            $v = $idx !== null ? ($this->allVectors[$idx] ?? null) : null;
+            if (! is_array($v)) {
+                continue;
+            }
+            if ($centroid === null) {
+                $centroid = array_fill(0, count($v), 0.0);
+            }
+            foreach ($v as $d => $val) {
+                $centroid[$d] += $val;
+            }
+            $n++;
+        }
+        if ($centroid === null || $n === 0) {
+            return null;
+        }
+        foreach ($centroid as $d => $val) {
+            $centroid[$d] = $val / $n;
+        }
+        $cNorm = $this->vecNorm($centroid);
+        if ($cNorm <= 0.0) {
+            return null;
+        }
+
+        $bestDomain = null;
+        $bestSim = -1.0;
+        foreach ($this->companyVecs as $domain => $cv) {
+            $cvNorm = $this->vecNorm($cv);
+            if ($cvNorm <= 0.0) {
+                continue;
+            }
+            $dot = 0.0;
+            foreach ($cv as $d => $val) {
+                $dot += $val * ($centroid[$d] ?? 0.0);
+            }
+            $sim = $dot / ($cvNorm * $cNorm);
+            if ($sim > $bestSim) {
+                $bestSim = $sim;
+                $bestDomain = $domain;
+            }
+        }
+
+        if ($bestDomain === null || $bestSim < self::COMPANY_THRESHOLD) {
+            return null;
+        }
+
+        return ['domain' => (string) $bestDomain, 'sim' => round($bestSim, 3)];
     }
 
     /** Grobe CTR je Position (organisch) — für die IST-Schätzung. null/keine = 0. */

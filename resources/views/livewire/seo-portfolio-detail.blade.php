@@ -516,6 +516,7 @@
                                                                 <td class="py-1.5 px-2" style="max-width:220px">
                                                                     <div class="text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}@if(! empty($room['pattern']))<span class="text-[8px] uppercase px-1 rounded bg-gray-200 text-gray-600 ml-1">Muster</span>@endif</div>
                                                                     @if(! empty($room['near_cluster']))<div class="text-[10px] text-teal-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Zentroid-Nähe zu bestehendem Cluster">↗ nah an „{{ $room['near_cluster']['name'] }}" {{ round($room['near_cluster']['sim'] * 100) }}%</div>@endif
+                                                                    @if(! empty($room['company']))<div class="text-[10px]" style="color:#6366f1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Firmen-Feld im Verbund">🏢 {{ $room['company']['domain'] }} {{ round($room['company']['sim'] * 100) }}% · <button wire:click="assignRoomToCompany({{ $nbIdx }}, {{ $roomIdx }}, @js($room['company']['domain']))" class="underline hover:no-underline">zuordnen</button></div>@endif
                                                                 </td>
                                                                 <td class="py-1.5 px-2">
                                                                     @if(! empty($room['is_opportunity']))<span class="text-[9px] px-1.5 py-0.5 rounded" style="background:#b3a79433;color:#8a7a63">Grau</span>
@@ -556,6 +557,9 @@
                                                     <button wire:click="rememberSimple({{ $nbIdx }})" class="text-[11px] text-gray-500 hover:text-gray-800 mr-1.5" title="als Kandidaten-Cluster merken (ohne SERP)">merken</button>
                                                     @if(! empty($nb['near_cluster']))
                                                         <button wire:click="integrateSimple({{ $nbIdx }}, {{ $nb['near_cluster']['id'] }})" class="text-[11px] px-2 py-0.5 rounded bg-teal-600 text-white mr-1.5" title="in „{{ $nb['near_cluster']['name'] }}" ({{ round($nb['near_cluster']['sim'] * 100) }}%) integrieren">integrieren</button>
+                                                    @endif
+                                                    @if(! empty($nb['company']))
+                                                        <button wire:click="assignSimpleToCompany({{ $nbIdx }}, @js($nb['company']['domain']))" class="text-[11px] px-2 py-0.5 rounded text-white mr-1.5" style="background:#6366f1" title="zu {{ $nb['company']['domain'] }} ({{ round($nb['company']['sim'] * 100) }}%) zuordnen">→ {{ $nb['company']['domain'] }}</button>
                                                     @endif
                                                     <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
                                                             class="text-[11px] px-2 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40 mr-1.5" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
