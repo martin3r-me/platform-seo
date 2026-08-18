@@ -513,6 +513,29 @@ return [
     // rausgelassen werden (Kontrolle/Kapazität). 0 = kein Limit.
     'measure_daily_cap' => 3,
 
+    /*
+    |--------------------------------------------------------------------------
+    | v2 — Antwort-Kontrolle: Entitäten, Antwort-Einheiten, Surfaces
+    |--------------------------------------------------------------------------
+    | Siehe docs/NORDSTERN-v2.md. Atom = die Antwort-Einheit; Nachfrage = Entität;
+    | Messung = Präsenz je Surface (klassisch + KI). Offer/Action auf der Entität
+    | sind der Transaktions-Slot (heute ungenutzt, agent-actionable Zukunft).
+    */
+    'entity_types' => [
+        'question' => 'Frage',
+        'product' => 'Produkt',
+        'brand' => 'Marke',
+        'place' => 'Ort',
+        'concept' => 'Konzept',
+    ],
+    'answer_surfaces' => [
+        'serp' => 'Klassische Suche',
+        'ai_overview' => 'AI-Overview',
+        'chatgpt' => 'ChatGPT',
+        'perplexity' => 'Perplexity',
+        'knowledge_panel' => 'Knowledge Panel',
+    ],
+
     'steckbrief' => [
         'page_types' => [
             'startseite' => ['label' => 'Startseite', 'schema' => 'WebPage'],
