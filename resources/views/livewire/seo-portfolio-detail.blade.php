@@ -513,7 +513,10 @@
                                                     <tbody>
                                                         @foreach($nb['rooms'] as $roomIdx => $room)
                                                             <tr class="border-b border-gray-50 last:border-0 hover:bg-white">
-                                                                <td class="py-1.5 px-2 text-gray-700" style="max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}@if(! empty($room['pattern']))<span class="text-[8px] uppercase px-1 rounded bg-gray-200 text-gray-600 ml-1">Muster</span>@endif</td>
+                                                                <td class="py-1.5 px-2" style="max-width:220px">
+                                                                    <div class="text-gray-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $room['label'] }}@if(! empty($room['pattern']))<span class="text-[8px] uppercase px-1 rounded bg-gray-200 text-gray-600 ml-1">Muster</span>@endif</div>
+                                                                    @if(! empty($room['near_cluster']))<div class="text-[10px] text-teal-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Zentroid-Nähe zu bestehendem Cluster">↗ nah an „{{ $room['near_cluster']['name'] }}" {{ round($room['near_cluster']['sim'] * 100) }}%</div>@endif
+                                                                </td>
                                                                 <td class="py-1.5 px-2">
                                                                     @if(! empty($room['is_opportunity']))<span class="text-[9px] px-1.5 py-0.5 rounded" style="background:#b3a79433;color:#8a7a63">Grau</span>
                                                                     @elseif(! empty($room['is_rest']))<span class="text-[9px] text-gray-400">übrige</span>
@@ -528,6 +531,9 @@
                                                                 <td class="py-1.5 px-2 text-right whitespace-nowrap">
                                                                     <button wire:click="openRoom({{ $nbIdx }}, {{ $roomIdx }})" class="text-[11px] text-gray-400 hover:text-gray-700 mr-1.5">Details</button>
                                                                     <button wire:click="rememberRoom({{ $nbIdx }}, {{ $roomIdx }})" class="text-[11px] text-gray-500 hover:text-gray-800 mr-1.5" title="als Kandidaten-Cluster merken (ohne SERP)">merken</button>
+                                                                    @if(! empty($room['near_cluster']))
+                                                                        <button wire:click="integrateRoom({{ $nbIdx }}, {{ $roomIdx }}, {{ $room['near_cluster']['id'] }})" class="text-[11px] px-2 py-0.5 rounded bg-teal-600 text-white mr-1.5" title="in „{{ $room['near_cluster']['name'] }}" integrieren (statt neues Cluster)">integrieren</button>
+                                                                    @endif
                                                                     <button wire:click="adoptRoom({{ $nbIdx }}, {{ $roomIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
                                                                             class="text-[11px] px-2 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40 mr-1.5" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
                                                                     <button wire:click="retireRoom({{ $nbIdx }}, {{ $roomIdx }})" class="text-[11px] text-gray-400 hover:text-rose-600" title="abstellen — Keywords stilllegen (umkehrbar)">abstellen</button>
@@ -548,6 +554,9 @@
                                                 <span class="shrink-0 whitespace-nowrap">
                                                     <button wire:click="openSimple({{ $nbIdx }})" class="text-[11px] text-gray-400 hover:text-gray-700 mr-1.5">Details</button>
                                                     <button wire:click="rememberSimple({{ $nbIdx }})" class="text-[11px] text-gray-500 hover:text-gray-800 mr-1.5" title="als Kandidaten-Cluster merken (ohne SERP)">merken</button>
+                                                    @if(! empty($nb['near_cluster']))
+                                                        <button wire:click="integrateSimple({{ $nbIdx }}, {{ $nb['near_cluster']['id'] }})" class="text-[11px] px-2 py-0.5 rounded bg-teal-600 text-white mr-1.5" title="in „{{ $nb['near_cluster']['name'] }}" ({{ round($nb['near_cluster']['sim'] * 100) }}%) integrieren">integrieren</button>
+                                                    @endif
                                                     <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
                                                             class="text-[11px] px-2 py-0.5 rounded bg-gray-900 text-white disabled:opacity-40 mr-1.5" title="SERP prüfen & als Cluster übernehmen">übernehmen</button>
                                                     <button wire:click="retireSimple({{ $nbIdx }})" class="text-[11px] text-gray-400 hover:text-rose-600" title="abstellen — Keywords stilllegen (umkehrbar)">abstellen</button>

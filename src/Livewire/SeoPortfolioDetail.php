@@ -508,6 +508,48 @@ class SeoPortfolioDetail extends Component
         $this->spliceRoom($nbIndex, $roomIndex);
     }
 
+    public function integrateRoom(int $nbIndex, int $roomIndex, int $clusterId): void
+    {
+        $ids = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.rooms.{$roomIndex}.keyword_ids", []);
+        $this->integrateKeywords(is_array($ids) ? $ids : [], $clusterId);
+        $this->spliceRoom($nbIndex, $roomIndex);
+    }
+
+    public function integrateSimple(int $nbIndex, int $clusterId): void
+    {
+        $ids = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.keyword_ids", []);
+        $this->integrateKeywords(is_array($ids) ? $ids : [], $clusterId);
+        $this->spliceRoom($nbIndex, null);
+    }
+
+    /**
+     * Integrieren = Keywords in ein BESTEHENDES Cluster einhängen (statt neues).
+     * Nutzt die Zentroid-Verwandtschaft der Karte. Keine Doppelvergabe (nur unclustered).
+     *
+     * @param  int[]  $ids
+     */
+    protected function integrateKeywords(array $ids, int $clusterId): void
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (empty($ids)) {
+            return;
+        }
+        $cluster = SeoKeywordCluster::where('team_id', $this->portfolio->team_id)->find($clusterId);
+        if (! $cluster) {
+            return;
+        }
+
+        $n = SeoKeyword::where('team_id', $this->portfolio->team_id)
+            ->whereIn('id', $ids)
+            ->whereNull('cluster_id')
+            ->update(['cluster_id' => $cluster->id]);
+
+        if ($n > 0) {
+            $cluster->increment('keyword_count', $n);
+        }
+        $this->clusterFlash = $n . ' Keywords in Cluster „' . $cluster->name . '" integriert.';
+    }
+
     public function retireSimple(int $nbIndex): void
     {
         $ids = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}.keyword_ids", []);

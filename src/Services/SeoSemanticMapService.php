@@ -63,6 +63,20 @@ class SeoSemanticMapService
     /** Fit je Keyword = Cosine zum Schwerpunkt seiner Nachbarschaft (Kern-Nähe). */
     protected array $fitScores = [];
 
+    /** Für die Cluster-Verwandtschaft (A+.2): Roh-Vektoren + Cluster-Repräsentanten. */
+    protected array $allVectors = [];
+
+    protected array $vecPosById = [];
+
+    /** cluster_id => Repräsentanten-Vektor (Name + Top-Keywords). */
+    protected array $clusterVecs = [];
+
+    /** cluster_id => SeoKeywordCluster (für Name-Anzeige). */
+    protected array $clustersById = [];
+
+    /** Nähe-Schwelle, ab der ein Zimmer als „nah an Cluster X" gilt. */
+    protected const NEAR_CLUSTER_THRESHOLD = 0.60;
+
     public function __construct(
         protected EmbeddingProviderRegistry $providers,
         protected EmbeddingStoreRegistry $stores,
@@ -205,6 +219,12 @@ class SeoSemanticMapService
         // „blähen kirschen" im Catering-Feld) bekommt niedriges Fit → sinkt im Score.
         $this->fitScores = $this->computeFit($components, $vectors, $idsInOrder);
 
+        // A+.2: Cluster-Verwandtschaft vorbereiten — Team-Cluster als Repräsentanten
+        // einbetten, damit jedes Zimmer seine nächste Cluster-Nähe zeigt (integrieren vs. neu).
+        $this->allVectors = $vectors;
+        $this->vecPosById = array_flip($idsInOrder);
+        $this->prepareClusterVectors($teamId, $provider);
+
         $neighborhoods = [];
         foreach ($components as $comp) {
             if (count($comp) < 2) {
@@ -228,6 +248,7 @@ class SeoSemanticMapService
                 'keyword_ids' => array_values($comp),        // volle Menge fürs SERP-Übernehmen
                 'rooms' => $rooms,
                 'is_quarter' => ! empty($rooms),
+                'near_cluster' => $this->nearestClusterFor($comp),
             ], $this->groupStats($members));
         }
         // Nach SCORE sortieren (Chance × Fit × Winnability): on-topic-gewinnbare
@@ -463,6 +484,7 @@ class SeoSemanticMapService
                 'keyword_ids' => array_values($c),
                 'is_rest' => false,
                 'pattern' => $g['pattern'], // gesetzt = per Geo/Modifier-Regel entstanden
+                'near_cluster' => $this->nearestClusterFor($c),
             ], $this->groupStats($m));
         }
         usort($rooms, fn ($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
@@ -689,6 +711,111 @@ class SeoSemanticMapService
         }
 
         return sqrt($s);
+    }
+
+    /** Team-Cluster als Repräsentanten-Vektoren (Name + Top-Keywords) einbetten. */
+    protected function prepareClusterVectors(int $teamId, $provider): void
+    {
+        $this->clusterVecs = [];
+        $this->clustersById = [];
+
+        $clusters = \Platform\Seo\Models\SeoKeywordCluster::where('team_id', $teamId)->get(['id', 'name']);
+        if ($clusters->isEmpty()) {
+            return;
+        }
+        $this->clustersById = $clusters->keyBy('id')->all();
+
+        $texts = [];
+        $ids = [];
+        foreach ($clusters as $c) {
+            $top = SeoKeyword::where('cluster_id', $c->id)
+                ->orderByDesc('search_volume')->limit(8)->pluck('keyword')->all();
+            $text = trim(((string) $c->name) . ' ' . implode(' ', $top));
+            if ($text === '') {
+                continue;
+            }
+            $texts[] = $text;
+            $ids[] = (int) $c->id;
+        }
+        if (empty($texts)) {
+            return;
+        }
+
+        $vecs = $this->embedBatched($provider, $texts);
+        foreach ($ids as $i => $cid) {
+            if (isset($vecs[$i]) && is_array($vecs[$i])) {
+                $this->clusterVecs[$cid] = $vecs[$i];
+            }
+        }
+    }
+
+    /**
+     * Nächstes bestehendes Cluster zu einer Keyword-Gruppe (Zentroid-Cosine).
+     * → „integrieren in X" statt „neues Cluster", wenn nah genug.
+     *
+     * @param  int[]  $memberIds
+     * @return array{id:int,name:string,sim:float}|null
+     */
+    protected function nearestClusterFor(array $memberIds): ?array
+    {
+        if (empty($this->clusterVecs) || empty($memberIds)) {
+            return null;
+        }
+
+        $centroid = null;
+        $n = 0;
+        foreach ($memberIds as $id) {
+            $idx = $this->vecPosById[$id] ?? null;
+            $v = $idx !== null ? ($this->allVectors[$idx] ?? null) : null;
+            if (! is_array($v)) {
+                continue;
+            }
+            if ($centroid === null) {
+                $centroid = array_fill(0, count($v), 0.0);
+            }
+            foreach ($v as $d => $val) {
+                $centroid[$d] += $val;
+            }
+            $n++;
+        }
+        if ($centroid === null || $n === 0) {
+            return null;
+        }
+        foreach ($centroid as $d => $val) {
+            $centroid[$d] = $val / $n;
+        }
+        $cNorm = $this->vecNorm($centroid);
+        if ($cNorm <= 0.0) {
+            return null;
+        }
+
+        $bestCid = null;
+        $bestSim = -1.0;
+        foreach ($this->clusterVecs as $cid => $cv) {
+            $cvNorm = $this->vecNorm($cv);
+            if ($cvNorm <= 0.0) {
+                continue;
+            }
+            $dot = 0.0;
+            foreach ($cv as $d => $val) {
+                $dot += $val * ($centroid[$d] ?? 0.0);
+            }
+            $sim = $dot / ($cvNorm * $cNorm);
+            if ($sim > $bestSim) {
+                $bestSim = $sim;
+                $bestCid = $cid;
+            }
+        }
+
+        if ($bestCid === null || $bestSim < self::NEAR_CLUSTER_THRESHOLD) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $bestCid,
+            'name' => (string) ($this->clustersById[$bestCid]->name ?? 'Cluster'),
+            'sim' => round($bestSim, 3),
+        ];
     }
 
     /** Grobe CTR je Position (organisch) — für die IST-Schätzung. null/keine = 0. */
