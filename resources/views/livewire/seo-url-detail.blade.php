@@ -60,6 +60,106 @@
                 </div>
             @endif
 
+            {{-- URL-Steckbrief — das erklärte SOLL (Seitentyp/Intent/Funnel/Ziel/Fokus).
+                 KI schlägt vor, Mensch bestätigt. Block-Direktive (Datei-Konvention). --}}
+            @php
+                $sbCfg = config('seo.steckbrief');
+                $sbTypes = collect($sbCfg['page_types'])->map(fn ($v) => $v['label']);
+                $sbIntents = $sbCfg['intents'];
+                $sbFunnels = $sbCfg['funnel_stages'];
+                $sbObjectives = $sbCfg['objectives'];
+                $sbFilled = ! empty($steckbrief['page_type']) || ! empty($steckbrief['target_intent']);
+                $sbConfirmed = $sbFilled && ! empty($sbConfirmedAt);
+                $sbTypeLabel = $steckbrief['page_type'] ? ($sbTypes[$steckbrief['page_type']] ?? $steckbrief['page_type']) : null;
+                $sbIntentLabel = $steckbrief['target_intent'] ? ($sbIntents[$steckbrief['target_intent']] ?? null) : null;
+            @endphp
+            <div x-data="{ open: {{ $sbFilled || $sbDirty ? 'true' : 'false' }} }" class="bg-white rounded-lg border {{ $sbFilled && ! $sbConfirmed ? 'border-amber-200' : 'border-gray-200' }}">
+                <button type="button" @click="open = !open" class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
+                    <div class="flex items-center gap-2 text-[13px] flex-wrap">
+                        <span class="font-semibold text-gray-700">Steckbrief</span>
+                        <span class="text-gray-300">·</span>
+                        @if($sbFilled)
+                            <span class="text-gray-600">{{ $sbTypeLabel }}@if($sbIntentLabel) <span class="text-gray-300">·</span> {{ $sbIntentLabel }}@endif</span>
+                            @if($sbConfirmed)
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-100">bestätigt</span>
+                            @else
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100">KI-Vorschlag · unbestätigt</span>
+                            @endif
+                        @else
+                            <span class="text-gray-400 italic">noch nicht ausgefüllt — das SOLL dieser Seite</span>
+                        @endif
+                    </div>
+                    <span class="text-[11px] text-gray-400 shrink-0" x-text="open ? 'schließen ▴' : 'ansehen ▾'"></span>
+                </button>
+
+                <div x-show="open" style="display:none" class="px-4 pb-4 pt-4 border-t border-gray-100 space-y-4">
+                    @if($sbError)
+                        <div class="text-[12px] px-3 py-2 rounded bg-red-50 text-red-700 border border-red-100">{{ $sbError }}</div>
+                    @endif
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Seitentyp</label>
+                            <select wire:model="steckbrief.page_type" class="w-full text-[13px] border border-gray-300 rounded-md px-2 py-1.5 bg-white">
+                                <option value="">—</option>
+                                @foreach($sbTypes as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Ziel-Intent</label>
+                            <select wire:model="steckbrief.target_intent" class="w-full text-[13px] border border-gray-300 rounded-md px-2 py-1.5 bg-white">
+                                <option value="">—</option>
+                                @foreach($sbIntents as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Funnel-Stufe</label>
+                            <select wire:model="steckbrief.funnel_stage" class="w-full text-[13px] border border-gray-300 rounded-md px-2 py-1.5 bg-white">
+                                <option value="">—</option>
+                                @foreach($sbFunnels as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Seitenziel</label>
+                            <select wire:model="steckbrief.page_objective" class="w-full text-[13px] border border-gray-300 rounded-md px-2 py-1.5 bg-white">
+                                <option value="">—</option>
+                                @foreach($sbObjectives as $k => $label)<option value="{{ $k }}">{{ $label }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Fokus-Thema</label>
+                            <input type="text" wire:model="steckbrief.focus_keyword" placeholder="1 Keyword" class="w-full text-[13px] border border-gray-300 rounded-md px-2 py-1.5 bg-white" />
+                        </div>
+                    </div>
+
+                    @if($sbRationale)
+                        <div class="text-[12px] text-gray-500"><span class="font-medium text-gray-600">KI:</span> {{ $sbRationale }}</div>
+                    @endif
+
+                    <div class="flex items-center justify-between gap-3 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <button wire:click="proposeSteckbrief" wire:loading.attr="disabled" wire:target="proposeSteckbrief"
+                                    class="text-[12px] px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:border-gray-300 disabled:opacity-40">
+                                <span wire:loading.remove wire:target="proposeSteckbrief">✨ KI-Vorschlag</span>
+                                <span wire:loading wire:target="proposeSteckbrief">leitet ab…</span>
+                            </button>
+                            <button wire:click="saveSteckbrief"
+                                    class="text-[12px] px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-700">
+                                {{ $sbConfirmed ? 'Speichern' : 'Bestätigen & speichern' }}
+                            </button>
+                        </div>
+                        <div class="text-[11px] text-gray-400">
+                            @if($sbConfirmed && $sbConfirmedAt)
+                                {{ $sbSource === 'ai' ? 'KI-abgeleitet' : 'manuell' }} · bestätigt {{ \Illuminate\Support\Carbon::parse($sbConfirmedAt)->format('d.m.Y') }}
+                            @elseif($sbFilled)
+                                Vorschlag — bitte prüfen & bestätigen
+                            @endif
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-gray-400">Das erklärte SOLL dieser Seite — die KI misst rankende Keywords dagegen (Intent-Abgleich), priorisiert nach Ziel und kann daraus schema.org-Markup erzeugen.</p>
+                </div>
+            </div>
+
             {{-- Stats --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div class="bg-white rounded-lg border border-gray-200 p-4">

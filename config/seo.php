@@ -465,4 +465,46 @@ return [
         'enabled' => false,
         'cache_hours' => 168,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | URL-Steckbrief — standardisierte Meta (das SOLL einer Seite)
+    |--------------------------------------------------------------------------
+    | Der erklärte Zweck einer Seite, gegen den IST (Rankings/Conversions)
+    | gemessen wird. Standardisierte Vokabulare, damit die KI sie befüllen und
+    | zur Optimierung nutzen kann — und wir sie als schema.org-Markup ausspielen.
+    | page_types tragen ihr schema.org @type mit (doppelter Nutzen: On-Page-Signal).
+    */
+    'steckbrief' => [
+        'page_types' => [
+            'startseite' => ['label' => 'Startseite', 'schema' => 'WebPage'],
+            'hub' => ['label' => 'Themen-Hub / Pillar', 'schema' => 'CollectionPage'],
+            'leistung' => ['label' => 'Leistungsseite', 'schema' => 'Service'],
+            'produkt' => ['label' => 'Produkt', 'schema' => 'Product'],
+            'standort' => ['label' => 'Standort', 'schema' => 'LocalBusiness'],
+            'ratgeber' => ['label' => 'Ratgeber / Artikel', 'schema' => 'Article'],
+            'landingpage' => ['label' => 'Landingpage', 'schema' => 'WebPage'],
+            'vergleich' => ['label' => 'Vergleich', 'schema' => 'WebPage'],
+            'faq' => ['label' => 'FAQ', 'schema' => 'FAQPage'],
+        ],
+        'intents' => [
+            'informational' => 'Informational',
+            'navigational' => 'Navigational',
+            'commercial' => 'Kommerziell',
+            'transactional' => 'Transaktional',
+        ],
+        'funnel_stages' => [
+            'awareness' => 'Aufmerksamkeit',
+            'consideration' => 'Erwägung',
+            'decision' => 'Entscheidung',
+        ],
+        'objectives' => [
+            'lead' => 'Lead / Anfrage',
+            'call' => 'Anruf',
+            'purchase' => 'Kauf / Buchung',
+            'booking' => 'Buchung / Termin',
+            'newsletter' => 'Newsletter / Abo',
+            'reach' => 'Nur Reichweite',
+        ],
+    ],
 ];

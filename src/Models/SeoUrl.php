@@ -151,6 +151,47 @@ class SeoUrl extends Model
         return ($this->path && $this->path !== '/') ? $this->path : $this->domain;
     }
 
+    /**
+     * URL-Steckbrief (das erklärte SOLL) — standardisierte Meta in meta['steckbrief'].
+     * Prototyp: JSON-Ablage, damit ohne Migration nutzbar; später ggf. echte Spalten.
+     *
+     * @return array{page_type:?string,target_intent:?string,funnel_stage:?string,page_objective:?string,focus_keyword:?string,source:?string,confirmed_at:?string,rationale:?string}
+     */
+    public function getSteckbriefAttribute(): array
+    {
+        $s = (array) (($this->meta['steckbrief'] ?? []));
+
+        return [
+            'page_type' => $s['page_type'] ?? null,
+            'target_intent' => $s['target_intent'] ?? null,
+            'funnel_stage' => $s['funnel_stage'] ?? null,
+            'page_objective' => $s['page_objective'] ?? null,
+            'focus_keyword' => $s['focus_keyword'] ?? null,
+            'source' => $s['source'] ?? null,
+            'confirmed_at' => $s['confirmed_at'] ?? null,
+            'rationale' => $s['rationale'] ?? null,
+        ];
+    }
+
+    /** Ist der Steckbrief inhaltlich gefüllt (mindestens Typ + Intent)? */
+    public function hasSteckbrief(): bool
+    {
+        $s = $this->steckbrief;
+
+        return ! empty($s['page_type']) || ! empty($s['target_intent']);
+    }
+
+    /**
+     * Steckbrief in meta persistieren (merge, ohne die übrigen meta-Keys wie
+     * clustering zu verlieren). $fields darf source/confirmed_at/rationale tragen.
+     */
+    public function saveSteckbrief(array $fields): void
+    {
+        $meta = (array) ($this->meta ?? []);
+        $meta['steckbrief'] = array_merge($meta['steckbrief'] ?? [], $fields);
+        $this->update(['meta' => $meta]);
+    }
+
     public static function normalizeUrl(string $url): string
     {
         $url = trim($url);

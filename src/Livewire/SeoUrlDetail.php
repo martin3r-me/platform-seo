@@ -42,11 +42,91 @@ class SeoUrlDetail extends Component
     // Conversion-Attribution: gewähltes Ziel (Switcher).
     public ?string $conversionGoal = null;
 
+    // URL-Steckbrief (das erklärte SOLL) — editierbare Felder + KI-Vorschlags-Status.
+    public array $steckbrief = [
+        'page_type' => null,
+        'target_intent' => null,
+        'funnel_stage' => null,
+        'page_objective' => null,
+        'focus_keyword' => null,
+    ];
+    public ?string $sbRationale = null;
+    public ?string $sbSource = null;
+    public ?string $sbConfirmedAt = null;
+    public ?string $sbError = null;
+    public bool $sbDirty = false;
+
     public function mount(SeoUrl $seoUrl)
     {
         $this->resolveSettings();
         $this->seoUrl = $seoUrl;
         $this->plausibleSiteId = (string) ($seoUrl->plausible_site_id ?? '');
+        $this->loadSteckbrief();
+    }
+
+    /** Steckbrief aus der URL-Meta in den Formular-State laden. */
+    protected function loadSteckbrief(): void
+    {
+        $s = $this->seoUrl->steckbrief;
+        $this->steckbrief = [
+            'page_type' => $s['page_type'],
+            'target_intent' => $s['target_intent'],
+            'funnel_stage' => $s['funnel_stage'],
+            'page_objective' => $s['page_objective'],
+            'focus_keyword' => $s['focus_keyword'],
+        ];
+        $this->sbRationale = $s['rationale'];
+        $this->sbSource = $s['source'];
+        $this->sbConfirmedAt = $s['confirmed_at'];
+        $this->sbDirty = false;
+    }
+
+    /** KI schlägt den Steckbrief vor (aus On-Page + rankenden Keywords). Noch nicht bestätigt. */
+    public function proposeSteckbrief(): void
+    {
+        $this->sbError = null;
+        $proposal = app(\Platform\Seo\Services\SeoUrlMetaAdvisor::class)->propose($this->seoUrl);
+
+        if (! empty($proposal['error'])) {
+            $this->sbError = $proposal['error'];
+
+            return;
+        }
+
+        $this->steckbrief = [
+            'page_type' => $proposal['page_type'],
+            'target_intent' => $proposal['target_intent'],
+            'funnel_stage' => $proposal['funnel_stage'],
+            'page_objective' => $proposal['page_objective'],
+            'focus_keyword' => $proposal['focus_keyword'],
+        ];
+        $this->sbRationale = $proposal['rationale'];
+        $this->sbSource = 'ai';
+        $this->sbConfirmedAt = null; // Vorschlag — Bestätigung fehlt noch
+        $this->sbDirty = true;
+    }
+
+    /** Manuelle Änderung markiert den Steckbrief als ungespeichert. */
+    public function updatedSteckbrief(): void
+    {
+        $this->sbDirty = true;
+    }
+
+    /** Steckbrief bestätigen & speichern (das SOLL festschreiben). */
+    public function saveSteckbrief(): void
+    {
+        $this->seoUrl->saveSteckbrief([
+            'page_type' => $this->steckbrief['page_type'] ?: null,
+            'target_intent' => $this->steckbrief['target_intent'] ?: null,
+            'funnel_stage' => $this->steckbrief['funnel_stage'] ?: null,
+            'page_objective' => $this->steckbrief['page_objective'] ?: null,
+            'focus_keyword' => $this->steckbrief['focus_keyword'] ?: null,
+            'rationale' => $this->sbRationale,
+            'source' => $this->sbSource ?: 'human',
+            'confirmed_at' => now()->toIso8601String(),
+        ]);
+        $this->seoUrl->refresh();
+        $this->loadSteckbrief();
     }
 
     public function setTab(string $tab): void
