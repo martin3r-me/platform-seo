@@ -33,6 +33,7 @@ class SeoServiceProvider extends ServiceProvider
             $this->commands([
                 \Platform\Seo\Console\Commands\RefreshKeywords::class,
                 \Platform\Seo\Console\Commands\RunPipeline::class,
+                \Platform\Seo\Console\Commands\RefreshPortfolios::class,
                 \Platform\Seo\Console\Commands\SnapshotUrls::class,
                 \Platform\Seo\Console\Commands\EvaluateSignals::class,
                 \Platform\Seo\Console\Commands\EnrichSignals::class,
@@ -206,6 +207,14 @@ class SeoServiceProvider extends ServiceProvider
         // angefasst, der Rest wird übersprungen.
         Schedule::command('seo:pipeline')
             ->dailyAt('03:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // ~2-wöchentlich (1. + 15., 04:30) — Wirkungsraum-Refresh: Nachfrage laden,
+        // Entitäten mergen, Maßnahmen erzeugen (v1+v2+KI). Läuft nach der nächtlichen
+        // Pipeline, damit frische Daten drinstecken. Macht den Posteingang autonom.
+        Schedule::command('seo:refresh-portfolios')
+            ->twiceMonthly(1, 15, '04:30')
             ->withoutOverlapping()
             ->runInBackground();
 

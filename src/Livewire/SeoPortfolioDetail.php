@@ -1285,33 +1285,10 @@ class SeoPortfolioDetail extends Component
     /** Nachfrage-Seite laden: aus den Clustern des Wirkungsraums Entitäten ableiten. */
     public function syncDemandEntities(): void
     {
-        $memberIds = $this->propertyView()['members']->pluck('id')->all();
-        $clusterIds = $this->wirkungsraumClusterIds($memberIds);
-        if (empty($clusterIds)) {
-            $this->entityFlash = 'Keine Cluster im Wirkungsraum — erst in „Ordnen" Themen bauen.';
-
-            return;
-        }
-
-        $clusters = SeoKeywordCluster::whereIn('id', $clusterIds)->get();
-        $demand = SeoKeyword::whereIn('cluster_id', $clusterIds)
-            ->selectRaw('cluster_id, SUM(search_volume) as vol')
-            ->groupBy('cluster_id')->pluck('vol', 'cluster_id');
-
-        $n = 0;
-        foreach ($clusters as $c) {
-            $e = SeoEntity::firstOrNew(['team_id' => $this->seoSettings->team_id, 'cluster_id' => $c->id]);
-            $wasNew = ! $e->exists;
-            $e->fill([
-                'name' => $c->name,
-                'entity_type' => 'concept',
-                'search_volume' => (int) ($demand[$c->id] ?? 0),
-            ])->save();
-            if ($wasNew) {
-                $n++;
-            }
-        }
-        $this->entityFlash = $n.' Nachfrage-Entität(en) aus Clustern geladen ('.count($clusters).' Themen abgeglichen).';
+        $res = app(\Platform\Seo\Services\SeoPortfolioOrchestrator::class)->syncDemand($this->portfolio);
+        $this->entityFlash = ($res['clusters'] ?? 0) === 0
+            ? 'Keine Cluster im Wirkungsraum — erst in „Ordnen" Themen bauen.'
+            : ($res['created'] ?? 0).' Nachfrage-Entität(en) aus Clustern geladen ('.($res['clusters'] ?? 0).' Themen abgeglichen).';
     }
 
     /** Entitäten des Wirkungsraums semantisch zusammenführen (Angebot ↔ Nachfrage kanonisieren). */
@@ -1333,29 +1310,14 @@ class SeoPortfolioDetail extends Component
     /** Alle Entity-IDs des Wirkungsraums (Angebot aus AnswerUnits + Nachfrage aus Clustern). @return int[] */
     protected function wirkungsraumEntityIds(array $memberIds): array
     {
-        if (empty($memberIds)) {
-            return [];
-        }
-        $supply = SeoAnswerUnit::whereIn('url_id', $memberIds)->distinct()->pluck('entity_id')->all();
-        $clusterIds = $this->wirkungsraumClusterIds($memberIds);
-        $demand = empty($clusterIds) ? []
-            : SeoEntity::where('team_id', $this->seoSettings->team_id)->whereIn('cluster_id', $clusterIds)->pluck('id')->all();
-
-        return collect($supply)->merge($demand)->map(fn ($i) => (int) $i)->filter()->unique()->values()->all();
+        return app(\Platform\Seo\Services\SeoPortfolioOrchestrator::class)
+            ->entityIds($this->seoSettings->team_id, $memberIds);
     }
 
     /** Cluster-IDs des Wirkungsraums (Themen, für die Mitglieder ranken). @return int[] */
     protected function wirkungsraumClusterIds(array $memberIds): array
     {
-        if (empty($memberIds)) {
-            return [];
-        }
-
-        return DB::table('seo_url_keywords as uk')
-            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
-            ->whereIn('uk.url_id', $memberIds)
-            ->whereNotNull('k.cluster_id')
-            ->distinct()->pluck('k.cluster_id')->map(fn ($i) => (int) $i)->all();
+        return app(\Platform\Seo\Services\SeoPortfolioOrchestrator::class)->clusterIds($memberIds);
     }
 
     /** Aktives AI-Zitat-Probing für eine Entität (Modell-Wissen, kein Live-Web). */
@@ -1382,68 +1344,7 @@ class SeoPortfolioDetail extends Component
      */
     protected function orchestrationBoard($members): array
     {
-        $memberIds = $members->pluck('id')->all();
-        if (empty($memberIds)) {
-            return ['rows' => []];
-        }
-
-        // Kandidaten: welche Property rankt für welchen Cluster (beste Position).
-        $cand = DB::table('seo_url_keywords as uk')
-            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
-            ->whereIn('uk.url_id', $memberIds)
-            ->whereNotNull('k.cluster_id')
-            ->whereNotNull('uk.position')
-            ->groupBy('k.cluster_id', 'uk.url_id')
-            ->selectRaw('k.cluster_id as cluster_id, uk.url_id as url_id, MIN(uk.position) as pos')
-            ->get()
-            ->groupBy('cluster_id');
-
-        if ($cand->isEmpty()) {
-            return ['rows' => []];
-        }
-
-        $clusterIds = $cand->keys()->map(fn ($k) => (int) $k)->all();
-        $clusters = SeoKeywordCluster::whereIn('id', $clusterIds)->get()->keyBy('id');
-        $demand = SeoKeyword::whereIn('cluster_id', $clusterIds)
-            ->selectRaw('cluster_id, SUM(search_volume) as vol')
-            ->groupBy('cluster_id')->pluck('vol', 'cluster_id');
-
-        $membersById = $members->keyBy('id');
-        $pillarMin = (int) config('seo.pillar_candidate_min_volume', 2000);
-        $rows = [];
-
-        foreach ($clusterIds as $cid) {
-            $c = $clusters[$cid] ?? null;
-            if (! $c) {
-                continue;
-            }
-            $candidates = collect($cand[$cid])->map(fn ($r) => [
-                'url_id' => (int) $r->url_id,
-                'label' => $membersById[$r->url_id]->display_label ?? ('#'.$r->url_id),
-                'pos' => (int) $r->pos,
-            ])->sortBy('pos')->values();
-
-            $ownerId = $c->pillar_url_id ? (int) $c->pillar_url_id : null;
-            $count = $candidates->count();
-            $vol = (int) ($demand[$cid] ?? 0);
-
-            $rows[] = [
-                'cluster_id' => $cid,
-                'name' => $c->name,
-                'demand' => $vol,
-                'candidates' => $candidates->all(),
-                'candidate_count' => $count,
-                'owner_id' => $ownerId,
-                'owner_label' => $ownerId && isset($membersById[$ownerId]) ? $membersById[$ownerId]->display_label : ($ownerId ? '#'.$ownerId : null),
-                'conflict' => $count >= 2 && $ownerId === null,
-                'owner_not_ranking' => $ownerId !== null && ! $candidates->contains('url_id', $ownerId),
-                'pillar_candidate' => $ownerId === null && $vol >= $pillarMin && $count >= 3,
-            ];
-        }
-
-        usort($rows, fn ($a, $b) => $b['demand'] <=> $a['demand']);
-
-        return ['rows' => $rows];
+        return app(\Platform\Seo\Services\SeoPortfolioOrchestrator::class)->board($members);
     }
 
     /**
