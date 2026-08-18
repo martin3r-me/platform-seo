@@ -389,6 +389,41 @@
 
             @endif
 
+            @if($activePhase === 'verteilen')
+            {{-- Rollen im Verbund — Fundament der Orchestrierung: wer spielt welche Rolle --}}
+            <div class="mb-8">
+                <h2 class="text-[13px] font-semibold text-gray-700">Rollen im Verbund</h2>
+                <p class="text-[11px] text-gray-400 mb-3 max-w-2xl">Bevor Themen verteilt werden: <span class="font-medium">Brand/Spoke</span> besitzt differenzierte Themen · <span class="font-medium">Hub/Pillar</span> sammelt zentrale Kopf-Nachfrage &amp; verlinkt nach unten · <span class="font-medium">außerhalb</span> = anderes Feld (Agentur/Admin), spielt nicht mit.</p>
+                <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                    <table class="w-full text-[12px]" style="min-width:520px">
+                        <thead>
+                            <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                <th class="text-left px-3 py-2">Property</th>
+                                <th class="text-right px-3 py-2">Sichtbarkeit</th>
+                                <th class="text-left px-3 py-2">Rolle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($members as $u)
+                                <tr class="border-b border-gray-50 last:border-0">
+                                    <td class="px-3 py-2"><a href="{{ route('seo.urls.show', $u->id) }}" wire:navigate class="text-gray-700 hover:underline truncate block" style="max-width:280px">{{ $u->display_label }}</a></td>
+                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">{{ number_format($u->visibility_score, 0) }}</td>
+                                    <td class="px-3 py-2">
+                                        <select x-on:change="$wire.setUrlRole({{ $u->id }}, $event.target.value)" class="text-[12px] border border-gray-300 rounded px-2 py-1 bg-white">
+                                            <option value="" @selected(! $u->federation_role)>— Rolle —</option>
+                                            @foreach(config('seo.federation_roles') as $rk => $r)
+                                                <option value="{{ $rk }}" @selected($u->federation_role === $rk)>{{ $r['label'] }}</option>
+                                            @endforeach
+                                        </select>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
+
             @if(in_array($activePhase, ['ordnen', 'verteilen']))
             {{-- Mitglieder --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>

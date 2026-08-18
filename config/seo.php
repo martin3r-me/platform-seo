@@ -475,6 +475,19 @@ return [
     | zur Optimierung nutzen kann — und wir sie als schema.org-Markup ausspielen.
     | page_types tragen ihr schema.org @type mit (doppelter Nutzen: On-Page-Signal).
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Föderations-Rollen — die Rolle einer Property (URL) im Verbund
+    |--------------------------------------------------------------------------
+    | Fundament der Orchestrierung: nicht alle URLs eines Wirkungsraums spielen
+    | dasselbe Spiel. Rollen trennen das Feld, bevor Themen verteilt werden.
+    */
+    'federation_roles' => [
+        'brand' => ['label' => 'Brand / Spoke', 'hint' => 'besitzt differenzierte Themen'],
+        'hub' => ['label' => 'Hub / Pillar', 'hint' => 'zentrale Seite, sammelt Kopf-Nachfrage'],
+        'external' => ['label' => 'außerhalb', 'hint' => 'anderes Feld (Agentur/Admin)'],
+    ],
+
     'steckbrief' => [
         'page_types' => [
             'startseite' => ['label' => 'Startseite', 'schema' => 'WebPage'],

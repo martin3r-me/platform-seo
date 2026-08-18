@@ -1057,6 +1057,20 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Föderations-Rolle einer Property setzen (Fundament der Orchestrierung).
+     * Leer = zurücksetzen. Gegen config('seo.federation_roles') validiert.
+     */
+    public function setUrlRole(int $urlId, string $role): void
+    {
+        $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($urlId);
+        if (! $u) {
+            return;
+        }
+        $valid = array_keys((array) config('seo.federation_roles', []));
+        $u->update(['federation_role' => in_array($role, $valid, true) ? $role : null]);
+    }
+
+    /**
      * Bestand-Sicht „Keywords": alle Keywords, für die Mitglieder dieses
      * Wirkungsraums (inkl. Unterseiten) ranken — nach Position sortiert.
      */

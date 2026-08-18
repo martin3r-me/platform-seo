@@ -26,6 +26,7 @@ class SeoUrl extends Model
         'status',
         'disposition',
         'disposition_at',
+        'federation_role',
         'http_status',
         'priority',
         'data_profile',
