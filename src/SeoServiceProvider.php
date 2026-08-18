@@ -323,6 +323,7 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\CreatePortfolioTool());
             $registry->register(new \Platform\Seo\Tools\PortfolioUrlsTool());
             $registry->register(new \Platform\Seo\Tools\ListPortfoliosTool());
+            $registry->register(new \Platform\Seo\Tools\DeletePortfolioTool());
 
             // Signale
             $registry->register(new \Platform\Seo\Tools\ListSignalsTool());
