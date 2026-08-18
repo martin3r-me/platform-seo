@@ -60,6 +60,9 @@ class SeoSemanticMapService
     /** keyword_id => unsere beste eigene Position (für IST je Keyword); je Build gesetzt. */
     protected array $ownPositions = [];
 
+    /** Fit je Keyword = Cosine zum Schwerpunkt seiner Nachbarschaft (Kern-Nähe). */
+    protected array $fitScores = [];
+
     public function __construct(
         protected EmbeddingProviderRegistry $providers,
         protected EmbeddingStoreRegistry $stores,
@@ -196,6 +199,11 @@ class SeoSemanticMapService
 
         // --- Nachbarschaften = Zusammenhangskomponenten (≥2); Ausreißer = Grad 0 ---
         $components = $this->connectedComponents($adjacency);
+
+        // --- Echtes Fit: Cosine jedes Keywords zum Schwerpunkt SEINER Nachbarschaft.
+        // Peripherer Rausch (in ein Quartier eingekettet, aber fern vom Kern, z.B.
+        // „blähen kirschen" im Catering-Feld) bekommt niedriges Fit → sinkt im Score.
+        $this->fitScores = $this->computeFit($components, $vectors, $idsInOrder);
 
         $neighborhoods = [];
         foreach ($components as $comp) {
@@ -591,7 +599,8 @@ class SeoSemanticMapService
             // IST: geschätzt erreichter Traffic bei aktueller Position (0 = ranken nicht).
             'reach' => (int) round($volume * $this->ctr($position)),
             'anchor_score' => $anchorScore !== null ? round($anchorScore, 3) : null,
-            // Gewinnbarkeit (aus Keyword-Difficulty) + Intent — für die kontextuelle Bewertung.
+            // Fit = Kern-Nähe (Cosine zum Nachbarschafts-Schwerpunkt) + Gewinnbarkeit + Intent.
+            'fit' => $this->fitScores[$id] ?? null,
             'winnability' => $this->winnability($kw->keyword_difficulty ?? null),
             'intent' => $kw->search_intent ?? null,
         ];
@@ -605,6 +614,81 @@ class SeoSemanticMapService
         }
 
         return max(0.08, round(1 - $kd / 100, 3));
+    }
+
+    /**
+     * Fit je Keyword = Cosine zum Schwerpunkt (Zentroid) seiner Nachbarschaft.
+     * Nutzt die bereits berechneten Roh-Vektoren — kein zusätzlicher API-Call.
+     *
+     * @param  array<int, int[]>  $components
+     * @param  array<int, ?array>  $vectors     positions-indexiert (wie $idsInOrder)
+     * @param  int[]  $idsInOrder
+     * @return array<int, float>  keyword_id => fit (0..1)
+     */
+    protected function computeFit(array $components, array $vectors, array $idsInOrder): array
+    {
+        $posById = array_flip($idsInOrder);
+        $fit = [];
+
+        foreach ($components as $comp) {
+            if (count($comp) < 2) {
+                continue;
+            }
+
+            // Zentroid der Mitglieder-Vektoren.
+            $centroid = null;
+            $memberVecs = [];
+            foreach ($comp as $id) {
+                $idx = $posById[$id] ?? null;
+                $v = $idx !== null ? ($vectors[$idx] ?? null) : null;
+                if (! is_array($v)) {
+                    continue;
+                }
+                $memberVecs[$id] = $v;
+                if ($centroid === null) {
+                    $centroid = array_fill(0, count($v), 0.0);
+                }
+                foreach ($v as $d => $val) {
+                    $centroid[$d] += $val;
+                }
+            }
+            if ($centroid === null || empty($memberVecs)) {
+                continue;
+            }
+            $n = count($memberVecs);
+            foreach ($centroid as $d => $val) {
+                $centroid[$d] = $val / $n;
+            }
+            $cNorm = $this->vecNorm($centroid);
+            if ($cNorm <= 0.0) {
+                continue;
+            }
+
+            foreach ($memberVecs as $id => $v) {
+                $vNorm = $this->vecNorm($v);
+                if ($vNorm <= 0.0) {
+                    $fit[$id] = 0.0;
+                    continue;
+                }
+                $dot = 0.0;
+                foreach ($v as $d => $val) {
+                    $dot += $val * ($centroid[$d] ?? 0.0);
+                }
+                $fit[$id] = round(max(0.0, $dot / ($vNorm * $cNorm)), 3);
+            }
+        }
+
+        return $fit;
+    }
+
+    protected function vecNorm(array $v): float
+    {
+        $s = 0.0;
+        foreach ($v as $val) {
+            $s += $val * $val;
+        }
+
+        return sqrt($s);
     }
 
     /** Grobe CTR je Position (organisch) — für die IST-Schätzung. null/keine = 0. */
@@ -646,9 +730,10 @@ class SeoSemanticMapService
         $potenzial = (int) round($volume * self::TOP_CTR); // Ceiling: als würden wir top ranken
         $gap = max(0, $potenzial - $ist);
 
-        // Fit = wie nah am eigenen Kern-Thema (Ø anchor_score) — dämpft Fremd-Rausch.
-        $anchors = array_values(array_filter(array_column($members, 'anchor_score'), fn ($a) => $a !== null));
-        $fit = ! empty($anchors) ? round(array_sum($anchors) / count($anchors), 3) : 0.5;
+        // Fit = Kern-Nähe (Ø Cosine zum Nachbarschafts-Schwerpunkt) — dämpft
+        // peripheren Fremd-Rausch (blähen kirschen im Catering-Feld).
+        $fits = array_values(array_filter(array_column($members, 'fit'), fn ($f) => $f !== null));
+        $fit = ! empty($fits) ? round(array_sum($fits) / count($fits), 3) : 0.5;
 
         // Winnability = Ø Gewinnbarkeit (aus KD) — dämpft unrealistisch schweres Volumen.
         $winn = $total > 0 ? round(array_sum(array_column($members, 'winnability')) / $total, 3) : 0.5;
