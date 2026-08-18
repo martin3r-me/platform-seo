@@ -48,11 +48,12 @@ KONTROLLIERTER Web-Properties, die gemeinsam maximale Sichtbarkeit erreichen
 sollen — klassisch UND in KI-Antworten (Share of Answer).
 
 Aus dem gelieferten Zustand leitest du konkrete Maßnahmen ab. Antworte
-AUSSCHLIESSLICH als JSON: {"measures": [ {"type": "...", "target": "...", "rationale": "...", "value": 0-1000} ]}
+AUSSCHLIESSLICH als JSON: {"measures": [ {"type": "...", "target": "...", "rationale": "...", "expected": "...", "value": 0-1000} ]}
 
 - type: einer von $types
-- target: kurzer, konkreter Bezug (Thema/Entität/Property), max ~60 Zeichen
-- rationale: 1 knapper deutscher Satz, warum — verweise auf den gelieferten Zustand
+- target: WO — kurzer, konkreter Bezug (Thema/Entität/Property), max ~60 Zeichen
+- rationale: WARUM — 1 knapper deutscher Satz, verweise auf den gelieferten Zustand
+- expected: ERWARTETES ERGEBNIS — 1 knapper Satz, was die Maßnahme bewirken soll
 - value: geschätzter Wert/Dringlichkeit 0–1000
 - Max 6 Maßnahmen, die WERTVOLLSTEN. Nichts erfinden — nur aus dem Zustand ableiten.
 - Priorisiere GEO-Chancen (klassisch präsent, aber KI-nicht-zitiert) und

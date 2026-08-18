@@ -1395,6 +1395,7 @@ class SeoPortfolioDetail extends Component
             'entities' => $this->view === 'entities' ? $this->wirkungsraumEntities($pv['members']) : ['rows' => [], 'total' => 0, 'present' => 0, 'share' => null],
             'measures' => $this->view === 'vertiefen'
                 ? SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)
+                    ->with(['targetUrl', 'targetCluster'])
                     ->orderByRaw("FIELD(status,'proposed','accepted','released','done','rejected')")
                     ->orderByDesc('score')->orderByDesc('created_at')->get()
                 : collect(),

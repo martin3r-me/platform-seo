@@ -23,7 +23,7 @@ class SeoPortfolioMeasure extends Model
     protected $fillable = [
         'uuid', 'team_id', 'portfolio_id',
         'type', 'target_url_id', 'target_cluster_id',
-        'title', 'rationale',
+        'title', 'rationale', 'expected_result',
         'source', 'source_key', 'score', 'route', 'status', 'reject_reason',
         'decided_at', 'released_at',
     ];

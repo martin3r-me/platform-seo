@@ -35,7 +35,13 @@
                             @if($m->score > 0)<span class="text-[10px] text-gray-400 tabular-nums">Wert {{ number_format($m->score) }}</span>@endif
                         </div>
                         <div class="text-[13px] font-medium text-gray-800">{{ $m->title }}</div>
-                        @if($m->rationale)<div class="text-[11px] text-gray-500 mt-0.5">{{ $m->rationale }}</div>@endif
+                        @if($m->targetUrl)
+                            <div class="text-[10px] text-gray-400 mt-0.5">📍 {{ $m->targetUrl->display_label }}</div>
+                        @elseif($m->targetCluster)
+                            <div class="text-[10px] text-gray-400 mt-0.5">📍 Cluster „{{ $m->targetCluster->name }}"</div>
+                        @endif
+                        @if($m->rationale)<div class="text-[11px] text-gray-500 mt-0.5"><span class="text-gray-400">Warum:</span> {{ $m->rationale }}</div>@endif
+                        @if($m->expected_result)<div class="text-[11px] mt-0.5" style="color:#15803d"><span class="opacity-70">Erwartet:</span> {{ $m->expected_result }}</div>@endif
                     </div>
                     <div class="shrink-0 flex items-center gap-1.5">
                         <button wire:click="acceptMeasure({{ $m->id }})" class="text-[12px] font-medium px-2.5 py-1 rounded-md bg-gray-900 text-white hover:bg-gray-700">annehmen</button>

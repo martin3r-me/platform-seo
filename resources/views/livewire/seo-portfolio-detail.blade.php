@@ -68,17 +68,20 @@
                     @endif
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
-                    @if($health['can_distribute'])
-                        <button wire:click="analyze" wire:target="analyze" wire:loading.attr="disabled"
-                                class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-                            <span wire:loading.remove wire:target="analyze">🤖 Verteilung vorschlagen</span>
-                            <span wire:loading wire:target="analyze">Analysiere…</span>
-                        </button>
-                    @else
-                        <span class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-300 cursor-not-allowed inline-flex items-center gap-1.5"
-                              title="{{ $health['block_reason'] }}">
-                            🔒 Verteilung vorschlagen
-                        </span>
+                    {{-- „Verteilung vorschlagen" ist eine Verteilen-Aktion — nur dort, nicht überall. --}}
+                    @if($view === 'verteilen')
+                        @if($health['can_distribute'])
+                            <button wire:click="analyze" wire:target="analyze" wire:loading.attr="disabled"
+                                    class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                                <span wire:loading.remove wire:target="analyze">🤖 Verteilung vorschlagen</span>
+                                <span wire:loading wire:target="analyze">Analysiere…</span>
+                            </button>
+                        @else
+                            <span class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-300 cursor-not-allowed inline-flex items-center gap-1.5"
+                                  title="{{ $health['block_reason'] }}">
+                                🔒 Verteilung vorschlagen
+                            </span>
+                        @endif
                     @endif
                     <button wire:click="openAddUrls" class="text-[13px] font-medium px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-700">
                         + URLs hinzufügen
