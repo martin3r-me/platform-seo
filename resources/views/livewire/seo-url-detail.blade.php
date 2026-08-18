@@ -163,6 +163,54 @@
                 </div>
             </div>
 
+            {{-- Antwort-Einheiten (v2) — der Seiteninhalt als atomare, zitierfähige Bausteine (je Entität ein Claim) --}}
+            @if($seoUrl->is_own)
+            <div x-data="{ open: {{ $answerUnits->isNotEmpty() ? 'true' : 'false' }} }" class="bg-white rounded-lg border border-gray-200">
+                <button type="button" @click="open = !open" class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
+                    <div class="flex items-center gap-2 text-[13px] flex-wrap">
+                        <span class="font-semibold text-gray-700">Antwort-Einheiten</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">v2</span>
+                        <span class="text-gray-300">·</span>
+                        @if($answerUnits->isNotEmpty())
+                            <span class="text-gray-600">{{ $answerUnits->count() }} {{ $answerUnits->count() === 1 ? 'Baustein' : 'Bausteine' }}</span>
+                        @else
+                            <span class="text-gray-400 italic">noch nicht extrahiert — was die Seite autoritativ beantwortet</span>
+                        @endif
+                    </div>
+                    <span class="text-[11px] text-gray-400 shrink-0" x-text="open ? 'schließen ▴' : 'ansehen ▾'"></span>
+                </button>
+                <div x-show="open" style="display:none" class="px-4 pb-4 pt-4 border-t border-gray-100 space-y-3">
+                    @if($answerFlash)
+                        <div class="text-[12px] px-3 py-2 rounded {{ str_starts_with($answerFlash, 'Fehler') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-teal-50 text-teal-700 border border-teal-100' }}">{{ $answerFlash }}</div>
+                    @endif
+
+                    @if($answerUnits->isEmpty())
+                        <p class="text-[12px] text-gray-500">Zerlegt den echten Seiteninhalt in atomare Antwort-Einheiten (je Entität/Frage ein Claim) — die Vergleichsbasis für Optimierung und KI-Zitat-Präsenz.</p>
+                    @else
+                        <div class="divide-y divide-gray-50">
+                            @foreach($answerUnits as $au)
+                                <div class="py-2">
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span class="text-[13px] font-medium text-gray-800">{{ $au->entity->name ?? '—' }}</span>
+                                        @if($au->entity && $au->entity->entity_type)<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-gray-100 text-gray-500">{{ $au->entity->entity_type }}</span>@endif
+                                        @if($au->schema_type)<span class="text-[9px] px-1 py-0.5 rounded bg-indigo-50 text-indigo-600">{{ $au->schema_type }}</span>@endif
+                                    </div>
+                                    <div class="text-[12px] text-gray-500 mt-0.5">{{ $au->claim }}</div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <button wire:click="extractAnswerUnits" wire:loading.attr="disabled" wire:target="extractAnswerUnits"
+                            class="text-[12px] px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:border-gray-300 disabled:opacity-40">
+                        <span wire:loading.remove wire:target="extractAnswerUnits">✨ {{ $answerUnits->isEmpty() ? 'Extrahieren' : 'Neu extrahieren' }}</span>
+                        <span wire:loading wire:target="extractAnswerUnits">holt Seite + KI…</span>
+                    </button>
+                    <p class="text-[11px] text-gray-400">Holt die echte Seite (JSON-LD + Text), die KI leitet je Entität einen Claim ab. Füllt die v2-Spine (Entität → Antwort-Einheit → Präsenz).</p>
+                </div>
+            </div>
+            @endif
+
             {{-- Stats --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div class="bg-white rounded-lg border border-gray-200 p-4">

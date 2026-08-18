@@ -42,6 +42,9 @@ class SeoUrlDetail extends Component
     // GSC: explizite Property-URL (falls Domain-Matching nicht greift, z. B. Alias).
     public string $gscProperty = '';
 
+    // v2: Rückmeldung nach der Antwort-Einheit-Extraktion.
+    public ?string $answerFlash = null;
+
     // Conversion-Attribution: gewähltes Ziel (Switcher).
     public ?string $conversionGoal = null;
 
@@ -220,6 +223,22 @@ class SeoUrlDetail extends Component
         $value = trim($this->gscProperty);
         $this->seoUrl->update(['gsc_property' => $value !== '' ? $value : null]);
         $this->seoUrl->refresh();
+    }
+
+    /**
+     * v2: den echten Seiteninhalt in Antwort-Einheiten zerlegen (füllt die Spine
+     * seo_entities + seo_answer_units). Holt die Seite, liest JSON-LD + Text,
+     * KI leitet je Entität einen Claim ab.
+     */
+    public function extractAnswerUnits(): void
+    {
+        $res = app(\Platform\Seo\Services\SeoAnswerExtractor::class)->extractForUrl($this->seoUrl);
+        if (! empty($res['error'])) {
+            $this->answerFlash = 'Fehler: '.$res['error'];
+
+            return;
+        }
+        $this->answerFlash = ($res['created'] ?? 0).' neue Antwort-Einheit(en) · '.($res['entities'] ?? 0).' Entität(en) berührt.';
     }
 
     /**
@@ -634,6 +653,8 @@ class SeoUrlDetail extends Component
 
         return view('seo::livewire.seo-url-detail', [
             'isOrphan' => app(\Platform\Seo\Services\SeoOrphanService::class)->isOrphan($this->seoUrl),
+            'answerUnits' => \Platform\Seo\Models\SeoAnswerUnit::where('url_id', $this->seoUrl->id)
+                ->with('entity')->orderByDesc('id')->get(),
             'scope' => $scope,
             'conversionTrend' => $conversionTrend,
             'gscTrend' => $gscTrend,
