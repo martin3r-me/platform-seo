@@ -578,6 +578,26 @@ class SeoPortfolioDetail extends Component
             . ' zugeordnet' . ($pillarUrlId ? ' (Pillar gesetzt)' : '') . '.';
     }
 
+    // ── C2: Seiten zurückbauen (De-Invest) — abschaffen/umbauen/re-targeten ──────
+
+    public function setDisposition(int $urlId, string $disposition): void
+    {
+        if (! in_array($disposition, ['retire', 'rebuild', 'retarget'], true)) {
+            return;
+        }
+        SeoUrl::where('team_id', $this->portfolio->team_id)->whereKey($urlId)
+            ->update(['disposition' => $disposition, 'disposition_at' => now()]);
+
+        $label = ['retire' => 'Abschaffen', 'rebuild' => 'Umbauen', 'retarget' => 'Re-Targeten'][$disposition];
+        $this->clusterFlash = 'Seite zum ' . $label . ' markiert (Angebots-Achse).';
+    }
+
+    public function clearDisposition(int $urlId): void
+    {
+        SeoUrl::where('team_id', $this->portfolio->team_id)->whereKey($urlId)
+            ->update(['disposition' => null, 'disposition_at' => null]);
+    }
+
     /**
      * Integrieren = Keywords in ein BESTEHENDES Cluster einhängen (statt neues).
      * Nutzt die Zentroid-Verwandtschaft der Karte. Keine Doppelvergabe (nur unclustered).
@@ -708,7 +728,7 @@ class SeoPortfolioDetail extends Component
             ->orderByDesc('cluster_count')
             ->limit(15)
             ->get();
-        $urlsById = SeoUrl::whereIn('id', $unfocusedRows->pluck('url_id'))->get(['id', 'url', 'path'])->keyBy('id');
+        $urlsById = SeoUrl::whereIn('id', $unfocusedRows->pluck('url_id'))->get(['id', 'url', 'path', 'disposition'])->keyBy('id');
         $unfocused = $unfocusedRows->map(fn ($r) => [
             'url' => $urlsById->get($r->url_id),
             'cluster_count' => (int) $r->cluster_count,
@@ -735,7 +755,7 @@ class SeoPortfolioDetail extends Component
                 ->whereIn('uk.keyword_id', $cannKwIds)
                 ->whereIn('uk.url_id', $ownUrlIds)
                 ->whereNotNull('uk.position')
-                ->select('uk.keyword_id', 'u.id as url_id', 'u.path', 'uk.position')
+                ->select('uk.keyword_id', 'u.id as url_id', 'u.path', 'uk.position', 'u.disposition')
                 ->orderBy('uk.position')
                 ->get()
                 ->groupBy('keyword_id');
@@ -746,7 +766,7 @@ class SeoPortfolioDetail extends Component
                     continue;
                 }
                 $urls = ($pairs->get($r->keyword_id) ?? collect())
-                    ->map(fn ($p) => ['url_id' => (int) $p->url_id, 'path' => $p->path ?: '/', 'position' => (int) $p->position])
+                    ->map(fn ($p) => ['url_id' => (int) $p->url_id, 'path' => $p->path ?: '/', 'position' => (int) $p->position, 'disposition' => $p->disposition])
                     ->values()->all();
                 $cannibalized[] = [
                     'keyword' => (string) $kw->keyword,

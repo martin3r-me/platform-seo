@@ -700,7 +700,10 @@
                                             <td class="px-3 py-2"><a href="{{ route('seo.urls.show', $p['url']) }}" wire:navigate class="text-[#166EE1] hover:underline">{{ $p['url']->path ?: '/' }}</a></td>
                                             <td class="px-3 py-2 text-right tabular-nums"><span class="font-semibold text-rose-600">{{ $p['cluster_count'] }}</span> <span class="text-gray-400">Themen</span></td>
                                             <td class="px-3 py-2 text-right tabular-nums text-gray-500">{{ $p['kw_count'] }} KW</td>
-                                            <td class="px-3 py-2 text-right"><a href="{{ route('seo.urls.show', $p['url']) }}" wire:navigate class="text-[11px] text-gray-500 hover:text-gray-800">fokussieren →</a></td>
+                                            <td class="px-3 py-2 text-right whitespace-nowrap">
+                                                <a href="{{ route('seo.urls.show', $p['url']) }}" wire:navigate class="text-[11px] text-gray-500 hover:text-gray-800 mr-3">fokussieren →</a>
+                                                @include('seo::partials.disposition-control', ['urlId' => $p['url']->id, 'disposition' => $p['url']->disposition])
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -718,11 +721,18 @@
                                 <tbody>
                                     @foreach($pageHealth['cannibalized'] as $c)
                                         <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50 align-top">
-                                            <td class="px-3 py-2" style="white-space:nowrap"><span class="font-medium text-gray-700">{{ $c['keyword'] }}</span> <span class="text-[10px] text-gray-400 tabular-nums">Vol {{ number_format($c['volume']) }}</span></td>
+                                            <td class="px-3 py-2" style="white-space:nowrap;vertical-align:top"><span class="font-medium text-gray-700">{{ $c['keyword'] }}</span> <span class="text-[10px] text-gray-400 tabular-nums">Vol {{ number_format($c['volume']) }}</span></td>
                                             <td class="px-3 py-2">
-                                                <div class="flex flex-wrap gap-1.5">
-                                                    @foreach($c['urls'] as $u)
-                                                        <span class="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{{ $u['path'] }} <span class="text-gray-400">P{{ $u['position'] }}</span></span>
+                                                <div class="flex flex-col gap-1">
+                                                    @foreach($c['urls'] as $ui => $u)
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{{ $u['path'] }} <span class="text-gray-400">P{{ $u['position'] }}</span></span>
+                                                            @if($ui === 0)
+                                                                <span class="text-[10px] text-green-700" title="beste Position — behält das Thema">Owner</span>
+                                                            @else
+                                                                @include('seo::partials.disposition-control', ['urlId' => $u['url_id'], 'disposition' => $u['disposition']])
+                                                            @endif
+                                                        </div>
                                                     @endforeach
                                                 </div>
                                             </td>

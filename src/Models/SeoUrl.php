@@ -24,6 +24,8 @@ class SeoUrl extends Model
         'path',
         'is_own',
         'status',
+        'disposition',
+        'disposition_at',
         'http_status',
         'priority',
         'data_profile',
@@ -76,6 +78,7 @@ class SeoUrl extends Model
     protected $casts = [
         'uuid' => 'string',
         'is_own' => 'boolean',
+        'disposition_at' => 'datetime',
         'http_status' => 'integer',
         'priority' => 'integer',
         'last_crawled_at' => 'datetime',
