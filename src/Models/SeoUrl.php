@@ -70,6 +70,8 @@ class SeoUrl extends Model
         'gsc_discovered_queries',
         'gsc_ctr_opportunities',
         'gsc_fetched_at',
+        'gsc_enabled',
+        'gsc_property',
         'redirect_url',
         'redirect_detected_at',
         'meta',
@@ -120,6 +122,7 @@ class SeoUrl extends Model
         'gsc_discovered_queries' => 'array',
         'gsc_ctr_opportunities' => 'array',
         'gsc_fetched_at' => 'datetime',
+        'gsc_enabled' => 'boolean',
         'redirect_detected_at' => 'datetime',
         'meta' => 'array',
     ];

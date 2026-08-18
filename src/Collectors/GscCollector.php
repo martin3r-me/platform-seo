@@ -68,7 +68,7 @@ class GscCollector implements SeoCollectorInterface
         $intervalHours = $this->refreshIntervalHours();
 
         return $urls->filter(function (SeoUrl $url) use ($intervalHours) {
-            return $url->is_own && $url->isDueForCollector($this->key(), $intervalHours);
+            return $url->is_own && ($url->gsc_enabled ?? true) && $url->isDueForCollector($this->key(), $intervalHours);
         });
     }
 
@@ -93,8 +93,8 @@ class GscCollector implements SeoCollectorInterface
 
         $api = $this->gscApi->forConnection($connection->id);
 
-        // Nur eigene URLs — für Wettbewerber haben wir keinen GSC-Zugriff.
-        $ownUrls = $urls->filter(fn (SeoUrl $url) => $url->is_own);
+        // Nur eigene, GSC-aktivierte URLs — für Wettbewerber haben wir keinen GSC-Zugriff.
+        $ownUrls = $urls->filter(fn (SeoUrl $url) => $url->is_own && ($url->gsc_enabled ?? true));
         if ($ownUrls->isEmpty()) {
             return ['processed' => 0, 'cost_cents' => 0, 'errors' => []];
         }
@@ -120,7 +120,10 @@ class GscCollector implements SeoCollectorInterface
         $urlsByDomain = $ownUrls->groupBy(fn (SeoUrl $url) => $this->normalizeDomain($url->domain));
 
         foreach ($urlsByDomain as $domain => $domainUrls) {
-            $siteUrl = $this->matchProperty($domain, $properties);
+            // Explizite Property (gsc_property) überschreibt das Domain-Matching
+            // (Alias-Fälle wie broich.catering ↔ broichcatering.com).
+            $siteUrl = $domainUrls->pluck('gsc_property')->filter()->first()
+                ?? $this->matchProperty($domain, $properties);
             if ($siteUrl === null) {
                 continue; // keine verifizierte GSC-Property für diese Domain
             }

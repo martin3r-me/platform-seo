@@ -711,6 +711,35 @@
 
                 {{-- GSC Tab — echte Google-Sichtbarkeit: Kennzahlen, Discovery, CTR-Chancen --}}
                 @if($activeTab === 'gsc')
+                    {{-- Aktivierung: an/aus + explizite Property (symmetrisch zu Plausible) --}}
+                    <div class="mb-6 bg-white rounded-lg border border-gray-200 p-4">
+                        <div class="flex items-start justify-between gap-4 flex-wrap">
+                            <div>
+                                <div class="text-[13px] font-medium text-gray-900">Google Search Console für <span class="font-semibold">{{ $seoUrl->domain }}</span></div>
+                                <div class="text-[12px] text-gray-500 mt-0.5">
+                                    @if($seoUrl->gsc_enabled)
+                                        Aktiv — wird im GSC-Takt gesammelt.
+                                    @else
+                                        Inaktiv — aktivieren, wenn diese Domain in GSC verifiziert ist.
+                                    @endif
+                                </div>
+                            </div>
+                            <button wire:click="toggleGsc"
+                                    class="px-3.5 py-2 text-[13px] font-medium rounded-md transition-colors {{ $seoUrl->gsc_enabled ? 'bg-[#166EE1] text-white hover:bg-[#1259bd]' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                                {{ $seoUrl->gsc_enabled ? 'Aktiv' : 'Inaktiv' }}
+                            </button>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-gray-100">
+                            <label class="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1">Property (optional)</label>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <input type="text" wire:model="gscProperty" placeholder="z. B. sc-domain:broichcatering.com oder https://broich.catering/"
+                                       class="flex-1 min-w-[240px] text-[13px] border border-gray-300 rounded-md px-3 py-2" />
+                                <button wire:click="saveGscProperty" class="text-[13px] font-medium px-3 py-2 rounded-md bg-gray-900 text-white hover:bg-gray-700">Speichern</button>
+                            </div>
+                            <p class="text-[11px] text-gray-400 mt-1.5">Leer = automatische Domain-Zuordnung. Setzen, wenn die verifizierte Property anders heißt (Alias, z. B. broich.catering ↔ broichcatering.com).</p>
+                        </div>
+                    </div>
+
                     @if($seoUrl->gsc_fetched_at)
                         <div class="space-y-6">
                             {{-- Skalar-Kennzahlen (28 Tage, echte Google-Zahlen) --}}

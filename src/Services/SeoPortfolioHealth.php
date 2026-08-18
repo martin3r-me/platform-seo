@@ -60,7 +60,7 @@ class SeoPortfolioHealth
 
         $defs = [
             [
-                'key' => 'messen', 'label' => 'Messen', 'met' => $hasData,
+                'key' => 'messen', 'label' => 'Daten', 'met' => $hasData,
                 'action' => 'Rankings/Keywords ziehen',
                 'why' => 'Noch keine Ranking-Daten — erst messen.',
             ],

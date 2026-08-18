@@ -39,6 +39,9 @@ class SeoUrlDetail extends Component
     public string $plausibleSiteId = '';
     public ?array $plausibleTest = null;
 
+    // GSC: explizite Property-URL (falls Domain-Matching nicht greift, z. B. Alias).
+    public string $gscProperty = '';
+
     // Conversion-Attribution: gewähltes Ziel (Switcher).
     public ?string $conversionGoal = null;
 
@@ -61,6 +64,7 @@ class SeoUrlDetail extends Component
         $this->resolveSettings();
         $this->seoUrl = $seoUrl;
         $this->plausibleSiteId = (string) ($seoUrl->plausible_site_id ?? '');
+        $this->gscProperty = (string) ($seoUrl->gsc_property ?? '');
         $this->loadSteckbrief();
     }
 
@@ -192,6 +196,29 @@ class SeoUrlDetail extends Component
         $this->seoUrl->update([
             'plausible_enabled' => ! $this->seoUrl->plausible_enabled,
         ]);
+        $this->seoUrl->refresh();
+    }
+
+    /**
+     * GSC für diese URL an-/abschalten (symmetrisch zu Plausible). Der Collector
+     * sammelt nur noch aktivierte URLs; bei Aus wird GSC übersprungen.
+     */
+    public function toggleGsc(): void
+    {
+        $this->seoUrl->update([
+            'gsc_enabled' => ! $this->seoUrl->gsc_enabled,
+        ]);
+        $this->seoUrl->refresh();
+    }
+
+    /**
+     * Explizite GSC-Property (siteUrl) speichern (leer = Domain-Auto-Matching).
+     * Nötig, wenn die verifizierte Property anders heißt als die Domain (Alias).
+     */
+    public function saveGscProperty(): void
+    {
+        $value = trim($this->gscProperty);
+        $this->seoUrl->update(['gsc_property' => $value !== '' ? $value : null]);
         $this->seoUrl->refresh();
     }
 

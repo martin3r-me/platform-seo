@@ -31,11 +31,11 @@
             {{-- Stationen — die 5 Arbeitsschritte am Wirkungsraum (Reifegrad-Trichter) --}}
             <div>
                 <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-2">Stationen</h3>
-                @foreach(['messen', 'ordnen', 'verteilen', 'vertiefen', 'konvertieren'] as $idx => $stKey)
+                @foreach(['messen' => 'Daten', 'ordnen' => 'Ordnen', 'verteilen' => 'Verteilen', 'vertiefen' => 'Vertiefen', 'konvertieren' => 'Konvertieren'] as $stKey => $stLabel)
                     <button wire:click="setView('{{ $stKey }}')"
                             class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $stKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
-                        <span class="text-[10px] tabular-nums text-gray-400 w-3">{{ $idx + 1 }}</span>
-                        <span class="flex-1 text-left">{{ ucfirst($stKey) }}</span>
+                        <span class="text-[10px] tabular-nums text-gray-400 w-3">{{ $loop->iteration }}</span>
+                        <span class="flex-1 text-left">{{ $stLabel }}</span>
                         @if(($health['current'] ?? null) === $stKey)
                             <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:#0f766e" title="Aktuelles Gate"></span>
                         @endif
