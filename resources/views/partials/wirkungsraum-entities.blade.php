@@ -16,6 +16,11 @@
             <span wire:loading.remove wire:target="extractAllAnswerUnits">✨ Alle extrahieren</span>
             <span wire:loading wire:target="extractAllAnswerUnits">startet…</span>
         </button>
+        <button wire:click="mergeEntities" wire:loading.attr="disabled" wire:target="mergeEntities"
+                class="text-[12px] font-medium px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50" title="Semantisch gleiche Entitäten (Angebot ↔ Nachfrage) zusammenführen">
+            <span wire:loading.remove wire:target="mergeEntities">🔗 Zusammenführen</span>
+            <span wire:loading wire:target="mergeEntities">führt zusammen…</span>
+        </button>
     </div>
 </div>
 

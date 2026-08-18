@@ -1314,6 +1314,36 @@ class SeoPortfolioDetail extends Component
         $this->entityFlash = $n.' Nachfrage-Entität(en) aus Clustern geladen ('.count($clusters).' Themen abgeglichen).';
     }
 
+    /** Entitäten des Wirkungsraums semantisch zusammenführen (Angebot ↔ Nachfrage kanonisieren). */
+    public function mergeEntities(): void
+    {
+        $memberIds = $this->propertyView()['members']->pluck('id')->all();
+        $ids = $this->wirkungsraumEntityIds($memberIds);
+        if (count($ids) < 2) {
+            $this->entityFlash = 'Zu wenige Entitäten zum Zusammenführen.';
+
+            return;
+        }
+        $res = app(\Platform\Seo\Services\SeoEntityMerger::class)->mergeForEntityIds($ids);
+        $this->entityFlash = ($res['merged'] ?? 0) === 0
+            ? 'Nichts zusammenzuführen — Entitäten sind bereits kanonisch.'
+            : ($res['merged'] ?? 0).' Entität(en) semantisch zusammengeführt (Angebot ↔ Nachfrage kanonisiert).';
+    }
+
+    /** Alle Entity-IDs des Wirkungsraums (Angebot aus AnswerUnits + Nachfrage aus Clustern). @return int[] */
+    protected function wirkungsraumEntityIds(array $memberIds): array
+    {
+        if (empty($memberIds)) {
+            return [];
+        }
+        $supply = SeoAnswerUnit::whereIn('url_id', $memberIds)->distinct()->pluck('entity_id')->all();
+        $clusterIds = $this->wirkungsraumClusterIds($memberIds);
+        $demand = empty($clusterIds) ? []
+            : SeoEntity::where('team_id', $this->seoSettings->team_id)->whereIn('cluster_id', $clusterIds)->pluck('id')->all();
+
+        return collect($supply)->merge($demand)->map(fn ($i) => (int) $i)->filter()->unique()->values()->all();
+    }
+
     /** Cluster-IDs des Wirkungsraums (Themen, für die Mitglieder ranken). @return int[] */
     protected function wirkungsraumClusterIds(array $memberIds): array
     {
