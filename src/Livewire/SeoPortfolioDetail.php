@@ -8,7 +8,11 @@ use Platform\Seo\Jobs\ClusterPortfolioRestJob;
 use Platform\Seo\Jobs\BuildPortfolioSemanticMapJob;
 use Platform\Seo\Jobs\AdoptRoomJob;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoAnswerExperiment;
+use Platform\Seo\Models\SeoAnswerPresence;
+use Platform\Seo\Models\SeoAnswerUnit;
 use Platform\Seo\Models\SeoConversionSnapshot;
+use Platform\Seo\Models\SeoEntity;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoPortfolio;
@@ -62,7 +66,10 @@ class SeoPortfolioDetail extends Component
     public string $view = 'dashboard';
 
     private const PHASES = ['messen', 'ordnen', 'verteilen', 'vertiefen', 'konvertieren'];
-    private const BESTAND = ['keywords', 'clusters', 'competitors'];
+    private const BESTAND = ['keywords', 'clusters', 'competitors', 'entities'];
+
+    /** Rückmeldung in der Entitäten-Sicht (Experiment/AI-Probe). */
+    public ?string $entityFlash = null;
 
     public function setView(string $view): void
     {
@@ -1132,6 +1139,109 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * v2-Sicht „Entitäten": die besessenen Entitäten des Wirkungsraums (aus den
+     * Antwort-Einheiten der Mitglieder), je Entität die letzte Präsenz je Surface
+     * + Wirkungsraum-weiter „Share of Answer" (Anteil präsenter Entitäten).
+     */
+    protected function wirkungsraumEntities($members): array
+    {
+        $memberIds = $members->pluck('id')->all();
+        $empty = ['rows' => [], 'total' => 0, 'present' => 0, 'share' => null];
+        if (empty($memberIds)) {
+            return $empty;
+        }
+
+        $units = SeoAnswerUnit::whereIn('url_id', $memberIds)->with('entity')->get();
+        if ($units->isEmpty()) {
+            return $empty;
+        }
+
+        $presence = [];
+        foreach (SeoAnswerPresence::whereIn('answer_unit_id', $units->pluck('id'))
+            ->orderByDesc('checked_at')->get() as $p) {
+            $presence[$p->answer_unit_id][$p->surface] ??= $p;
+        }
+
+        $rows = [];
+        $present = 0;
+        foreach ($units->groupBy('entity_id') as $eid => $eunits) {
+            $entity = $eunits->first()->entity;
+            $serp = false;
+            $serpPos = null;
+            $ai = false;
+            foreach ($eunits as $u) {
+                $ps = $presence[$u->id]['serp'] ?? null;
+                if ($ps && $ps->present) {
+                    $serp = true;
+                    if ($ps->position !== null) {
+                        $serpPos = $serpPos === null ? (int) $ps->position : min($serpPos, (int) $ps->position);
+                    }
+                }
+                foreach (['ai_overview', 'chatgpt'] as $s) {
+                    $pa = $presence[$u->id][$s] ?? null;
+                    if ($pa && $pa->cited) {
+                        $ai = true;
+                    }
+                }
+            }
+            if ($serp || $ai) {
+                $present++;
+            }
+            $rows[] = [
+                'entity_id' => (int) $eid,
+                'name' => $entity->name ?? '—',
+                'type' => $entity->entity_type ?? null,
+                'units' => $eunits->count(),
+                'serp' => $serp,
+                'serp_pos' => $serpPos,
+                'ai' => $ai,
+            ];
+        }
+        usort($rows, fn ($a, $b) => $b['units'] <=> $a['units']);
+        $total = count($rows);
+
+        return ['rows' => $rows, 'total' => $total, 'present' => $present, 'share' => $total ? (int) round($present / $total * 100) : null];
+    }
+
+    /** Ein Experiment für eine Entität starten — sichert die Baseline-Präsenz. */
+    public function startExperiment(int $entityId): void
+    {
+        $entity = SeoEntity::where('team_id', $this->seoSettings->team_id)->find($entityId);
+        if (! $entity) {
+            return;
+        }
+        $unitIds = SeoAnswerUnit::where('entity_id', $entityId)->pluck('id');
+        $baseline = [];
+        foreach (SeoAnswerPresence::whereIn('answer_unit_id', $unitIds)->orderByDesc('checked_at')->get() as $p) {
+            $baseline[$p->surface] ??= ['present' => (bool) $p->present, 'position' => $p->position, 'cited' => (bool) $p->cited];
+        }
+        SeoAnswerExperiment::create([
+            'team_id' => $this->seoSettings->team_id,
+            'portfolio_id' => $this->portfolio->id,
+            'entity_id' => $entityId,
+            'hypothesis' => 'Antwort für „'.$entity->name.'" stärken → Präsenz heben.',
+            'status' => SeoAnswerExperiment::STATUS_PLANNED,
+            'baseline' => $baseline,
+            'applied_at' => now(),
+        ]);
+        $this->entityFlash = 'Experiment für „'.$entity->name.'" gestartet (Baseline gesichert).';
+    }
+
+    /** Aktives AI-Zitat-Probing für eine Entität (Modell-Wissen, kein Live-Web). */
+    public function probeEntityAi(int $entityId): void
+    {
+        $entity = SeoEntity::where('team_id', $this->seoSettings->team_id)->find($entityId);
+        if (! $entity) {
+            return;
+        }
+        $domains = $this->propertyView()['members']->pluck('domain')->filter()->unique()->values()->all();
+        $res = app(\Platform\Seo\Services\SeoPresenceProbe::class)->probeAiCitation($entity, $domains);
+        $this->entityFlash = ! empty($res['error'])
+            ? 'Fehler: '.$res['error']
+            : ($res['cited'] ? '✓ In der KI-Antwort erwähnt — Präsenz notiert.' : '— (noch) nicht in der KI-Antwort erwähnt.');
+    }
+
+    /**
      * Orchestrierungs-Board (Thema × Property): je Cluster im Verbund die eigenen
      * Properties, die dafür ranken (Kandidaten, beste Position), der gekürte Owner
      * (pillar_url_id), Kannibalisierungs-Konflikt (≥2 ohne Owner) und ein
@@ -1271,6 +1381,7 @@ class SeoPortfolioDetail extends Component
                 ? app(\Platform\Seo\Services\SeoDataProfileService::class)->availableProfiles(true)
                 : [],
             'board' => $this->view === 'verteilen' ? $this->orchestrationBoard($pv['members']) : ['rows' => []],
+            'entities' => $this->view === 'entities' ? $this->wirkungsraumEntities($pv['members']) : ['rows' => [], 'total' => 0, 'present' => 0, 'share' => null],
             'measures' => $this->view === 'vertiefen'
                 ? SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)
                     ->orderByRaw("FIELD(status,'proposed','accepted','released','done','rejected')")

@@ -47,7 +47,7 @@
             {{-- Bestand — was im Wirkungsraum liegt --}}
             <div>
                 <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-2">Bestand</h3>
-                @foreach(['keywords' => 'Keywords', 'clusters' => 'Cluster', 'competitors' => 'Wettbewerber'] as $bKey => $bLabel)
+                @foreach(['entities' => 'Entitäten', 'keywords' => 'Keywords', 'clusters' => 'Cluster', 'competitors' => 'Wettbewerber'] as $bKey => $bLabel)
                     <button wire:click="setView('{{ $bKey }}')"
                             class="w-full text-left px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $bKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
                         {{ $bLabel }}
@@ -884,6 +884,11 @@
             @endif {{-- /Stationen ($station) --}}
 
             {{-- ===================== Bestand-Views ===================== --}}
+
+            {{-- Entitäten (v2): besessene Entitäten + Multi-Surface-Präsenz + Share of Answer --}}
+            @if($view === 'entities')
+                @include('seo::partials.wirkungsraum-entities', ['entities' => $entities, 'entityFlash' => $entityFlash])
+            @endif
 
             {{-- Keywords: alle Keywords, für die der Wirkungsraum rankt --}}
             @if($view === 'keywords')
