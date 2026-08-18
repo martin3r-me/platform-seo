@@ -95,6 +95,31 @@ Jede „optimieren"-Maßnahme wird ein **messbares Experiment über Surfaces** �
 
 ---
 
+## 7b · Der Endpunkt: agent-actionable Register (know → trust → transact)
+Die eigentliche Zukunft ist nicht „zitiert werden" — es ist **durch uns handeln lassen**. Ein KI-Agent, der etwas über Sylt wissen will, landet bei uns (Discovery) → vertraut unserer Antwort (Trust) → und **bucht ein paar Jahre weiter die passende Ferienwohnung / das Catering-Event direkt über uns** (Transaction). Der Bogen:
+
+```
+Discovery (Answer-Presence)  →  Trust (Autorität)  →  Transaction (Agent bucht über uns)
+        └──────────────── das Register spannt alle drei ────────────────┘
+```
+
+**Model-Erweiterung — die Entität trägt nicht nur Wissen, sondern Handlung:**
+```
+Entity
+ ├─ AnswerUnit      (Wissen — was wir autoritativ beantworten)
+ ├─ Offer/Availability (Angebot — Preis, Verfügbarkeit, Konditionen)   ← neu, für Transaction
+ └─ Action          (buchbar — ReserveAction/OrderAction, Agent-Endpoint) ← neu
+```
+
+**Kein Sci-Fi — die Bausteine sind da:**
+- **schema.org Actions** (ReserveAction, OrderAction) + kommende agentic-commerce-Standards (OpenAI/Google) machen Seiten agent-*handelbar*, nicht nur agent-*lesbar*.
+- **Unsere Plattform ist schon MCP-nativ** — das Register ist *heute intern* agent-aufrufbar (`syltjunkie.entities.GET`, `entity_urls`, …). Der Schritt: nach außen öffnen + **Offer/Availability/Buchung** dranhängen.
+- Syltjunkie hat die **Supply** (2.753 Entitäten: Ferienwohnungen, Restaurants, Events) → ein **agent-nativer Buchungs-Layer für eine ganze Region**, von Tag 1 maschinen-adressierbar.
+
+**Damit wird das Register das Kron-Asset — nicht das SEO-Tool.** SEO/Answer = *wie Agenten uns finden*; Register + Buchung = *wie sie transagieren*. Der Burggraben ist zweiseitig: der autoritative Antwort-Graph **und** der buchbare Inventar-Graph = wir sind der Default-Fulfillment für ein Thema/eine Region.
+
+**Konsequenz für JETZT:** die Entity/AnswerUnit-Spine bekommt von Anfang an einen **Platz für Offer/Action** (nullable, ungenutzt bis später). Wir bauen die Buchungs-Engine *nicht* heute — aber wir modellieren so, dass sie **ohne Rebuild** reinrutscht. Discovery zuerst scharf; Transaction Jahre raus, aber die Spine ist von Tag 1 transaktions-fähig gedacht.
+
 ## 7 · Offene Sequenzierung (Entscheidung nötig)
 Das Modell trägt **beide** Surfaces. Was wir *zuerst* scharf machen, hängt am BHG-Wert **heute**:
 - **Klassische SERP-Präsenz** für Kunden (Catering & Co) — wenn dort heute das Geld liegt.
