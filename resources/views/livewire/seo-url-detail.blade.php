@@ -355,46 +355,11 @@
 
                 {{-- Keywords Tab — KWFinder-style split panel --}}
                 @if($activeTab === 'keywords')
-                    @if($seoUrl->is_own)
-                        {{-- Cluster-Discovery (Hintergrund-Job) --}}
-                        <div class="flex items-center justify-between gap-3 mb-3 rounded-lg border border-gray-200 bg-white px-4 py-2.5">
-                            <div class="text-[12px] min-w-0">
-                                @if(is_array($clusteringResult) && !empty($clusteringResult['error']))
-                                    <span class="text-red-600 font-medium">⚠ Letzter Lauf fehlgeschlagen</span>
-                                    <span class="text-red-500">— {{ \Illuminate\Support\Str::limit($clusteringResult['error'], 140) }}</span>
-                                    @if($clusteringUpdatedAt)<span class="text-gray-400"> · {{ $clusteringUpdatedAt->diffForHumans() }}</span>@endif
-                                @elseif(is_array($clusteringResult) && isset($clusteringResult['clusters_created']))
-                                    <span class="font-medium text-gray-700">Zuletzt:</span>
-                                    <span class="text-gray-500 tabular-nums">{{ $clusteringResult['clusters_created'] }} Cluster · {{ $clusteringResult['keywords_fetched'] ?? 0 }} Fetches · {{ $clusteringResult['cost_cents'] ?? 0 }} ct</span>
-                                    @if($clusteringUpdatedAt)<span class="text-gray-400"> · {{ $clusteringUpdatedAt->diffForHumans() }}</span>@endif
-                                @else
-                                    <span class="font-medium text-gray-700">Cluster-Discovery</span>
-                                    <span class="text-gray-500">— Keywords per SERP-Overlap zu Themen bündeln; Kandidaten hängen am Kunden-Knoten.</span>
-                                @endif
-                            </div>
-                            @if($clusteringStatus === 'running')
-                                <span wire:poll.5s class="inline-flex items-center gap-2 text-[12px] font-medium text-[#166EE1]">
-                                    <svg class="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
-                                    </svg>
-                                    läuft…
-                                </span>
-                            @else
-                                <div class="flex items-center gap-3">
-                                    <a href="{{ route('seo.clusters') }}" wire:navigate class="text-[12px] text-gray-400 hover:text-gray-700">Cluster ansehen</a>
-                                    <button wire:click="discoverClusters" wire:loading.attr="disabled"
-                                            class="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-md bg-[#166EE1] text-white hover:bg-[#125BC0] disabled:opacity-50">
-                                        @svg('heroicon-o-sparkles', 'w-4 h-4')
-                                        Cluster entdecken
-                                    </button>
-                                </div>
-                            @endif
-                        </div>
+                    {{-- Geclustert wird nur im Wirkungsraum (Station „Ordnen"), nicht je URL. --}}
+                    @if($seoUrl->is_own && $scope['clusters']->isNotEmpty())
+                        {{-- Nur lesend: an welchen Cluster-Themen diese URL beteiligt ist. --}}
+                        @include('seo::partials.scope-penetration', ['clusters' => $scope['clusters'], 'coverage' => $scope['coverage']])
                     @endif
-
-                    {{-- Gemeinsames Scope-Panel: Ordnungsgrad + Durchdringung (URL + Unterseiten) --}}
-                    @include('seo::partials.scope-penetration', ['clusters' => $scope['clusters'], 'coverage' => $scope['coverage']])
 
                     @if($hasKeywords)
                         {{-- Filter-/Sortierleiste --}}

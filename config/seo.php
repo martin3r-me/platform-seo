@@ -84,7 +84,7 @@ return [
             ],
             'wirkungsraum' => [
                 'title' => 'Wirkungsraum — hier wird gehandelt',
-                'what'  => 'Der einzige Handlungsort: du steuerst eine Menge von URLs (eigene wie fremde) auf ein Ziel. Die Reifegrad-Leiste oben ist klickbar — die Werkbank zeigt immer nur das Werkzeug einer Phase (messen → ordnen → verteilen → vertiefen → konvertieren), nicht alles auf einmal. Klick eine Phase, um ihr Werkzeug zu sehen.',
+                'what'  => 'Die Zentrale: du steuerst eine Menge von URLs (eigene wie fremde) auf ein Ziel. Der rote Faden läuft über die Stationen links — Daten → Ordnen → Verteilen → Maßnahmen → Wirkung. Jede Station zeigt nur ihr Werkzeug; das Meiste passiert im Posteingang (Maßnahmen).',
             ],
             'clusters' => [
                 'title' => 'Cluster',

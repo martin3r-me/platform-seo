@@ -147,20 +147,8 @@ class SeoUrlDetail extends Component
         $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
     }
 
-    /**
-     * Stößt die kunden-gescopte Cluster-Discovery für diese URL im Hintergrund an
-     * (SERP-basiert, kann dauern). Status läuft über clustering_status + wire:poll.
-     */
-    public function discoverClusters(): void
-    {
-        if (! $this->seoUrl->is_own) {
-            return;
-        }
-
-        $this->seoUrl->markClustering('running');
-
-        \Platform\Seo\Jobs\DiscoverClustersJob::dispatch($this->seoUrl->id);
-    }
+    // Cluster-Discovery gibt es nur noch im Wirkungsraum (Station „Ordnen"),
+    // nicht mehr je URL — die URL ist nur noch lesende Basis.
 
     public function sortKeywords(string $field): void
     {

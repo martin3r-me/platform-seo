@@ -77,12 +77,12 @@ class SeoPortfolioHealth
                     : 'Themen auf Owner-Seiten verteilen.',
             ],
             [
-                'key' => 'vertiefen', 'label' => 'Vertiefen', 'met' => $durchOk,
+                'key' => 'vertiefen', 'label' => 'Maßnahmen', 'met' => $durchOk,
                 'action' => 'Lücken schließen (Content-Briefs)',
                 'why' => "Durchdringung Ø {$durchdringung}% (Ziel ≥ {$durchdringungMin}%) — IST/SOLL-Lücken schließen.",
             ],
             [
-                'key' => 'konvertieren', 'label' => 'Konvertieren', 'met' => $wirkungOk, 'future' => ! $hasConversionData,
+                'key' => 'konvertieren', 'label' => 'Wirkung', 'met' => $wirkungOk, 'future' => ! $hasConversionData,
                 'action' => $hasConversionData
                     ? 'Conversion-schwache Landingpages heben, starke ausbauen'
                     : 'Wirkungsdaten erschließen (Plausible-Ziele aktivieren)',
