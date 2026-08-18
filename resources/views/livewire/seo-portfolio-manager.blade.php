@@ -10,6 +10,10 @@
         ]" />
     </x-slot>
 
+    <x-slot name="sidebar">
+        <livewire:seo.sidebar />
+    </x-slot>
+
     <x-ui-page-container>
         <div class="max-w-5xl">
             <div class="flex items-start justify-between gap-4 mb-1">

@@ -11,6 +11,10 @@
         ]" />
     </x-slot>
 
+    <x-slot name="sidebar">
+        <livewire:seo.sidebar />
+    </x-slot>
+
     <x-ui-page-container>
         <div class="max-w-5xl">
             {{-- Kopf --}}
