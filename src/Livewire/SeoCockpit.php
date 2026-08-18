@@ -5,6 +5,7 @@ namespace Platform\Seo\Livewire;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
+use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
@@ -12,6 +13,7 @@ use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Models\SeoUrlSnapshot;
 use Platform\Seo\Services\SeoOrganizationLinker;
+use Platform\Seo\Services\SeoPortfolioHealth;
 
 /**
  * Agentur-Cockpit — das Kunden-Portfolio als Startseite der Agentur-Welt.
@@ -169,8 +171,11 @@ class SeoCockpit extends Component
         // Getrackte zuerst (nach Sichtbarkeit), untracked zuletzt.
         usort($cards, fn ($a, $b) => ($b['visibility'] <=> $a['visibility']) ?: ($b['urls'] <=> $a['urls']));
 
+        $wirkungsraeume = $this->wirkungsraeumeForDashboard($teamId);
+
         return view('seo::livewire.seo-cockpit', [
             'cards' => $cards,
+            'wirkungsraeume' => $wirkungsraeume,
             'lists' => $this->listsForDashboard($teamId),
             'ablageCount' => $this->ablageCount($teamId, $linker, $childUrlIds),
             'totals' => [
@@ -178,6 +183,7 @@ class SeoCockpit extends Component
                 'tracked' => count(array_filter($cards, fn ($c) => $c['urls'] > 0)),
                 'visibility' => array_sum(array_column($cards, 'visibility')),
                 'recs' => $totalOpenRecs,
+                'wirkungsraeume' => count($wirkungsraeume),
             ],
         ])->layout('platform::layouts.app');
     }
@@ -219,6 +225,60 @@ class SeoCockpit extends Component
         }
 
         return ['text' => 'Stabil — kein akuter Handlungsbedarf', 'tone' => 'muted'];
+    }
+
+    /**
+     * Die Wirkungsräume (Steuer-Scopes) mit Reifegrad-Phase und dem EINEN nächsten
+     * Trigger („was ist zu tun"), der genau das erste gerissene Gate adressiert.
+     * Dringlichste Phase zuerst (früh im Trichter = mehr offen).
+     *
+     * @return array<int, array{id:int,name:string,phase:string,phase_key:string,action:string,reason:string,ordnung:int,urls:int,visibility:int}>
+     */
+    protected function wirkungsraeumeForDashboard(int $teamId): array
+    {
+        $portfolios = SeoPortfolio::where('team_id', $teamId)
+            ->select(['id', 'uuid', 'team_id', 'name', 'goal', 'parent_id'])
+            ->orderBy('name')
+            ->get();
+
+        if ($portfolios->isEmpty()) {
+            return [];
+        }
+
+        $health = app(SeoPortfolioHealth::class);
+        $rows = [];
+
+        foreach ($portfolios as $p) {
+            try {
+                $h = $health->evaluate($p);
+            } catch (\Throwable $e) {
+                continue; // Wirkungsraum ohne bewertbare Daten überspringen
+            }
+
+            $ids = $p->effectiveUrlIds();
+            $agg = empty($ids) ? null : SeoUrl::whereIn('id', $ids)
+                ->selectRaw('COUNT(*) as c, COALESCE(SUM(visibility_score),0) as v')
+                ->first();
+
+            $rows[] = [
+                'id' => (int) $p->id,
+                'name' => $p->name,
+                'phase' => $h['current_label'],
+                'phase_key' => $h['current'],
+                'action' => $h['next_action'],
+                'reason' => $h['reason'],
+                'ordnung' => (int) ($h['dimensions']['ordnung'] ?? 0),
+                'urls' => (int) ($agg->c ?? 0),
+                'visibility' => (int) round((float) ($agg->v ?? 0)),
+            ];
+        }
+
+        // Dringlichkeit: frühe Trichter-Phase zuerst, dann nach Sichtbarkeit (Hebelmasse).
+        $order = ['messen' => 0, 'ordnen' => 1, 'verteilen' => 2, 'vertiefen' => 3, 'konvertieren' => 4];
+        usort($rows, fn ($a, $b) => (($order[$a['phase_key']] ?? 9) <=> ($order[$b['phase_key']] ?? 9))
+            ?: ($b['visibility'] <=> $a['visibility']));
+
+        return $rows;
     }
 
     /**
