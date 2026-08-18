@@ -1157,26 +1157,45 @@ class SeoPortfolioDetail extends Component
     protected function wirkungsraumEntities($members): array
     {
         $memberIds = $members->pluck('id')->all();
-        $empty = ['rows' => [], 'total' => 0, 'present' => 0, 'share' => null];
+        $empty = ['rows' => [], 'total' => 0, 'present' => 0, 'answered' => 0, 'share' => null];
         if (empty($memberIds)) {
             return $empty;
         }
 
-        $units = SeoAnswerUnit::whereIn('url_id', $memberIds)->with('entity')->get();
-        if ($units->isEmpty()) {
-            return $empty;
-        }
+        // Angebot: Entitäten über die Antwort-Einheiten der Mitglieder.
+        $units = SeoAnswerUnit::whereIn('url_id', $memberIds)->get(['id', 'entity_id']);
+        $unitsByEntity = $units->groupBy('entity_id');
 
         $presence = [];
-        foreach (SeoAnswerPresence::whereIn('answer_unit_id', $units->pluck('id'))
-            ->orderByDesc('checked_at')->get() as $p) {
-            $presence[$p->answer_unit_id][$p->surface] ??= $p;
+        if ($units->isNotEmpty()) {
+            foreach (SeoAnswerPresence::whereIn('answer_unit_id', $units->pluck('id'))
+                ->orderByDesc('checked_at')->get() as $p) {
+                $presence[$p->answer_unit_id][$p->surface] ??= $p;
+            }
         }
+
+        // Nachfrage: Entitäten, die an die Cluster des Wirkungsraums geknüpft sind.
+        $clusterIds = $this->wirkungsraumClusterIds($memberIds);
+        $demandEntityIds = empty($clusterIds) ? []
+            : SeoEntity::where('team_id', $this->seoSettings->team_id)
+                ->whereIn('cluster_id', $clusterIds)->pluck('id')->all();
+
+        $allEntityIds = collect($unitsByEntity->keys())->merge($demandEntityIds)
+            ->map(fn ($i) => (int) $i)->unique()->values();
+        if ($allEntityIds->isEmpty()) {
+            return $empty;
+        }
+        $entities = SeoEntity::whereIn('id', $allEntityIds)->get()->keyBy('id');
 
         $rows = [];
         $present = 0;
-        foreach ($units->groupBy('entity_id') as $eid => $eunits) {
-            $entity = $eunits->first()->entity;
+        $answered = 0;
+        foreach ($allEntityIds as $eid) {
+            $entity = $entities[$eid] ?? null;
+            if (! $entity) {
+                continue;
+            }
+            $eunits = $unitsByEntity[$eid] ?? collect();
             $serp = false;
             $serpPos = null;
             $ai = false;
@@ -1195,6 +1214,10 @@ class SeoPortfolioDetail extends Component
                     }
                 }
             }
+            $isAnswered = $eunits->count() > 0;
+            if ($isAnswered) {
+                $answered++;
+            }
             if ($serp || $ai) {
                 $present++;
             }
@@ -1202,16 +1225,25 @@ class SeoPortfolioDetail extends Component
                 'entity_id' => (int) $eid,
                 'name' => $entity->name ?? '—',
                 'type' => $entity->entity_type ?? null,
+                'demand' => (int) $entity->search_volume,
                 'units' => $eunits->count(),
+                'answered' => $isAnswered,
                 'serp' => $serp,
                 'serp_pos' => $serpPos,
                 'ai' => $ai,
             ];
         }
-        usort($rows, fn ($a, $b) => $b['units'] <=> $a['units']);
+        // Lücken mit Nachfrage zuerst (baubar), dann beantwortete nach Präsenz.
+        usort($rows, fn ($a, $b) => ($b['demand'] <=> $a['demand']) ?: ($b['units'] <=> $a['units']));
         $total = count($rows);
 
-        return ['rows' => $rows, 'total' => $total, 'present' => $present, 'share' => $total ? (int) round($present / $total * 100) : null];
+        return [
+            'rows' => $rows,
+            'total' => $total,
+            'present' => $present,
+            'answered' => $answered,
+            'share' => $total ? (int) round($present / $total * 100) : null,
+        ];
     }
 
     /** Ein Experiment für eine Entität starten — sichert die Baseline-Präsenz. */
@@ -1236,6 +1268,64 @@ class SeoPortfolioDetail extends Component
             'applied_at' => now(),
         ]);
         $this->entityFlash = 'Experiment für „'.$entity->name.'" gestartet (Baseline gesichert).';
+    }
+
+    /** Antwort-Einheiten für ALLE Mitglieder extrahieren (im Hintergrund, hash-gegatet). */
+    public function extractAllAnswerUnits(): void
+    {
+        $members = $this->propertyView()['members'];
+        $n = 0;
+        foreach ($members as $u) {
+            \Platform\Seo\Jobs\ExtractAnswerUnitsJob::dispatch($u->id, $this->portfolio->id);
+            $n++;
+        }
+        $this->entityFlash = $n.' Extraktion(en) im Hintergrund gestartet — Entitäten erscheinen nach und nach (aktualisieren).';
+    }
+
+    /** Nachfrage-Seite laden: aus den Clustern des Wirkungsraums Entitäten ableiten. */
+    public function syncDemandEntities(): void
+    {
+        $memberIds = $this->propertyView()['members']->pluck('id')->all();
+        $clusterIds = $this->wirkungsraumClusterIds($memberIds);
+        if (empty($clusterIds)) {
+            $this->entityFlash = 'Keine Cluster im Wirkungsraum — erst in „Ordnen" Themen bauen.';
+
+            return;
+        }
+
+        $clusters = SeoKeywordCluster::whereIn('id', $clusterIds)->get();
+        $demand = SeoKeyword::whereIn('cluster_id', $clusterIds)
+            ->selectRaw('cluster_id, SUM(search_volume) as vol')
+            ->groupBy('cluster_id')->pluck('vol', 'cluster_id');
+
+        $n = 0;
+        foreach ($clusters as $c) {
+            $e = SeoEntity::firstOrNew(['team_id' => $this->seoSettings->team_id, 'cluster_id' => $c->id]);
+            $wasNew = ! $e->exists;
+            $e->fill([
+                'name' => $c->name,
+                'entity_type' => 'concept',
+                'search_volume' => (int) ($demand[$c->id] ?? 0),
+            ])->save();
+            if ($wasNew) {
+                $n++;
+            }
+        }
+        $this->entityFlash = $n.' Nachfrage-Entität(en) aus Clustern geladen ('.count($clusters).' Themen abgeglichen).';
+    }
+
+    /** Cluster-IDs des Wirkungsraums (Themen, für die Mitglieder ranken). @return int[] */
+    protected function wirkungsraumClusterIds(array $memberIds): array
+    {
+        if (empty($memberIds)) {
+            return [];
+        }
+
+        return DB::table('seo_url_keywords as uk')
+            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+            ->whereIn('uk.url_id', $memberIds)
+            ->whereNotNull('k.cluster_id')
+            ->distinct()->pluck('k.cluster_id')->map(fn ($i) => (int) $i)->all();
     }
 
     /** Aktives AI-Zitat-Probing für eine Entität (Modell-Wissen, kein Live-Web). */
