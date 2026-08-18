@@ -977,12 +977,31 @@ class SeoPortfolioDetail extends Component
         $current = $points[$count - 1]['visibility'];
         $first = $points[0]['visibility'];
 
+        // Sparkline-Geometrie (Polyline + Flächen-Pfad) fürs Dashboard vorberechnen.
+        $spark = null;
+        if ($count >= 2) {
+            $w = 240;
+            $h = 40;
+            $vals = array_column($points, 'visibility');
+            $mn = min($vals);
+            $rng = (max($vals) - $mn) ?: 1;
+            $line = [];
+            foreach ($points as $i => $p) {
+                $x = round($i / ($count - 1) * $w, 1);
+                $y = round($h - (($p['visibility'] - $mn) / $rng) * ($h - 4) - 2, 1);
+                $line[] = $x.','.$y;
+            }
+            $poly = implode(' ', $line);
+            $spark = ['w' => $w, 'h' => $h, 'line' => $poly, 'area' => '0,'.$h.' '.$poly.' '.$w.','.$h];
+        }
+
         return [
             'points' => $points,
             'count' => $count,
             'since' => $points[0]['date'],
             'current' => $current,
             'delta' => $count >= 2 ? $current - $first : null,
+            'spark' => $spark,
         ];
     }
 

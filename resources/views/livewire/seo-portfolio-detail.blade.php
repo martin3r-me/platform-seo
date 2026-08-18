@@ -85,12 +85,16 @@
                 </div>
             </div>
 
-            @php($bestand = in_array($view, ['keywords', 'clusters', 'competitors'], true))
+            {{-- Dashboard — eigene, gecraftete nx-Überblickssicht (Held-Metrik +
+                 Wirkungsgrad + nächster Zug + kompakter Reifegrad + Sparkline). --}}
+            @if($view === 'dashboard')
+                @include('seo::partials.wirkungsraum-dashboard', ['agg' => $agg, 'health' => $health, 'trend' => $trend, 'penetration' => $penetration, 'competitors' => $competitors])
+            @endif
 
-            {{-- Werkbank: Überblick (Dashboard) + die 5 Stationen. Für die Bestand-
-                 Views (Keywords/Cluster/Wettbewerber) ausgeblendet — die zeigen
-                 stattdessen ihre eigene, fokussierte Liste weiter unten. --}}
-            @if(! $bestand)
+            {{-- Stationen — die Werkbank (Kontext + fokussiertes Phasen-Werkzeug).
+                 Bestand-Views (Keywords/Cluster/Wettbewerber) zeigen ihre eigene
+                 Liste weiter unten; das Dashboard seine gecraftete Sicht oben. --}}
+            @if($station)
 
             {{-- Defensive Hilfe: was ist ein Wirkungsraum + wie funktioniert die gated Werkbank (wegklickbar) --}}
             @include('seo::partials.help-banner', ['lens' => 'wirkungsraum'])
@@ -820,7 +824,7 @@
 
             <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: KI-Vorschläge in Aktionen (Cluster-Owner, Briefs) · Snapshots im Takt der Datensammlung.</p>
 
-            @endif {{-- /Werkbank (! $bestand) --}}
+            @endif {{-- /Stationen ($station) --}}
 
             {{-- ===================== Bestand-Views ===================== --}}
 
