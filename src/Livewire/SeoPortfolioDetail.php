@@ -12,6 +12,7 @@ use Platform\Seo\Models\SeoConversionSnapshot;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoPortfolio;
+use Platform\Seo\Models\SeoPortfolioMeasure;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlSnapshot;
 use Platform\Seo\Services\SeoPortfolioAdvisor;
@@ -41,6 +42,9 @@ class SeoPortfolioDetail extends Component
     public int $clusterMinVolume = 10;
 
     public ?string $clusterFlash = null;
+
+    /** Rückmeldung nach dem Maßnahmen-Generieren (Posteingang). */
+    public ?string $measureFlash = null;
 
     /**
      * Angezeigte Reifegrad-Phase (gated Werkbank). null = aktuelles Gate.
@@ -1092,6 +1096,42 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Maßnahmen aus den Signalen erzeugen (Posteingang füllen). Idempotent —
+     * bereits entschiedene (auch abgelehnte) werden nicht neu vorgeschlagen.
+     */
+    public function generateMeasures(): void
+    {
+        $pv = $this->propertyView();
+        $board = $this->orchestrationBoard($pv['members']);
+        $n = app(\Platform\Seo\Services\SeoMeasureGenerator::class)->fromBoard($this->portfolio, $board['rows']);
+        $this->measureFlash = $n === 0
+            ? 'Keine neuen Maßnahmen — alles bereits im Posteingang oder entschieden.'
+            : $n.' neue '.($n === 1 ? 'Maßnahme' : 'Maßnahmen').' im Posteingang.';
+    }
+
+    /** Maßnahme annehmen → in die Prioritäts-Queue (wartet aufs Tages-Ventil). */
+    public function acceptMeasure(int $id): void
+    {
+        $m = SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)->find($id);
+        if ($m && $m->status === SeoPortfolioMeasure::STATUS_PROPOSED) {
+            $m->update(['status' => SeoPortfolioMeasure::STATUS_ACCEPTED, 'decided_at' => now()]);
+        }
+    }
+
+    /** Maßnahme begründet ablehnen → bleibt als Wirkungsraum-Kontext erhalten. */
+    public function rejectMeasure(int $id, string $reason = ''): void
+    {
+        $m = SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)->find($id);
+        if ($m && $m->status === SeoPortfolioMeasure::STATUS_PROPOSED) {
+            $m->update([
+                'status' => SeoPortfolioMeasure::STATUS_REJECTED,
+                'reject_reason' => trim($reason) ?: null,
+                'decided_at' => now(),
+            ]);
+        }
+    }
+
+    /**
      * Orchestrierungs-Board (Thema × Property): je Cluster im Verbund die eigenen
      * Properties, die dafür ranken (Kandidaten, beste Position), der gekürte Owner
      * (pillar_url_id), Kannibalisierungs-Konflikt (≥2 ohne Owner) und ein
@@ -1222,7 +1262,7 @@ class SeoPortfolioDetail extends Component
             'activePhase' => $activePhase,
             'activePhaseLabel' => $activePhaseLabel,
             'bestandKeywords' => $this->view === 'keywords' ? $this->bestandKeywords($effectiveIds) : collect(),
-            'pageHealth' => in_array($activePhase, ['verteilen', 'vertiefen'], true)
+            'pageHealth' => $activePhase === 'verteilen'
                 ? $this->pageHealth($effectiveIds)
                 : ['unfocused' => [], 'cannibalized' => []],
             'members' => $pv['members'],
@@ -1231,6 +1271,16 @@ class SeoPortfolioDetail extends Component
                 ? app(\Platform\Seo\Services\SeoDataProfileService::class)->availableProfiles(true)
                 : [],
             'board' => $this->view === 'verteilen' ? $this->orchestrationBoard($pv['members']) : ['rows' => []],
+            'measures' => $this->view === 'vertiefen'
+                ? SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)
+                    ->orderByRaw("FIELD(status,'proposed','accepted','released','done','rejected')")
+                    ->orderByDesc('score')->orderByDesc('created_at')->get()
+                : collect(),
+            'measureInbox' => [
+                'proposed' => SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)->where('status', 'proposed')->count(),
+                'accepted' => SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)->where('status', 'accepted')->count(),
+                'top' => SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)->where('status', 'proposed')->orderByDesc('score')->first(),
+            ],
             'agg' => $pv['agg'],
             'availableUrls' => $availableUrls,
             'penetration' => ['clusters' => $scope['clusters'], 'unclustered' => $scope['unclustered']],

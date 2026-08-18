@@ -31,7 +31,7 @@
             {{-- Stationen — die 5 Arbeitsschritte am Wirkungsraum (Reifegrad-Trichter) --}}
             <div>
                 <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-2">Stationen</h3>
-                @foreach(['messen' => 'Daten', 'ordnen' => 'Ordnen', 'verteilen' => 'Verteilen', 'vertiefen' => 'Vertiefen', 'konvertieren' => 'Konvertieren'] as $stKey => $stLabel)
+                @foreach(['messen' => 'Daten', 'ordnen' => 'Ordnen', 'verteilen' => 'Verteilen', 'vertiefen' => 'Maßnahmen', 'konvertieren' => 'Wirkung'] as $stKey => $stLabel)
                     <button wire:click="setView('{{ $stKey }}')"
                             class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $stKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
                         <span class="text-[10px] tabular-nums text-gray-400 w-3">{{ $loop->iteration }}</span>
@@ -88,7 +88,7 @@
             {{-- Dashboard — eigene, gecraftete nx-Überblickssicht (Held-Metrik +
                  Wirkungsgrad + nächster Zug + kompakter Reifegrad + Sparkline). --}}
             @if($view === 'dashboard')
-                @include('seo::partials.wirkungsraum-dashboard', ['agg' => $agg, 'health' => $health, 'trend' => $trend, 'penetration' => $penetration, 'competitors' => $competitors])
+                @include('seo::partials.wirkungsraum-dashboard', ['agg' => $agg, 'health' => $health, 'trend' => $trend, 'penetration' => $penetration, 'competitors' => $competitors, 'measureInbox' => $measureInbox])
             @endif
 
             {{-- Stationen — die Werkbank (Kontext + fokussiertes Phasen-Werkzeug).
@@ -155,6 +155,13 @@
             @if($view === 'messen')
                 <div class="mb-8">
                     @include('seo::partials.wirkungsraum-daten', ['members' => $members, 'availableProfiles' => $availableProfiles])
+                </div>
+            @endif
+
+            {{-- Maßnahmen-Station: der Posteingang — die Zentrale des Wirkungsraums --}}
+            @if($view === 'vertiefen')
+                <div class="mb-8">
+                    @include('seo::partials.wirkungsraum-posteingang', ['measures' => $measures, 'measureFlash' => $measureFlash])
                 </div>
             @endif
 
@@ -473,7 +480,7 @@
 
             @endif
 
-            @if(in_array($activePhase, ['ordnen', 'vertiefen']))
+            @if($activePhase === 'ordnen')
             {{-- Durchdringung je Cluster (IST rankend / SOLL laut Cluster) --}}
             @if($penetration['clusters']->isNotEmpty() || $penetration['unclustered'])
                 <div class="mt-8">
@@ -534,7 +541,7 @@
 
             @endif
 
-            @if(in_array($activePhase, ['ordnen', 'verteilen', 'vertiefen']))
+            @if(in_array($activePhase, ['ordnen', 'verteilen']))
             {{-- Semantische Karte — die Wirkungsraum-Linse auf die Keyword-Bedeutungen (Slice 2) --}}
             <div class="mb-8" {{ (($semantic['status'] ?? null) === 'running' || ($portfolio->clustering_status ?? null) === 'running') ? 'wire:poll.5s' : '' }}>
                 <div class="flex items-start justify-between gap-3 mb-1">
@@ -756,7 +763,7 @@
                 </div>
             @endif
 
-            @if(in_array($activePhase, ['verteilen', 'vertiefen']))
+            @if($activePhase === 'verteilen')
             {{-- Seiten-Gesundheit (Angebots-Achse): unfokussierte Seiten + konkrete Kannibalisierung --}}
             <div class="mb-8">
                 <div class="flex items-baseline justify-between gap-3 mb-1">
@@ -827,7 +834,7 @@
             </div>
             @endif
 
-            @if(in_array($activePhase, ['verteilen', 'vertiefen']))
+            @if($activePhase === 'verteilen')
             {{-- Wettbewerber-Benchmark (der Markt um den Verbund) --}}
             @if($competitors->isNotEmpty())
                 <div class="mt-8">

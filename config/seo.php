@@ -492,6 +492,27 @@ return [
     // Owner als Pillar-Kandidat (zentrale Seite) geflaggt wird.
     'pillar_candidate_min_volume' => 2000,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Maßnahmen-Typen — das standardisierte Vokabular der Steuer-Produktionslinie
+    |--------------------------------------------------------------------------
+    | Jede Empfehlung mündet in genau einen Typ. route bestimmt die Ausführung:
+    | flynk (Brief/Task im Client-Portal) · internal (Disposition/Owner/Links) ·
+    | human (strategische Entscheidung, z. B. neue Property).
+    */
+    'measure_types' => [
+        'brief_existing' => ['label' => 'Brief · bestehende Seite', 'route' => 'flynk'],
+        'brief_new_subpage' => ['label' => 'Brief · neue Unterseite', 'route' => 'flynk'],
+        'change_page' => ['label' => 'Seite ändern', 'route' => 'flynk'],
+        'retire_page' => ['label' => 'Seite abstellen', 'route' => 'internal'],
+        'new_property' => ['label' => 'Neue Property/URL', 'route' => 'human'],
+        'structure_owner' => ['label' => 'Struktur · Owner/Cross-Link', 'route' => 'internal'],
+    ],
+
+    // Prioritäts-Ventil: wie viele angenommene Maßnahmen pro Tag nach Flynk
+    // rausgelassen werden (Kontrolle/Kapazität). 0 = kein Limit.
+    'measure_daily_cap' => 3,
+
     'steckbrief' => [
         'page_types' => [
             'startseite' => ['label' => 'Startseite', 'schema' => 'WebPage'],

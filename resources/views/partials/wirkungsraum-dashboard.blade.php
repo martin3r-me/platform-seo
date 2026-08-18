@@ -1,6 +1,37 @@
 {{-- Wirkungsraum-Dashboard — die gecraftete Überblicks-Sicht (nx-Sprache).
      Erwartet: $agg, $health, $trend, $penetration, $competitors. --}}
 
+{{-- Posteingang — die Zentrale: vorgeschlagene Maßnahmen zuerst --}}
+@if(($measureInbox['proposed'] ?? 0) > 0 || ($measureInbox['accepted'] ?? 0) > 0)
+    <div class="mb-4">
+        <x-nx-card>
+            <div class="flex items-center justify-between gap-4 flex-wrap">
+                <div class="min-w-0">
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-[10px] font-medium uppercase tracking-wide text-[color:var(--nx-faint)]">Posteingang</span>
+                        @if(($measureInbox['proposed'] ?? 0) > 0)
+                            <span class="text-[22px] font-semibold tabular-nums text-[color:var(--nx-text)]">{{ number_format($measureInbox['proposed']) }}</span>
+                            <span class="text-[12px] text-[color:var(--nx-muted)]">neu</span>
+                        @else
+                            <span class="text-[13px] font-medium text-[color:var(--nx-muted)]">nichts Neues</span>
+                        @endif
+                        @if(($measureInbox['accepted'] ?? 0) > 0)
+                            <span class="text-[11px] text-[color:var(--nx-faint)]">· {{ number_format($measureInbox['accepted']) }} in Queue</span>
+                        @endif
+                    </div>
+                    @if(! empty($measureInbox['top']))
+                        <div class="mt-1 text-[13px] text-[color:var(--nx-text)] truncate">Top: {{ $measureInbox['top']->title }}</div>
+                    @endif
+                </div>
+                <button type="button" wire:click="setView('vertiefen')"
+                        class="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-md bg-[color:var(--nx-text)] text-[color:var(--nx-bg)] hover:opacity-90">
+                    Zum Posteingang <span aria-hidden="true">→</span>
+                </button>
+            </div>
+        </x-nx-card>
+    </div>
+@endif
+
 {{-- Hero: Nordstern-Metriken + der eine nächste Zug --}}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
 
