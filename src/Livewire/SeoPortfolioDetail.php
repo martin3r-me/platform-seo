@@ -49,11 +49,27 @@ class SeoPortfolioDetail extends Component
      */
     public ?string $viewPhase = null;
 
+    /**
+     * Aktive Ansicht der inneren Sidebar-Navigation: 'dashboard' (Überblick),
+     * eine der 5 Stationen (Reifegrad-Gates) oder eine Bestand-Sicht
+     * (keywords/clusters/competitors). Ersetzt den reinen Phasen-Stepper —
+     * gibt dem Wirkungsraum semantisch gruppierte Views.
+     */
+    public string $view = 'dashboard';
+
     private const PHASES = ['messen', 'ordnen', 'verteilen', 'vertiefen', 'konvertieren'];
+    private const BESTAND = ['keywords', 'clusters', 'competitors'];
+
+    public function setView(string $view): void
+    {
+        $valid = array_merge(['dashboard'], self::PHASES, self::BESTAND);
+        $this->view = in_array($view, $valid, true) ? $view : 'dashboard';
+        $this->viewPhase = in_array($this->view, self::PHASES, true) ? $this->view : null;
+    }
 
     public function setPhase(string $phase): void
     {
-        $this->viewPhase = in_array($phase, self::PHASES, true) ? $phase : null;
+        $this->setView($phase);
     }
 
     public function mount(SeoPortfolio $seoPortfolio): void
@@ -968,6 +984,24 @@ class SeoPortfolioDetail extends Component
         ];
     }
 
+    /**
+     * Bestand-Sicht „Keywords": alle Keywords, für die Mitglieder dieses
+     * Wirkungsraums (inkl. Unterseiten) ranken — nach Position sortiert.
+     */
+    protected function bestandKeywords(array $effectiveIds): \Illuminate\Support\Collection
+    {
+        if (empty($effectiveIds)) {
+            return collect();
+        }
+
+        return SeoKeyword::whereHas('urls', fn ($q) => $q->whereIn('seo_url_keywords.url_id', $effectiveIds))
+            ->with(['urls' => fn ($q) => $q->whereIn('seo_url_keywords.url_id', $effectiveIds), 'cluster'])
+            ->get()
+            ->sortBy(fn ($kw) => $kw->urls->min('pivot.position') ?? 999)
+            ->take(200)
+            ->values();
+    }
+
     public function render()
     {
         $pv = $this->propertyView();
@@ -992,13 +1026,21 @@ class SeoPortfolioDetail extends Component
         // Reifegrad + aktive (angezeigte) Phase — gated Werkbank: nur das
         // Werkzeug einer Phase zeigen, Default = aktuelles Gate.
         $health = app(SeoPortfolioHealth::class)->evaluate($this->portfolio);
-        $activePhase = in_array($this->viewPhase, self::PHASES, true) ? $this->viewPhase : $health['current'];
+        // $view steuert die innere Navigation. Für eine Station = das Gate;
+        // für Dashboard/Bestand ein Nicht-Phasen-Wert, damit die Phasen-Gates
+        // (@if in_array($activePhase, [...])) leer laufen und nur die jeweilige
+        // Sicht zeigt.
+        $station = in_array($this->view, self::PHASES, true) ? $this->view : null;
+        $activePhase = $station ?? 'dashboard';
         $activePhaseLabel = collect($health['phases'])->firstWhere('key', $activePhase)['label'] ?? $activePhase;
 
         return view('seo::livewire.seo-portfolio-detail', [
             'health' => $health,
+            'view' => $this->view,
+            'station' => $station,
             'activePhase' => $activePhase,
             'activePhaseLabel' => $activePhaseLabel,
+            'bestandKeywords' => $this->view === 'keywords' ? $this->bestandKeywords($effectiveIds) : collect(),
             'pageHealth' => in_array($activePhase, ['verteilen', 'vertiefen'], true)
                 ? $this->pageHealth($effectiveIds)
                 : ['unfocused' => [], 'cannibalized' => []],

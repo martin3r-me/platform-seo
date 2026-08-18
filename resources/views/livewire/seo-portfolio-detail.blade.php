@@ -15,6 +15,47 @@
         <livewire:seo.sidebar />
     </x-slot>
 
+    {{-- Innere View-Navigation des Wirkungsraums (fraktale Sidebar): Überblick ·
+         die 5 Stationen (Reifegrad-Gates) · Bestand. Steuert $view. --}}
+    <x-ui-page-sidebar title="Wirkungsraum" icon="heroicon-o-rocket-launch" width="w-64" storeKey="sidebarOpen">
+        <div class="p-3 space-y-5">
+            {{-- Überblick --}}
+            <div>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-2">Überblick</h3>
+                <button wire:click="setView('dashboard')"
+                        class="w-full text-left px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === 'dashboard' ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
+                    Dashboard
+                </button>
+            </div>
+
+            {{-- Stationen — die 5 Arbeitsschritte am Wirkungsraum (Reifegrad-Trichter) --}}
+            <div>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-2">Stationen</h3>
+                @foreach(['messen', 'ordnen', 'verteilen', 'vertiefen', 'konvertieren'] as $idx => $stKey)
+                    <button wire:click="setView('{{ $stKey }}')"
+                            class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $stKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
+                        <span class="text-[10px] tabular-nums text-gray-400 w-3">{{ $idx + 1 }}</span>
+                        <span class="flex-1 text-left">{{ ucfirst($stKey) }}</span>
+                        @if(($health['current'] ?? null) === $stKey)
+                            <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:#0f766e" title="Aktuelles Gate"></span>
+                        @endif
+                    </button>
+                @endforeach
+            </div>
+
+            {{-- Bestand — was im Wirkungsraum liegt --}}
+            <div>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-2">Bestand</h3>
+                @foreach(['keywords' => 'Keywords', 'clusters' => 'Cluster', 'competitors' => 'Wettbewerber'] as $bKey => $bLabel)
+                    <button wire:click="setView('{{ $bKey }}')"
+                            class="w-full text-left px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $bKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
+                        {{ $bLabel }}
+                    </button>
+                @endforeach
+            </div>
+        </div>
+    </x-ui-page-sidebar>
+
     <x-ui-page-container>
         <div class="max-w-5xl">
             {{-- Kopf --}}
@@ -43,6 +84,13 @@
                     </button>
                 </div>
             </div>
+
+            @php($bestand = in_array($view, ['keywords', 'clusters', 'competitors'], true))
+
+            {{-- Werkbank: Überblick (Dashboard) + die 5 Stationen. Für die Bestand-
+                 Views (Keywords/Cluster/Wettbewerber) ausgeblendet — die zeigen
+                 stattdessen ihre eigene, fokussierte Liste weiter unten. --}}
+            @if(! $bestand)
 
             {{-- Defensive Hilfe: was ist ein Wirkungsraum + wie funktioniert die gated Werkbank (wegklickbar) --}}
             @include('seo::partials.help-banner', ['lens' => 'wirkungsraum'])
@@ -765,6 +813,97 @@
             @endif
 
             <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: KI-Vorschläge in Aktionen (Cluster-Owner, Briefs) · Snapshots im Takt der Datensammlung.</p>
+
+            @endif {{-- /Werkbank (! $bestand) --}}
+
+            {{-- ===================== Bestand-Views ===================== --}}
+
+            {{-- Keywords: alle Keywords, für die der Wirkungsraum rankt --}}
+            @if($view === 'keywords')
+                <div class="mb-2">
+                    <h2 class="text-[13px] font-semibold text-gray-700">Keywords <span class="text-gray-400 font-normal">({{ $bestandKeywords->count() }}{{ $bestandKeywords->count() >= 200 ? '+' : '' }})</span></h2>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Alle Keywords, für die Mitglieder dieses Wirkungsraums ranken — beste Position zuerst.</p>
+                </div>
+                @if($bestandKeywords->isEmpty())
+                    <div class="bg-white rounded-lg border border-gray-200 p-6 text-[12px] text-gray-500">Noch keine Keywords im Wirkungsraum.</div>
+                @else
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                        <table class="w-full text-[13px]" style="min-width:640px">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                    <th class="text-left px-4 py-2">Keyword</th>
+                                    <th class="text-left px-4 py-2">Intent</th>
+                                    <th class="text-left px-4 py-2">Cluster</th>
+                                    <th class="text-right px-4 py-2">Volumen</th>
+                                    <th class="text-right px-4 py-2">Position</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($bestandKeywords as $kw)
+                                    @php($pos = $kw->urls->min('pivot.position'))
+                                    <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                                        <td class="px-4 py-2 text-gray-700">{{ $kw->keyword }}</td>
+                                        <td class="px-4 py-2">@if($kw->search_intent)<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{{ $kw->search_intent }}</span>@else<span class="text-gray-300">—</span>@endif</td>
+                                        <td class="px-4 py-2 text-gray-500">{{ $kw->cluster->name ?? '—' }}</td>
+                                        <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ number_format((int) $kw->search_volume) }}</td>
+                                        <td class="px-4 py-2 text-right tabular-nums {{ $pos !== null && $pos <= 10 ? 'font-semibold text-green-700' : 'text-gray-600' }}">{{ $pos !== null ? number_format($pos, 0) : '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            @endif
+
+            {{-- Cluster: Durchdringung je Cluster (IST rankend / SOLL) --}}
+            @if($view === 'clusters')
+                <div class="mb-2">
+                    <h2 class="text-[13px] font-semibold text-gray-700">Cluster</h2>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Die Themen dieses Wirkungsraums — Durchdringung IST (rankend) gegen SOLL.</p>
+                </div>
+                @if($penetration['clusters']->isNotEmpty() || $penetration['unclustered'])
+                    @include('seo::partials.scope-penetration', ['clusters' => $penetration['clusters'], 'coverage' => $coverage])
+                @else
+                    <div class="bg-white rounded-lg border border-gray-200 p-6 text-[12px] text-gray-500">Noch keine Cluster — in der Station „Ordnen" bauen.</div>
+                @endif
+            @endif
+
+            {{-- Wettbewerber: der Markt um den Verbund --}}
+            @if($view === 'competitors')
+                <div class="mb-2">
+                    <h2 class="text-[13px] font-semibold text-gray-700">Wettbewerber</h2>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Der Markt um den Wirkungsraum — wer rankt für dieselben Themen.</p>
+                </div>
+                @if($competitors->isNotEmpty())
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+                        <table class="w-full text-[13px]" style="min-width:480px">
+                            <thead>
+                                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                                    <th class="text-left px-4 py-2">Wettbewerber-Domain</th>
+                                    <th class="text-right px-4 py-2">gemeinsame KWs</th>
+                                    <th class="text-right px-4 py-2">Sichtbarkeit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($competitors as $c)
+                                    <tr class="border-b border-gray-50 last:border-0">
+                                        <td class="px-4 py-2.5">
+                                            <span class="inline-flex items-center gap-2">
+                                                <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+                                                <span class="text-gray-700">{{ $c->domain }}</span>
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2.5 text-right text-gray-600 tabular-nums">{{ number_format($c->shared_keywords) }}</td>
+                                        <td class="px-4 py-2.5 text-right tabular-nums {{ $c->visibility > $agg['visibility'] ? 'font-semibold text-rose-600' : 'text-gray-700' }}" @if($c->visibility > $agg['visibility']) title="Überholt den Verbund" @endif>{{ number_format($c->visibility, 0) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="bg-white rounded-lg border border-gray-200 p-6 text-[12px] text-gray-500">Noch keine Wettbewerber erfasst.</div>
+                @endif
+            @endif
         </div>
 
         {{-- Add-URLs-Modal (nur eigene, kontrollierte URLs) --}}
