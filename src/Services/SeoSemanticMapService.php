@@ -38,6 +38,9 @@ class SeoSemanticMapService
     /** Ab dieser Größe gilt eine Nachbarschaft als „Quartier" und wird in Zimmer aufgelöst. */
     protected const ROOM_TRIGGER = 50;
 
+    /** Ab so vielen Zimmern wird ein Quartier nach Firma in Sub-Quartiere gruppiert. */
+    protected const SUBQUARTER_TRIGGER = 10;
+
     /** Start-Schwelle beim Auflösen eines Quartiers in Zimmer. */
     protected const ROOM_THRESHOLD = 0.68;
 
@@ -249,6 +252,13 @@ class SeoSemanticMapService
                 $rooms = $this->rooms($comp, $adjacency, $byId, $anchorScores, $ownSet);
             }
 
+            // Mega-Quartier (viele Zimmer) → Zimmer nach Firma in Sub-Quartiere
+            // gruppieren = Verbund-Felder (Broich · Rheingedeck · Foodtruck …),
+            // damit das Quartier scanbar wird statt „catering, 100 Zimmer".
+            $subquarters = count($rooms) > self::SUBQUARTER_TRIGGER
+                ? $this->groupRoomsByCompany($rooms)
+                : [];
+
             $neighborhoods[] = array_merge([
                 'label' => $members[0]['keyword'],
                 'size' => count($members),
@@ -256,6 +266,7 @@ class SeoSemanticMapService
                 'keywords' => array_slice($members, 0, 10), // Anzeige zeigt 8; size trägt den Rest
                 'keyword_ids' => array_values($comp),        // volle Menge fürs SERP-Übernehmen
                 'rooms' => $rooms,
+                'subquarters' => $subquarters,
                 'is_quarter' => ! empty($rooms),
                 'near_cluster' => $this->nearestClusterFor($comp),
                 'company' => $this->nearestCompanyFor($comp),
@@ -717,6 +728,40 @@ class SeoSemanticMapService
         }
 
         return $fit;
+    }
+
+    /**
+     * Zimmer eines Mega-Quartiers nach Firma (company.domain) in Sub-Quartiere
+     * gruppieren. Jedes Sub-Quartier trägt die Original-Zimmer-Indizes + Aggregate.
+     *
+     * @param  array<int, array>  $rooms
+     * @return array<int, array{domain:string,room_indices:int[],count:int,size:int,potenzial:int,ist:int,gap:int,score:int}>
+     */
+    protected function groupRoomsByCompany(array $rooms): array
+    {
+        $groups = [];
+        foreach ($rooms as $ri => $room) {
+            $dom = $room['company']['domain'] ?? '—';
+            if (! isset($groups[$dom])) {
+                $groups[$dom] = ['domain' => $dom, 'room_indices' => [], 'size' => 0, 'potenzial' => 0, 'ist' => 0, 'score' => 0];
+            }
+            $groups[$dom]['room_indices'][] = $ri;
+            $groups[$dom]['size'] += (int) ($room['size'] ?? 0);
+            $groups[$dom]['potenzial'] += (int) ($room['potenzial'] ?? 0);
+            $groups[$dom]['ist'] += (int) ($room['ist'] ?? 0);
+            $groups[$dom]['score'] += (int) ($room['score'] ?? 0);
+        }
+
+        $out = array_values($groups);
+        foreach ($out as &$g) {
+            $g['count'] = count($g['room_indices']);
+            $g['gap'] = max(0, $g['potenzial'] - $g['ist']);
+        }
+        unset($g);
+
+        usort($out, fn ($a, $b) => $b['score'] <=> $a['score']);
+
+        return $out;
     }
 
     protected function vecNorm(array $v): float
