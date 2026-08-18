@@ -488,6 +488,10 @@ return [
         'external' => ['label' => 'außerhalb', 'hint' => 'anderes Feld (Agentur/Admin)'],
     ],
 
+    // Ab welcher Kopf-Nachfrage (Cluster-Volumen) ein Thema ohne natürlichen
+    // Owner als Pillar-Kandidat (zentrale Seite) geflaggt wird.
+    'pillar_candidate_min_volume' => 2000,
+
     'steckbrief' => [
         'page_types' => [
             'startseite' => ['label' => 'Startseite', 'schema' => 'WebPage'],

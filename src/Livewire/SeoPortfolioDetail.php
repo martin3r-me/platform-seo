@@ -1071,6 +1071,101 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Cluster-Owner (pillar_url_id) küren — ein Thema = eine Seite. Owner muss
+     * eine eigene URL des Teams sein; leer = Owner entfernen.
+     */
+    public function setClusterOwner(int $clusterId, $urlId): void
+    {
+        $c = SeoKeywordCluster::where('team_id', $this->seoSettings->team_id)->find($clusterId);
+        if (! $c) {
+            return;
+        }
+        $uid = (int) $urlId ?: null;
+        if ($uid !== null) {
+            $ok = SeoUrl::where('team_id', $this->seoSettings->team_id)
+                ->where('id', $uid)->where('is_own', true)->exists();
+            if (! $ok) {
+                return;
+            }
+        }
+        $c->update(['pillar_url_id' => $uid]);
+    }
+
+    /**
+     * Orchestrierungs-Board (Thema × Property): je Cluster im Verbund die eigenen
+     * Properties, die dafür ranken (Kandidaten, beste Position), der gekürte Owner
+     * (pillar_url_id), Kannibalisierungs-Konflikt (≥2 ohne Owner) und ein
+     * heuristischer Pillar-Kandidat (hohe Nachfrage, kein Owner, fragmentiert).
+     *
+     * @return array{rows: array<int, array>}
+     */
+    protected function orchestrationBoard($members): array
+    {
+        $memberIds = $members->pluck('id')->all();
+        if (empty($memberIds)) {
+            return ['rows' => []];
+        }
+
+        // Kandidaten: welche Property rankt für welchen Cluster (beste Position).
+        $cand = DB::table('seo_url_keywords as uk')
+            ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
+            ->whereIn('uk.url_id', $memberIds)
+            ->whereNotNull('k.cluster_id')
+            ->whereNotNull('uk.position')
+            ->groupBy('k.cluster_id', 'uk.url_id')
+            ->selectRaw('k.cluster_id as cluster_id, uk.url_id as url_id, MIN(uk.position) as pos')
+            ->get()
+            ->groupBy('cluster_id');
+
+        if ($cand->isEmpty()) {
+            return ['rows' => []];
+        }
+
+        $clusterIds = $cand->keys()->map(fn ($k) => (int) $k)->all();
+        $clusters = SeoKeywordCluster::whereIn('id', $clusterIds)->get()->keyBy('id');
+        $demand = SeoKeyword::whereIn('cluster_id', $clusterIds)
+            ->selectRaw('cluster_id, SUM(search_volume) as vol')
+            ->groupBy('cluster_id')->pluck('vol', 'cluster_id');
+
+        $membersById = $members->keyBy('id');
+        $pillarMin = (int) config('seo.pillar_candidate_min_volume', 2000);
+        $rows = [];
+
+        foreach ($clusterIds as $cid) {
+            $c = $clusters[$cid] ?? null;
+            if (! $c) {
+                continue;
+            }
+            $candidates = collect($cand[$cid])->map(fn ($r) => [
+                'url_id' => (int) $r->url_id,
+                'label' => $membersById[$r->url_id]->display_label ?? ('#'.$r->url_id),
+                'pos' => (int) $r->pos,
+            ])->sortBy('pos')->values();
+
+            $ownerId = $c->pillar_url_id ? (int) $c->pillar_url_id : null;
+            $count = $candidates->count();
+            $vol = (int) ($demand[$cid] ?? 0);
+
+            $rows[] = [
+                'cluster_id' => $cid,
+                'name' => $c->name,
+                'demand' => $vol,
+                'candidates' => $candidates->all(),
+                'candidate_count' => $count,
+                'owner_id' => $ownerId,
+                'owner_label' => $ownerId && isset($membersById[$ownerId]) ? $membersById[$ownerId]->display_label : ($ownerId ? '#'.$ownerId : null),
+                'conflict' => $count >= 2 && $ownerId === null,
+                'owner_not_ranking' => $ownerId !== null && ! $candidates->contains('url_id', $ownerId),
+                'pillar_candidate' => $ownerId === null && $vol >= $pillarMin && $count >= 3,
+            ];
+        }
+
+        usort($rows, fn ($a, $b) => $b['demand'] <=> $a['demand']);
+
+        return ['rows' => $rows];
+    }
+
+    /**
      * Bestand-Sicht „Keywords": alle Keywords, für die Mitglieder dieses
      * Wirkungsraums (inkl. Unterseiten) ranken — nach Position sortiert.
      */
@@ -1135,6 +1230,7 @@ class SeoPortfolioDetail extends Component
             'availableProfiles' => $this->view === 'messen'
                 ? app(\Platform\Seo\Services\SeoDataProfileService::class)->availableProfiles(true)
                 : [],
+            'board' => $this->view === 'verteilen' ? $this->orchestrationBoard($pv['members']) : ['rows' => []],
             'agg' => $pv['agg'],
             'availableUrls' => $availableUrls,
             'penetration' => ['clusters' => $scope['clusters'], 'unclustered' => $scope['unclustered']],

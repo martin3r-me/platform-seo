@@ -424,6 +424,13 @@
             </div>
             @endif
 
+            @if($activePhase === 'verteilen')
+            {{-- Orchestrierungs-Board: Thema × Property (Owner küren, Kannibalisierung, Pillar) --}}
+            <div class="mb-8">
+                @include('seo::partials.wirkungsraum-board', ['board' => $board])
+            </div>
+            @endif
+
             @if(in_array($activePhase, ['ordnen', 'verteilen']))
             {{-- Mitglieder --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>
