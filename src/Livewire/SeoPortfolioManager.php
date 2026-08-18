@@ -51,7 +51,13 @@ class SeoPortfolioManager extends Component
 
     public function render()
     {
-        $items = SeoPortfolio::where('team_id', $this->seoSettings->team_id)
+        // Nur schlanke Spalten selektieren: die fetten JSON-Blobs (semantic_map,
+        // clustering_result) würden sonst per SELECT * in den ORDER-BY-filesort
+        // gezogen und sprengen bei großen Wirkungsräumen (z. B. Syltjunkie, 3k KW)
+        // den MySQL sort_buffer → HY001 "Out of sort memory". Die Liste braucht sie nie.
+        $items = SeoPortfolio::query()
+            ->where('team_id', $this->seoSettings->team_id)
+            ->select(['id', 'uuid', 'team_id', 'name', 'slug', 'goal', 'parent_id'])
             ->withCount('urls', 'children')
             ->with(['urls:id,visibility_score'])
             ->orderBy('name')
