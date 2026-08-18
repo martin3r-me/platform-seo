@@ -520,6 +520,9 @@ return [
     // rausgelassen werden (Kontrolle/Kapazität). 0 = kein Limit.
     'measure_daily_cap' => 3,
 
+    // Ab wann eine Antwort-Einheit als „veraltet" gilt (Auffrisch-Maßnahme).
+    'answer_stale_days' => 90,
+
     /*
     |--------------------------------------------------------------------------
     | v2 — Antwort-Kontrolle: Entitäten, Antwort-Einheiten, Surfaces

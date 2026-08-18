@@ -30,6 +30,7 @@
                     <div class="min-w-0">
                         <div class="flex items-center gap-1.5 flex-wrap mb-1">
                             <span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style="background:color-mix(in srgb, {{ $routeColor }} 12%, transparent);color:{{ $routeColor }}">{{ $m->typeLabel() }}</span>
+                            @if($m->source === 'ai')<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-indigo-50 text-indigo-600" title="KI-Vorschlag">🤖 KI</span>@endif
                             <span class="text-[9px] uppercase tracking-wide text-gray-400">→ {{ $m->route }}</span>
                             @if($m->score > 0)<span class="text-[10px] text-gray-400 tabular-nums">Wert {{ number_format($m->score) }}</span>@endif
                         </div>

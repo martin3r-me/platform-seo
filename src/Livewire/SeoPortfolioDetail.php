@@ -1109,11 +1109,22 @@ class SeoPortfolioDetail extends Component
     public function generateMeasures(): void
     {
         $pv = $this->propertyView();
+        $memberIds = $pv['members']->pluck('id')->all();
         $board = $this->orchestrationBoard($pv['members']);
-        $n = app(\Platform\Seo\Services\SeoMeasureGenerator::class)->fromBoard($this->portfolio, $board['rows']);
+        $entities = $this->wirkungsraumEntities($pv['members']);
+
+        $gen = app(\Platform\Seo\Services\SeoMeasureGenerator::class);
+        $n = $gen->fromBoard($this->portfolio, $board['rows']);       // v1: Kannibalisierung/Pillar
+        $n += $gen->fromV2($this->portfolio, $memberIds);             // v2: veraltet/GEO-Lücke
+
+        // KI-Anreicherung: Zustand rein, typisierte Maßnahmen raus.
+        $ai = app(\Platform\Seo\Services\SeoMeasureAiAdvisor::class)
+            ->propose($this->portfolio, ['board' => $board['rows'], 'entities' => $entities]);
+        $n += $gen->fromAi($this->portfolio, $ai);
+
         $this->measureFlash = $n === 0
             ? 'Keine neuen Maßnahmen — alles bereits im Posteingang oder entschieden.'
-            : $n.' neue '.($n === 1 ? 'Maßnahme' : 'Maßnahmen').' im Posteingang.';
+            : $n.' neue '.($n === 1 ? 'Maßnahme' : 'Maßnahmen').' im Posteingang (Signale + KI).';
     }
 
     /** Maßnahme annehmen → in die Prioritäts-Queue (wartet aufs Tages-Ventil). */
