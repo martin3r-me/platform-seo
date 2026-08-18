@@ -574,34 +574,29 @@
                         <p class="text-[10px] text-gray-400 mb-4"><span class="text-teal-700 font-medium">Quartier</span> = großes Feld (klick = Zimmer) · <span class="px-1 rounded bg-green-100 text-green-700">Weißraum</span> baubar · <span style="color:#8a7a63">Grau</span> Wettbewerber · <span style="color:#e11d48">↑Chance</span> = Mehr-Traffic/Mon (Pot − IST) · nach Chance sortiert · „übernehmen" prüft SERP → echter Cluster</p>
                     @endif
 
-                    <div class="grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
-                        @if(! empty($sm['outliers']))
-                            <div class="bg-white rounded-lg border border-gray-200 p-3">
-                                <div class="text-[12px] font-medium text-gray-700 mb-0.5">Ausreißer</div>
-                                <div class="text-[10px] text-gray-400 mb-2">Keine semantischen Nachbarn im Wirkungsraum — Quarantäne-Kandidaten.</div>
-                                <div class="flex flex-wrap gap-1">
-                                    @foreach($sm['outliers'] as $kw)
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500" title="Vol {{ number_format($kw['volume']) }}">{{ $kw['keyword'] }}</span>
-                                    @endforeach
-                                </div>
+                    @if(! empty($sm['outliers']))
+                        {{-- Ausreißer = Einzelgänger ohne Nachbarn. Aktionsfähig: routen (Firma) oder abstellen (Rausch). --}}
+                        <div class="bg-white rounded-lg border border-gray-200 p-3 mb-8" style="max-width:640px">
+                            <div class="flex items-baseline justify-between gap-2 mb-0.5">
+                                <span class="text-[12px] font-medium text-gray-700">Ausreißer ({{ count($sm['outliers']) }})</span>
+                                <button wire:click="retireOutliersWithoutCompany" class="text-[10px] text-gray-400 hover:text-rose-600" title="alle Einzelgänger ohne Firmen-Bezug stilllegen">alle ohne Firma abstellen</button>
                             </div>
-                        @endif
-
-                        @if(! empty($sm['themefar']))
-                            <div class="bg-white rounded-lg border border-gray-200 p-3">
-                                <div class="text-[12px] font-medium text-gray-700 mb-0.5">Themenfern</div>
-                                <div class="text-[10px] text-gray-400 mb-2">Geringste Nähe zur Wirkungsraum-Identität — zum Aussortieren prüfen.</div>
-                                <div class="flex flex-col gap-0.5">
-                                    @foreach(array_slice($sm['themefar'], 0, 20) as $kw)
-                                        <div class="flex items-baseline justify-between gap-2 text-[11px]">
-                                            <span class="text-gray-600" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ $kw['keyword'] }}</span>
-                                            <span class="text-gray-400 tabular-nums shrink-0">{{ $kw['anchor_score'] !== null ? number_format($kw['anchor_score'], 2) : '—' }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
+                            <div class="text-[10px] text-gray-400 mb-2">Keine semantischen Nachbarn — passt zu einer Firma (zuordnen) oder zu keiner (abstellen).</div>
+                            <div class="flex flex-col gap-1">
+                                @foreach($sm['outliers'] as $kw)
+                                    <div class="flex items-center justify-between gap-2 text-[11px]">
+                                        <span class="text-gray-600 min-w-0" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Vol {{ number_format($kw['volume']) }}">{{ $kw['keyword'] }}</span>
+                                        <span class="shrink-0 whitespace-nowrap flex items-center gap-1.5">
+                                            @if(! empty($kw['company']))
+                                                <button wire:click="assignOutlierToCompany({{ $kw['id'] }}, @js($kw['company']['domain']))" class="text-[10px] px-1.5 py-0.5 rounded text-white" style="background:#6366f1" title="zu {{ $kw['company']['domain'] }} ({{ round($kw['company']['sim'] * 100) }}%) zuordnen">🏢 {{ $kw['company']['domain'] }}</button>
+                                            @endif
+                                            <button wire:click="retireOutlier({{ $kw['id'] }})" class="text-[10px] text-gray-400 hover:text-rose-600">abstellen</button>
+                                        </span>
+                                    </div>
+                                @endforeach
                             </div>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
 
                     @if(! empty($sm['anchor']))
                         <p class="text-[10px] text-gray-400 mt-2">Anker: {{ \Illuminate\Support\Str::limit($sm['anchor'], 140) }}</p>

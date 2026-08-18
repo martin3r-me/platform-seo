@@ -598,6 +598,64 @@ class SeoPortfolioDetail extends Component
             ->update(['disposition' => null, 'disposition_at' => null]);
     }
 
+    // ── Ausreißer: routen (zu Firma) oder abstellen (Rausch) ────────────────────
+
+    public function retireOutlier(int $keywordId): void
+    {
+        $this->retireKeywords([$keywordId]);
+        $this->spliceOutlier($keywordId);
+    }
+
+    public function assignOutlierToCompany(int $keywordId, string $domain): void
+    {
+        $this->assignKeywordsToCompany([$keywordId], $this->outlierLabel($keywordId), $domain);
+        $this->spliceOutlier($keywordId);
+    }
+
+    /** Alle Ausreißer ohne Firmen-Bezug abstellen (offensichtlicher Rausch). */
+    public function retireOutliersWithoutCompany(): void
+    {
+        $outliers = data_get($this->portfolio->semantic_map, 'outliers', []);
+        $ids = [];
+        foreach (is_array($outliers) ? $outliers : [] as $o) {
+            if (empty($o['company'])) {
+                $ids[] = (int) ($o['id'] ?? 0);
+            }
+        }
+        $ids = array_values(array_filter($ids));
+        if ($ids === []) {
+            return;
+        }
+
+        $this->retireKeywords($ids);
+
+        $map = $this->portfolio->semantic_map;
+        $map['outliers'] = array_values(array_filter($map['outliers'] ?? [], fn ($o) => ! empty($o['company'])));
+        $this->portfolio->update(['semantic_map' => $map]);
+        $this->clusterFlash = count($ids) . ' Ausreißer ohne Firmen-Bezug abgestellt.';
+    }
+
+    protected function spliceOutlier(int $keywordId): void
+    {
+        $map = $this->portfolio->semantic_map;
+        if (! is_array($map) || empty($map['outliers'])) {
+            return;
+        }
+        $map['outliers'] = array_values(array_filter($map['outliers'], fn ($o) => (int) ($o['id'] ?? 0) !== $keywordId));
+        $this->portfolio->update(['semantic_map' => $map]);
+    }
+
+    protected function outlierLabel(int $keywordId): string
+    {
+        foreach (data_get($this->portfolio->semantic_map, 'outliers', []) as $o) {
+            if ((int) ($o['id'] ?? 0) === $keywordId) {
+                return (string) ($o['keyword'] ?? 'Thema');
+            }
+        }
+
+        return 'Thema';
+    }
+
     /**
      * Integrieren = Keywords in ein BESTEHENDES Cluster einhängen (statt neues).
      * Nutzt die Zentroid-Verwandtschaft der Karte. Keine Doppelvergabe (nur unclustered).

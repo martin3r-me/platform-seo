@@ -268,7 +268,12 @@ class SeoSemanticMapService
         $outliers = [];
         foreach ($idsInOrder as $id) {
             if (empty($adjacency[$id])) {
-                $outliers[] = $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet);
+                // Auch Einzelgänger bekommen Firmen-Routing: passt der zu einer Firma
+                // (→ zuordnen) oder zu keiner (→ abstellen)?
+                $outliers[] = array_merge(
+                    $this->row($byId[$id], $anchorScores[$id] ?? null, $ownSet),
+                    ['company' => $this->nearestCompanyFor([$id])]
+                );
             }
         }
         usort($outliers, fn ($a, $b) => $b['volume'] <=> $a['volume']);
