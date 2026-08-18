@@ -241,6 +241,15 @@ class SeoUrlDetail extends Component
         $this->answerFlash = ($res['created'] ?? 0).' neue Antwort-Einheit(en) · '.($res['entities'] ?? 0).' Entität(en) berührt.';
     }
 
+    /** v2: Multi-Surface-Präsenz je Antwort-Einheit messen (SERP + AI). */
+    public function checkPresence(): void
+    {
+        $n = app(\Platform\Seo\Services\SeoPresenceProbe::class)->forUrl($this->seoUrl);
+        $this->answerFlash = $n === 0
+            ? 'Keine Antwort-Einheiten zum Messen — erst extrahieren.'
+            : (int) ($n / 2).' Antwort-Einheit(en) gemessen (SERP + AI).';
+    }
+
     /**
      * Explizite Plausible-site_id speichern (leer = Fallback auf die Domain).
      * Nötig, wenn die Site in Plausible anders heißt als die Domain — sonst 401.
@@ -651,10 +660,21 @@ class SeoUrlDetail extends Component
             ])
             ->all();
 
+        // v2: Antwort-Einheiten der URL + je Einheit die letzte Präsenz je Surface.
+        $answerUnits = \Platform\Seo\Models\SeoAnswerUnit::where('url_id', $this->seoUrl->id)
+            ->with('entity')->orderByDesc('id')->get();
+        $presenceByUnit = [];
+        if ($answerUnits->isNotEmpty()) {
+            foreach (\Platform\Seo\Models\SeoAnswerPresence::whereIn('answer_unit_id', $answerUnits->pluck('id'))
+                ->orderByDesc('checked_at')->get() as $pr) {
+                $presenceByUnit[$pr->answer_unit_id][$pr->surface] ??= $pr;
+            }
+        }
+
         return view('seo::livewire.seo-url-detail', [
             'isOrphan' => app(\Platform\Seo\Services\SeoOrphanService::class)->isOrphan($this->seoUrl),
-            'answerUnits' => \Platform\Seo\Models\SeoAnswerUnit::where('url_id', $this->seoUrl->id)
-                ->with('entity')->orderByDesc('id')->get(),
+            'answerUnits' => $answerUnits,
+            'presenceByUnit' => $presenceByUnit,
             'scope' => $scope,
             'conversionTrend' => $conversionTrend,
             'gscTrend' => $gscTrend,

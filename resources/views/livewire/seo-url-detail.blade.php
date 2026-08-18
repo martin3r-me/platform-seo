@@ -196,16 +196,35 @@
                                         @if($au->schema_type)<span class="text-[9px] px-1 py-0.5 rounded bg-indigo-50 text-indigo-600">{{ $au->schema_type }}</span>@endif
                                     </div>
                                     <div class="text-[12px] text-gray-500 mt-0.5">{{ $au->claim }}</div>
+                                    @if(!empty($presenceByUnit[$au->id]))
+                                        <div class="flex items-center gap-1.5 mt-1">
+                                            @if(!empty($presenceByUnit[$au->id]['serp']))
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded {{ $presenceByUnit[$au->id]['serp']->present ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-gray-100 text-gray-400' }}" title="Klassische Suche">SERP {{ $presenceByUnit[$au->id]['serp']->present ? '#'.($presenceByUnit[$au->id]['serp']->position ?? '?') : '—' }}</span>
+                                            @endif
+                                            @if(!empty($presenceByUnit[$au->id]['ai_overview']))
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded {{ $presenceByUnit[$au->id]['ai_overview']->cited ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-gray-100 text-gray-400' }}" title="AI-Sichtbarkeit (llm_mentions)">AI {{ $presenceByUnit[$au->id]['ai_overview']->cited ? 'zitiert' : '—' }}</span>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                             @endforeach
                         </div>
                     @endif
 
-                    <button wire:click="extractAnswerUnits" wire:loading.attr="disabled" wire:target="extractAnswerUnits"
-                            class="text-[12px] px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:border-gray-300 disabled:opacity-40">
-                        <span wire:loading.remove wire:target="extractAnswerUnits">✨ {{ $answerUnits->isEmpty() ? 'Extrahieren' : 'Neu extrahieren' }}</span>
-                        <span wire:loading wire:target="extractAnswerUnits">holt Seite + KI…</span>
-                    </button>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <button wire:click="extractAnswerUnits" wire:loading.attr="disabled" wire:target="extractAnswerUnits"
+                                class="text-[12px] px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:border-gray-300 disabled:opacity-40">
+                            <span wire:loading.remove wire:target="extractAnswerUnits">✨ {{ $answerUnits->isEmpty() ? 'Extrahieren' : 'Neu extrahieren' }}</span>
+                            <span wire:loading wire:target="extractAnswerUnits">holt Seite + KI…</span>
+                        </button>
+                        @if($answerUnits->isNotEmpty())
+                            <button wire:click="checkPresence" wire:loading.attr="disabled" wire:target="checkPresence"
+                                    class="text-[12px] px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 hover:border-gray-300 disabled:opacity-40">
+                                <span wire:loading.remove wire:target="checkPresence">📡 Presence prüfen</span>
+                                <span wire:loading wire:target="checkPresence">misst…</span>
+                            </button>
+                        @endif
+                    </div>
                     <p class="text-[11px] text-gray-400">Holt die echte Seite (JSON-LD + Text), die KI leitet je Entität einen Claim ab. Füllt die v2-Spine (Entität → Antwort-Einheit → Präsenz).</p>
                 </div>
             </div>
