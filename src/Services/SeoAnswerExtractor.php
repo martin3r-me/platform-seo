@@ -22,9 +22,9 @@ class SeoAnswerExtractor
     public function __construct(private LLMProviderRegistry $registry) {}
 
     /**
-     * @return array{created?:int, entities?:int, error?:string}
+     * @return array{created?:int, entities?:int, skipped?:bool, error?:string}
      */
-    public function extractForUrl(SeoUrl $url, ?int $portfolioId = null): array
+    public function extractForUrl(SeoUrl $url, ?int $portfolioId = null, bool $gateByHash = false): array
     {
         // 1 · Seite holen
         try {
@@ -43,6 +43,12 @@ class SeoAnswerExtractor
         $text = $this->plainText($html);
         if ($text === '') {
             return ['error' => 'Kein lesbarer Textinhalt gefunden (evtl. JS-gerendert).'];
+        }
+
+        // Hash-Gate: unveränderter Inhalt → KI überspringen (kein verbrannter Token).
+        $hash = md5($text);
+        if ($gateByHash && SeoAnswerUnit::where('url_id', $url->id)->where('content_hash', $hash)->exists()) {
+            return ['skipped' => true, 'created' => 0, 'entities' => 0];
         }
 
         // 3 · KI leitet Antwort-Einheiten ab
@@ -68,7 +74,7 @@ class SeoAnswerExtractor
         }
 
         // 4 · Speichern (Entität upsert + Antwort-Einheit je URL×Entität)
-        return $this->store($url, $portfolioId, $units, md5($text));
+        return $this->store($url, $portfolioId, $units, $hash);
     }
 
     /** @return string[] schema.org @type-Werte aus JSON-LD */

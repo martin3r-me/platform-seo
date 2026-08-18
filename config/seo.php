@@ -246,6 +246,7 @@ return [
         'backlinks' => 15,
         'backlinks_summary' => 2,
         'llm_mentions' => 40,
+        'answer_units' => 3,   // KI-Extraktion je Seite (nur bei geändertem Inhalt)
     ],
 
     /*
@@ -275,6 +276,7 @@ return [
         \Platform\Seo\Collectors\OnPageCollector::class,
         \Platform\Seo\Collectors\PlausibleCollector::class,
         \Platform\Seo\Collectors\LlmMentionsCollector::class,
+        \Platform\Seo\Collectors\AnswerUnitCollector::class,
     ],
 
     /*
@@ -323,6 +325,7 @@ return [
         'on_page' => 336,            // bi-weekly
         'plausible' => 24,           // daily
         'llm_mentions' => 720,       // ~monatlich (teuer, wenig volatil)
+        'answer_units' => 720,       // ~monatlich (teure KI-Extraktion, hash-gegatet)
     ],
 
     /*
@@ -333,7 +336,7 @@ return [
     | team-weit weiter (nicht pro URL) und ist NICHT hier gelistet.
     |--------------------------------------------------------------------------
     */
-    'profile_collectors' => ['gsc', 'plausible', 'serp_ranking', 'on_page', 'backlinks', 'llm_mentions', 'competitor_footprint'],
+    'profile_collectors' => ['gsc', 'plausible', 'serp_ranking', 'on_page', 'backlinks', 'llm_mentions', 'competitor_footprint', 'answer_units'],
 
     // Collector => cost_estimates-Schlüssel (für die Monatskosten-Projektion).
     'profile_cost_map' => [
@@ -343,6 +346,7 @@ return [
         'on_page' => 'on_page',
         'backlinks' => 'backlinks',
         'llm_mentions' => 'llm_mentions',
+        'answer_units' => 'answer_units',
         'competitor_footprint' => 'labs_ranked',
     ],
 
@@ -350,8 +354,8 @@ return [
         'own' => [
             'aus'      => [],
             'basis'    => ['gsc' => 24, 'plausible' => 24],
-            'standard' => ['gsc' => 24, 'plausible' => 24, 'serp_ranking' => 168, 'on_page' => 336],
-            'tief'     => ['gsc' => 24, 'plausible' => 24, 'serp_ranking' => 168, 'on_page' => 336, 'backlinks' => 720, 'llm_mentions' => 720],
+            'standard' => ['gsc' => 24, 'plausible' => 24, 'serp_ranking' => 168, 'on_page' => 336, 'answer_units' => 720],
+            'tief'     => ['gsc' => 24, 'plausible' => 24, 'serp_ranking' => 168, 'on_page' => 336, 'backlinks' => 720, 'llm_mentions' => 720, 'answer_units' => 720],
         ],
         'competitor' => [
             'aus'        => [],
