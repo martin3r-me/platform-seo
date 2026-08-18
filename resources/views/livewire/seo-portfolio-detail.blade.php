@@ -495,7 +495,7 @@
                                 class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'both' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Faden 2 — erobern: + Wettbewerber-Keywords (das Grau)">+ Wettbewerber</button>
                     </div>
                 </div>
-                <p class="text-[11px] text-gray-400 mb-2 max-w-2xl">Die Keywords nach <span class="font-medium">Bedeutung</span> geordnet — Vorschlag, kein SERP. <span class="font-medium">eigene</span> = ordnen was wir haben · <span class="font-medium">+ Wettbewerber</span> = das <span style="color:#e11d48">Grau</span> (wozu ranken die, das uns fehlt). Ein Zimmer <span class="font-medium">„übernehmen"</span> lässt SERP prüfen und macht einen echten Cluster (umkehrbar). Nichts gespeichert, bis du übernimmst.</p>
+                <p class="text-[11px] text-gray-400 mb-2 max-w-2xl">Die Keywords nach <span class="font-medium">Bedeutung</span> geordnet — Vorschlag, kein SERP. <span class="font-medium">eigene</span> = ordnen was wir haben · <span class="font-medium">+ Wettbewerber</span> = das <span style="color:#e11d48">Grau</span> (wozu ranken die, das uns fehlt). Einen <span class="font-medium">Cluster übernehmen</span> lässt SERP prüfen und macht einen echten Cluster (umkehrbar). Nichts gespeichert, bis du übernimmst.</p>
                 @if($clusterFlash)
                     <p class="text-[11px] mb-3" style="color:#0f766e">{{ $clusterFlash }}</p>
                 @endif
@@ -521,18 +521,18 @@
                     </div>
 
                     @if(! empty($sm['neighborhoods']))
-                        {{-- Vollständige Quartier-Tabelle: alle Nachbarschaften, chance-sortiert. Klick = Zimmer ausklappen. --}}
+                        {{-- Vollständige Themenfeld-Tabelle: alle Nachbarschaften, chance-sortiert. Klick = Cluster ausklappen. --}}
                         <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-2">
                             <div class="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wide text-gray-400">
-                                <span>Quartiere &amp; Zimmer ({{ count($sm['neighborhoods']) }})</span>
-                                <span class="tabular-nums">KWs · Zimmer · Pot · IST · ↑Chance</span>
+                                <span>Themenfelder &amp; Cluster ({{ count($sm['neighborhoods']) }})</span>
+                                <span class="tabular-nums">KWs · Cluster · Pot · IST · ↑Chance</span>
                             </div>
                             @foreach($sm['neighborhoods'] as $nbIdx => $nb)
                                 <div x-data="{open:false}" class="border-b border-gray-50 last:border-0">
                                     <div x-on:click="open=!open" class="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50">
                                         <span class="flex items-center gap-1.5 min-w-0">
                                             <span class="text-gray-400 text-[10px] w-3 shrink-0" x-text="open?'▾':'▸'"></span>
-                                            @if(! empty($nb['rooms']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-teal-100 text-teal-700 shrink-0">Quartier</span>@endif
+                                            @if(! empty($nb['rooms']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-teal-100 text-teal-700 shrink-0">Themenfeld</span>@endif
                                             <span class="text-[12px] font-medium text-gray-700 truncate">{{ $nb['label'] }}</span>
                                             @if(! empty($nb['is_opportunity']))<span class="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-rose-100 text-rose-700 shrink-0">Chance</span>@endif
                                         </span>
@@ -548,14 +548,14 @@
                                     <div x-show="open" style="display:none" class="bg-gray-50/40 border-t border-gray-100 px-2 py-1.5">
                                         @if(! empty($nb['rooms']))
                                             @if(! empty($nb['subquarters']))
-                                                {{-- Mega-Quartier → Firmen-Sub-Quartiere (Verbund-Felder), je aufklappbar zur Zimmer-Tabelle --}}
+                                                {{-- Mega-Themenfeld → Firmen-Sub-Felder (Verbund-Felder), je aufklappbar zur Cluster-Tabelle --}}
                                                 @foreach($nb['subquarters'] as $sq)
                                                     <div x-data="{ sub: false }" class="border-b border-gray-100 last:border-0">
                                                         <div x-on:click="sub = ! sub" class="flex items-center justify-between gap-2 px-2 py-1.5 cursor-pointer hover:bg-white">
                                                             <span class="flex items-center gap-1.5 text-[11px] min-w-0">
                                                                 <span class="text-gray-400 text-[9px] w-3 shrink-0" x-text="sub ? '▾' : '▸'"></span>
                                                                 <span class="px-1.5 py-0.5 rounded text-white text-[10px] shrink-0" style="background:#6366f1">🏢 {{ $sq['domain'] }}</span>
-                                                                <span class="text-gray-500">{{ $sq['count'] }} Zimmer</span>
+                                                                <span class="text-gray-500">{{ $sq['count'] }} Cluster</span>
                                                             </span>
                                                             <span class="text-[10px] text-gray-500 tabular-nums shrink-0 flex gap-3">
                                                                 <span>{{ $sq['size'] }} KW</span>
@@ -598,7 +598,7 @@
                                 </div>
                             @endforeach
                         </div>
-                        <p class="text-[10px] text-gray-400 mb-4"><span class="text-teal-700 font-medium">Quartier</span> = großes Feld (klick = Zimmer) · <span class="px-1 rounded bg-green-100 text-green-700">Weißraum</span> baubar · <span style="color:#8a7a63">Grau</span> Wettbewerber · <span style="color:#e11d48">↑Chance</span> = Mehr-Traffic/Mon (Pot − IST) · nach Chance sortiert · „übernehmen" prüft SERP → echter Cluster</p>
+                        <p class="text-[10px] text-gray-400 mb-4"><span class="text-teal-700 font-medium">Themenfeld</span> = großes Feld (klick = Cluster) · <span class="px-1 rounded bg-green-100 text-green-700">Weißraum</span> baubar · <span style="color:#8a7a63">Grau</span> Wettbewerber · <span style="color:#e11d48">↑Chance</span> = Mehr-Traffic/Mon (Pot − IST) · nach Chance sortiert · „übernehmen" prüft SERP → echter Cluster</p>
                     @endif
 
                     @if(! empty($sm['outliers']))
@@ -635,7 +635,7 @@
 
             @endif
 
-            {{-- Zimmer-Detailansicht: Keywords + rankende URLs + Übernehmen --}}
+            {{-- Cluster-Detailansicht: Keywords + rankende URLs + Übernehmen --}}
             @if($showRoomDetail && $roomDetail)
                 <div class="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto" style="background:rgba(0,0,0,0.4)" wire:click="closeRoomDetail">
                     <div class="bg-white rounded-lg border border-gray-200 shadow-xl w-full max-w-3xl mt-10" wire:click.stop>

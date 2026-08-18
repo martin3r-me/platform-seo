@@ -75,7 +75,7 @@
 
             <div class="k-top">
                 <h1>{{ $portfolio->name }} · Kosmos</h1>
-                <span class="sub">{{ $meta['counts']['nodes'] ?? 0 }} Themen · {{ $meta['regions'] ?? 0 }} Quartiere · Größe = Potenzial · Farbe = Quartier · Ring = Wirkungsgrad</span>
+                <span class="sub">{{ $meta['counts']['nodes'] ?? 0 }} Themen · {{ $meta['regions'] ?? 0 }} Themenfelder · Größe = Potenzial · Farbe = Themenfeld · Ring = Wirkungsgrad</span>
                 <div class="k-legend">
                     <div class="lk" style="color:#c3cfe2"><span class="sw" style="background:#e8eef7;box-shadow:none"></span> besetzt <span class="n">{{ $meta['counts']['own'] ?? 0 }}</span></div>
                     <div class="lk" style="color:#c3cfe2"><span class="sw" style="background:#8ea0bd;box-shadow:none"></span> Weißraum <span class="n">{{ $meta['counts']['white'] ?? 0 }}</span></div>
@@ -249,7 +249,7 @@
                 const p = document.getElementById('kpanel');
                 document.getElementById('k-type').textContent = node.adopted ? 'Cluster · besetzt' : 'Kandidaten-Thema';
                 document.getElementById('k-name').textContent = node.name;
-                document.getElementById('k-quarter').textContent = node.quarter ? ('Quartier: ' + node.quarter) : '';
+                document.getElementById('k-quarter').textContent = node.quarter ? ('Themenfeld: ' + node.quarter) : '';
                 const lb = document.getElementById('k-landbadge');
                 lb.textContent = LANDLABEL[node.landtype] || node.landtype;
                 lb.style.background = (LANDCSS[node.landtype]||'#888') + '2e'; lb.style.color = LANDCSS[node.landtype] || '#ccc';

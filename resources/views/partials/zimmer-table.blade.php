@@ -1,9 +1,9 @@
-{{-- Zimmer-Tabelle. Erwartet: $nbIdx, $rooms (voll), $indices (zu zeigende Zimmer-Indizes), $portfolio. --}}
+{{-- Cluster-Tabelle. Erwartet: $nbIdx, $rooms (voll), $indices (zu zeigende Cluster-Indizes), $portfolio. --}}
 <div class="overflow-x-auto">
     <table class="w-full text-[12px]" style="min-width:780px">
         <thead>
             <tr class="text-[9px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                <th class="text-left font-medium py-1 px-2">Zimmer</th>
+                <th class="text-left font-medium py-1 px-2">Cluster</th>
                 <th class="text-left font-medium py-1 px-2">Typ</th>
                 <th class="text-left font-medium py-1 px-2">Intent</th>
                 <th class="text-right font-medium py-1 px-2">KWs</th>
