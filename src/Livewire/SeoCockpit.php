@@ -9,10 +9,10 @@ use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoSignal;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
-use Platform\Seo\Models\SeoUrlRegistration;
 use Platform\Seo\Models\SeoUrlRelationship;
 use Platform\Seo\Models\SeoUrlSnapshot;
 use Platform\Seo\Services\SeoOrganizationLinker;
+use Platform\Seo\Services\SeoOrphanService;
 use Platform\Seo\Services\SeoPortfolioHealth;
 
 /**
@@ -177,7 +177,7 @@ class SeoCockpit extends Component
             'cards' => $cards,
             'wirkungsraeume' => $wirkungsraeume,
             'lists' => $this->listsForDashboard($teamId),
-            'ablageCount' => $this->ablageCount($teamId, $linker, $childUrlIds),
+            'ablageCount' => app(SeoOrphanService::class)->orphanCount($teamId),
             'totals' => [
                 'customers' => count($cards),
                 'tracked' => count(array_filter($cards, fn ($c) => $c['urls'] > 0)),
@@ -325,25 +325,4 @@ class SeoCockpit extends Component
         ])->all();
     }
 
-    /** Anzahl Agentur-URLs ohne Kontext (root-only, nicht modul-eigen). */
-    protected function ablageCount(int $teamId, SeoOrganizationLinker $linker, array $childUrlIds): int
-    {
-        $own = SeoUrl::where('team_id', $teamId)
-            ->where('status', 'active')
-            ->where('is_own', true)
-            ->when(! empty($childUrlIds), fn ($q) => $q->whereNotIn('id', $childUrlIds))
-            ->pluck('id')->map(fn ($i) => (int) $i)->all();
-
-        if (empty($own)) {
-            return 0;
-        }
-
-        $moduleOwned = SeoUrlRegistration::whereIn('url_id', $own)
-            ->where('source_module', '!=', 'seo')
-            ->pluck('url_id')->map(fn ($i) => (int) $i)->unique()->all();
-        $linked = $linker->linkedLinkableIds(SeoOrganizationLinker::ALIAS_URL, $own);
-        $exclude = array_flip(array_merge($moduleOwned, $linked));
-
-        return count(array_filter($own, fn ($id) => ! isset($exclude[$id])));
-    }
 }

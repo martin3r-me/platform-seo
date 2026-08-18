@@ -11,6 +11,9 @@
             @if(!empty($url->provenance_key) && !in_array($url->provenance_key, ['seo', 'competitor']))
                 @include('seo::partials.url-provenance-badge', ['key' => $url->provenance_key])
             @endif
+            @if(!empty($url->is_orphan))
+                <span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100 flex-shrink-0" title="Ohne Zuhause — in keinem Wirkungsraum, keiner Liste, keinem Modul, an keinem Org-Knoten">verwaist</span>
+            @endif
         </div>
         @if($url->path && $url->path !== '/')
             <div class="text-[10px] text-gray-400 ml-3.5">{{ $url->domain }}</div>

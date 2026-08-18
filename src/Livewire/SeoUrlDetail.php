@@ -606,6 +606,7 @@ class SeoUrlDetail extends Component
             ->all();
 
         return view('seo::livewire.seo-url-detail', [
+            'isOrphan' => app(\Platform\Seo\Services\SeoOrphanService::class)->isOrphan($this->seoUrl),
             'scope' => $scope,
             'conversionTrend' => $conversionTrend,
             'gscTrend' => $gscTrend,

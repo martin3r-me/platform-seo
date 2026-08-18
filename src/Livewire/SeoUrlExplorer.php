@@ -191,6 +191,11 @@ class SeoUrlExplorer extends Component
             $url->provenance_key = ! $url->is_own ? 'competitor' : ($ownerByUrl[$url->id] ?? 'seo');
         });
 
+        // Verwaist-Flag: eigene Root-URLs ohne jedes Zuhause (Wirkungsraum/Liste/Modul/Org).
+        // Einmal je Team berechnet, dann per Set-Lookup markiert (kein N+1).
+        $orphanIds = array_flip(app(\Platform\Seo\Services\SeoOrphanService::class)->orphanOwnUrlIds((int) $teamId));
+        $urls->each(fn (SeoUrl $url) => $url->is_orphan = isset($orphanIds[$url->id]));
+
         // Gruppieren nach Kontext (U5): die Baum-Ordnung sichtbar statt flach.
         // Jede URL landet unter ihrem/ihren Org-Knoten, der Rest unter „Ohne Kontext".
         $grouped = null;

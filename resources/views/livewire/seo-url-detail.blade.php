@@ -19,6 +19,9 @@
                 <div>
                     <h1 class="text-xl font-semibold text-gray-900">{{ $seoUrl->url }}</h1>
                     <div class="flex items-center gap-3 mt-1 text-[11px] text-gray-400">
+                        @if($isOrphan)
+                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-100" title="Ohne Zuhause — in keinem Wirkungsraum, keiner Liste, keinem Modul, an keinem Org-Knoten">⚠ verwaist</span>
+                        @endif
                         <span>{{ $seoUrl->is_own ? 'Eigene URL' : 'Wettbewerber' }}</span>
                         <span>&middot;</span>
                         <span>Priorität: {{ $seoUrl->priority }}</span>

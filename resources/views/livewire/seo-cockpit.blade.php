@@ -26,15 +26,15 @@
             <x-nx-stat label="Wirkungsräume" :value="number_format($totals['wirkungsraeume'])" hint="Steuer-Scopes" icon="heroicon-o-rocket-launch" :href="route('seo.portfolios')" />
             <x-nx-stat label="Kunden" :value="number_format($totals['customers'])" :hint="$totals['tracked'].' getrackt'" icon="heroicon-o-building-office-2" />
             <x-nx-stat label="Sichtbarkeit" :value="number_format($totals['visibility'])" icon="heroicon-o-eye" />
-            <x-nx-stat label="Offene Aufgaben" :value="number_format($totals['recs'])" hint="Empfehlungen" icon="heroicon-o-bolt" :accent="$totals['recs'] > 0 ? 'var(--nx-info)' : null" />
+            <x-nx-stat label="Verwaist" :value="number_format($ablageCount)" hint="ohne Zuhause" icon="heroicon-o-inbox" :href="$ablageCount ? route('seo.perspective.unassigned') : null" :accent="$ablageCount > 0 ? 'var(--nx-warning)' : null" />
         </div>
 
-        {{-- Ablage-CTA --}}
+        {{-- Verwaiste URLs — eigene Seiten ohne jedes Zuhause (kein Wirkungsraum, keine Liste, kein Modul, kein Org-Knoten). --}}
         @if($ablageCount > 0)
             <div class="mb-6">
-                <x-nx-callout variant="warning" title="{{ $ablageCount }} URLs warten auf Zuordnung">
-                    In der Ablage — einem Kunden zuweisen oder als Wettbewerber klassifizieren.
-                    <x-slot name="action"><x-nx-button size="sm" :href="route('seo.perspective.unassigned')">Zur Ablage</x-nx-button></x-slot>
+                <x-nx-callout variant="warning" title="{{ $ablageCount }} verwaiste {{ $ablageCount === 1 ? 'URL' : 'URLs' }}">
+                    Eigene Seiten ohne Zuhause — in keinem Wirkungsraum, keiner Liste, keinem Modul, an keinem Org-Knoten. Zuordnen oder aussortieren.
+                    <x-slot name="action"><x-nx-button size="sm" :href="route('seo.perspective.unassigned')">Ansehen</x-nx-button></x-slot>
                 </x-nx-callout>
             </div>
         @endif
