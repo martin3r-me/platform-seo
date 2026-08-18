@@ -151,6 +151,13 @@
                 @include('seo::partials.data-source-coverage', ['urls' => $members])
             </div>
 
+            {{-- Daten-Station: Matrix URL × Quelle (Aktivierung + Kosten) --}}
+            @if($view === 'messen')
+                <div class="mb-8">
+                    @include('seo::partials.wirkungsraum-daten', ['members' => $members, 'availableProfiles' => $availableProfiles])
+                </div>
+            @endif
+
             {{-- Reifegrad — der Optimierungs-Trichter (Phase = erstes Gate, das reißt) --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
                 <div class="flex items-baseline justify-between mb-3">
@@ -382,7 +389,7 @@
 
             @endif
 
-            @if(in_array($activePhase, ['messen', 'ordnen', 'verteilen']))
+            @if(in_array($activePhase, ['ordnen', 'verteilen']))
             {{-- Mitglieder --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>
             <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">

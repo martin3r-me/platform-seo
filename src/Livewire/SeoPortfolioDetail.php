@@ -1006,6 +1006,57 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Daten-Station — Inline-Aktivierung je Mitglieds-URL (Matrix URL×Quelle).
+     * Alle team-gescopt. GSC/Plausible = Opt-in + site-id/property; Rankings/
+     * On-Page/Backlinks = Profil (Tiefe/Takt/Kosten).
+     */
+    public function toggleUrlGsc(int $urlId): void
+    {
+        $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($urlId);
+        if ($u) {
+            $u->update(['gsc_enabled' => ! $u->gsc_enabled]);
+        }
+    }
+
+    public function saveUrlGscProperty(int $urlId, string $value): void
+    {
+        $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($urlId);
+        if ($u) {
+            $value = trim($value);
+            $u->update(['gsc_property' => $value !== '' ? $value : null]);
+        }
+    }
+
+    public function toggleUrlPlausible(int $urlId): void
+    {
+        $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($urlId);
+        if ($u) {
+            $u->update(['plausible_enabled' => ! $u->plausible_enabled]);
+        }
+    }
+
+    public function saveUrlPlausibleSiteId(int $urlId, string $value): void
+    {
+        $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($urlId);
+        if ($u) {
+            $value = trim($value);
+            $u->update(['plausible_site_id' => $value !== '' ? $value : null]);
+        }
+    }
+
+    public function setUrlProfile(int $urlId, string $profile): void
+    {
+        $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($urlId);
+        if (! $u) {
+            return;
+        }
+        $svc = app(\Platform\Seo\Services\SeoDataProfileService::class);
+        if ($svc->isValidProfile((bool) $u->is_own, $profile)) {
+            $u->update(['data_profile' => $profile]);
+        }
+    }
+
+    /**
      * Bestand-Sicht „Keywords": alle Keywords, für die Mitglieder dieses
      * Wirkungsraums (inkl. Unterseiten) ranken — nach Position sortiert.
      */
@@ -1067,6 +1118,9 @@ class SeoPortfolioDetail extends Component
                 : ['unfocused' => [], 'cannibalized' => []],
             'members' => $pv['members'],
             'memberTotals' => $pv['memberTotals'],
+            'availableProfiles' => $this->view === 'messen'
+                ? app(\Platform\Seo\Services\SeoDataProfileService::class)->availableProfiles(true)
+                : [],
             'agg' => $pv['agg'],
             'availableUrls' => $availableUrls,
             'penetration' => ['clusters' => $scope['clusters'], 'unclustered' => $scope['unclustered']],
