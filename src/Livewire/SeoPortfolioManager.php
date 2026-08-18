@@ -49,6 +49,24 @@ class SeoPortfolioManager extends Component
         $this->redirectRoute('seo.portfolios.show', $wr, navigate: true);
     }
 
+    /**
+     * Wirkungsraum löschen. Die kontrollierten URLs bleiben erhalten (nur die
+     * Zugehörigkeit wird gelöst); Unter-Räume werden entkoppelt (parent_id=null).
+     * Genutzt u. a., um einen fälschlich als Wirkungsraum geführten Register
+     * (z. B. Syltjunkie) sauber aus den Steuer-Scopes zu nehmen.
+     */
+    public function deletePortfolio(int $id): void
+    {
+        $wr = SeoPortfolio::where('team_id', $this->seoSettings->team_id)->find($id);
+        if (! $wr) {
+            return;
+        }
+
+        $wr->urls()->detach();
+        SeoPortfolio::where('parent_id', $wr->id)->update(['parent_id' => null]);
+        $wr->delete();
+    }
+
     public function render()
     {
         // Nur schlanke Spalten selektieren: die fetten JSON-Blobs (semantic_map,

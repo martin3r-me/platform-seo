@@ -41,10 +41,9 @@
 
             <div class="mt-5 space-y-2">
                 @forelse($items as $wr)
-                    <a href="{{ route('seo.portfolios.show', $wr->id) }}" wire:navigate
-                       class="block bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="min-w-0">
+                    <div class="bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+                        <div class="flex items-start justify-between gap-4 p-4">
+                            <a href="{{ route('seo.portfolios.show', $wr->id) }}" wire:navigate class="block min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
                                     <span class="font-medium text-[14px] text-gray-900">{{ $wr->name }}</span>
                                     @if($wr->children_count > 0)
@@ -54,7 +53,7 @@
                                 @if($wr->goal)
                                     <p class="text-[12px] text-gray-500 line-clamp-1 mt-0.5">{{ $wr->goal }}</p>
                                 @endif
-                            </div>
+                            </a>
                             <div class="shrink-0 flex items-center gap-6 text-right">
                                 <div>
                                     <div class="text-[15px] font-semibold text-gray-900 tabular-nums">{{ number_format($wr->agg_visibility, 0) }}</div>
@@ -64,9 +63,14 @@
                                     <div class="text-[15px] font-semibold text-gray-700 tabular-nums">{{ $wr->urls_count }}</div>
                                     <div class="text-[10px] uppercase tracking-wide text-gray-400">URLs</div>
                                 </div>
+                                <button wire:click="deletePortfolio({{ $wr->id }})"
+                                        wire:confirm="Wirkungsraum „{{ $wr->name }}" löschen? Die URLs bleiben erhalten — nur der Steuer-Scope wird entfernt."
+                                        class="text-gray-300 hover:text-rose-600 transition-colors" title="Wirkungsraum löschen">
+                                    @svg('heroicon-o-trash', 'w-4 h-4')
+                                </button>
                             </div>
                         </div>
-                    </a>
+                    </div>
                 @empty
                     <div class="bg-white rounded-lg border border-dashed border-gray-200 p-8 text-center">
                         <p class="text-[13px] text-gray-500">Noch kein Wirkungsraum. Ein Verbund kontrollierter URLs mit einem Ziel — hier wird ausgesteuert.</p>
