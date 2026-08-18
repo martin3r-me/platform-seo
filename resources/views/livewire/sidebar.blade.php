@@ -9,19 +9,25 @@
         </button>
     </div>
 
-    {{-- Linsen-Navigation (alle Perspektiven auf URLs + Signale) --}}
-    <x-ui-sidebar-list label="Navigation">
+    {{-- Arbeiten — die Handlungs-Schicht: der Wirkungsraum ist die Zentrale,
+         hier passiert das Meiste (der rote Faden). --}}
+    <x-ui-sidebar-list label="Arbeiten">
         <x-ui-sidebar-item :href="route('seo.dashboard')" :active="request()->routeIs('seo.dashboard')">
             @svg('heroicon-o-chart-bar-square', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Dashboard</span>
         </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('seo.portfolios')" :active="request()->routeIs('seo.portfolios') || request()->routeIs('seo.portfolios.show')">
+            @svg('heroicon-o-rocket-launch', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Wirkungsräume</span>
+        </x-ui-sidebar-item>
+    </x-ui-sidebar-list>
+
+    {{-- Nachschlagen — Referenz-/Beobachtungs-Schicht (Drill-down aus dem
+         Wirkungsraum, keine primären Ziele). --}}
+    <x-ui-sidebar-list label="Nachschlagen">
         <x-ui-sidebar-item :href="route('seo.urls')" :active="request()->routeIs('seo.urls')">
             @svg('heroicon-o-globe-alt', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Alle URLs</span>
-        </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('seo.signals')" :active="request()->routeIs('seo.signals') || request()->routeIs('seo.signals.definitions')">
-            @svg('heroicon-o-signal', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Signale</span>
         </x-ui-sidebar-item>
         <x-ui-sidebar-item :href="route('seo.clusters')" :active="request()->routeIs('seo.clusters') || request()->routeIs('seo.clusters.show')">
             @svg('heroicon-o-squares-2x2', 'w-4 h-4 text-[var(--ui-secondary)]')
@@ -31,9 +37,9 @@
             @svg('heroicon-o-document-text', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Content-Briefs</span>
         </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('seo.portfolios')" :active="request()->routeIs('seo.portfolios') || request()->routeIs('seo.portfolios.show')">
-            @svg('heroicon-o-rocket-launch', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Wirkungsräume</span>
+        <x-ui-sidebar-item :href="route('seo.signals')" :active="request()->routeIs('seo.signals') || request()->routeIs('seo.signals.definitions')">
+            @svg('heroicon-o-signal', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Signale</span>
         </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 

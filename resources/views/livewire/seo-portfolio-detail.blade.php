@@ -30,7 +30,8 @@
 
             {{-- Stationen — die 5 Arbeitsschritte am Wirkungsraum (Reifegrad-Trichter) --}}
             <div>
-                <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-2">Stationen</h3>
+                <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5 px-2">Stationen <span class="text-gray-300 normal-case font-normal">· der rote Faden</span></h3>
+                <p class="px-2 mb-1.5 text-[9px] text-gray-400 leading-tight">Daten → Ordnen → Verteilen → Handeln → Wirkung</p>
                 @foreach(['messen' => 'Daten', 'ordnen' => 'Ordnen', 'verteilen' => 'Verteilen', 'vertiefen' => 'Maßnahmen', 'konvertieren' => 'Wirkung'] as $stKey => $stLabel)
                     <button wire:click="setView('{{ $stKey }}')"
                             class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $stKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
