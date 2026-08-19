@@ -1,9 +1,18 @@
 {{-- v2-Sicht: Entitäten des Wirkungsraums — Angebot (extrahiert) UND Nachfrage
      (aus Clustern), mit Präsenz + Share of Answer + Lücken. Erwartet: $entities, $entityFlash. --}}
-<div class="mb-3 flex items-end justify-between gap-4 flex-wrap">
-    <div>
-        <h2 class="text-[13px] font-semibold text-gray-700">Entitäten <span class="text-gray-400 font-normal">· was wir besitzen × was gefragt wird</span></h2>
-        <p class="text-[11px] text-gray-400 mt-0.5 max-w-2xl"><span class="font-medium">Beantwortet</span> = wir haben eine Antwort-Einheit (aus dem Seiteninhalt). <span class="font-medium" style="color:#b45309">Lücke</span> = Nachfrage-Thema (Cluster) ohne Antwort → baubar. SERP = klassisch · AI = KI-Zitat.</p>
+<div class="mb-3 flex items-start justify-between gap-4 flex-wrap">
+    <div class="max-w-2xl">
+        <h2 class="text-[13px] font-semibold text-gray-700">Entitäten <span class="text-gray-400 font-normal">· besitzen wir das gefragte Feld?</span></h2>
+        {{-- Faden-Verortung: wo im roten Faden diese Sicht liegt + wohin sie speist --}}
+        <div class="text-[10px] text-gray-400 mt-1 flex items-center gap-1.5 flex-wrap">
+            <span>Roter Faden:</span>
+            <span class="px-1 py-0.5 rounded bg-gray-100 text-gray-500">Ordnen · Themen</span>
+            <span>→</span>
+            <span class="px-1 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Entitäten · besitzen wir sie?</span>
+            <span>→</span>
+            <button wire:click="setView('vertiefen')" class="px-1 py-0.5 rounded bg-gray-100 text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline">Maßnahmen · Lücken schließen</button>
+        </div>
+        <p class="text-[11px] text-gray-500 mt-1.5 leading-relaxed">Jedes Thema von zwei Seiten: <span style="color:#0f766e" class="font-medium">Angebot</span> = wir haben eine Antwort (aus dem echten Seiteninhalt) · <span style="color:#b45309" class="font-medium">Nachfrage</span> = es wird gesucht (aus deinen Clustern). <span class="font-medium">Beantwortet</span> = wir besitzen es; <span class="font-medium" style="color:#b45309">Lücke</span> = gefragt, aber (noch) keine Antwort → baubar. <span class="font-medium">SERP</span> = klassische Suche · <span class="font-medium">AI</span> = zitiert die KI uns.</p>
     </div>
     <div class="flex items-center gap-2 shrink-0">
         <button wire:click="syncDemandEntities" wire:loading.attr="disabled" wire:target="syncDemandEntities"
@@ -32,12 +41,15 @@
     <div class="bg-white rounded-lg border border-dashed border-gray-200 p-6 text-[12px] text-gray-500">Noch keine Entitäten. „↧ Nachfrage laden" holt die Themen (Cluster), „✨ Alle extrahieren" liest den Inhalt aller Mitglieder-Seiten.</div>
 @else
     @if(($entities['share'] ?? null) !== null)
-        <div class="mb-3 flex items-center gap-6">
+        <div class="mb-3 bg-indigo-50/40 border border-indigo-100 rounded-lg px-4 py-2.5 flex items-center gap-6 flex-wrap">
             <div>
                 <span class="text-[22px] font-semibold tabular-nums" style="color:#4f46e5">{{ $entities['share'] }}%</span>
-                <span class="text-[10px] uppercase tracking-wide text-gray-400 ml-1">Share of Answer · {{ $entities['present'] }}/{{ $entities['total'] }} präsent</span>
+                <span class="text-[10px] uppercase tracking-wide text-gray-400 ml-1">Share of Answer</span>
             </div>
-            <div class="text-[11px] text-gray-500">{{ $entities['answered'] }} beantwortet · <span style="color:#b45309">{{ $entities['total'] - $entities['answered'] }} Lücke(n)</span></div>
+            <div class="text-[11px] text-gray-600 flex-1 min-w-[220px]">
+                <span class="font-medium">Anteil der gefragten Themen, bei denen wir präsent sind</span> (SERP oder KI) — dein Besitz des Feldes.
+                <span class="text-gray-400">· {{ $entities['present'] }}/{{ $entities['total'] }} präsent · {{ $entities['answered'] }} beantwortet · <span style="color:#b45309">{{ $entities['total'] - $entities['answered'] }} Lücke(n)</span></span>
+            </div>
         </div>
     @endif
     <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
@@ -78,5 +90,8 @@
             </tbody>
         </table>
     </div>
-    <p class="mt-2 text-[10px] text-gray-400">Zeilen mit <span style="color:#b45309">Lücke</span> = Nachfrage da, aber noch keine eigene Antwort → Content bauen. 🔮 „AI fragen" = Modell-Wissen (kein Live-Web). „Experiment" sichert die Baseline für die Wirkungsmessung.</p>
+    <div class="mt-2 flex items-center justify-between gap-3 flex-wrap">
+        <p class="text-[10px] text-gray-400 max-w-2xl">Zeilen mit <span style="color:#b45309">Lücke</span> = Nachfrage da, aber noch keine eigene Antwort → Content bauen. 🔮 „AI fragen" = Modell-Wissen (kein Live-Web). „Experiment" sichert die Baseline für die Wirkungsmessung.</p>
+        <button wire:click="setView('vertiefen')" class="shrink-0 text-[11px] font-medium text-indigo-600 hover:text-indigo-800">→ Lücken &amp; GEO-Chancen werden im Posteingang zu Maßnahmen</button>
+    </div>
 @endif
