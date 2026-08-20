@@ -41,7 +41,7 @@
         <span aria-hidden="true">→</span>
         <span class="px-1.5 py-0.5 rounded bg-[color:color-mix(in_srgb,var(--nx-info)_12%,transparent)] text-[color:var(--nx-info)] font-medium">Daten · was gemessen wird</span>
         <span aria-hidden="true">→</span>
-        <button wire:click="setView('ordnen')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Ordnen</button>
+        <button wire:click="setView('organize')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Ordnen</button>
         <span class="text-[color:var(--nx-faint)]">— alles fließt aus diesen Daten.</span>
     </div>
     <p class="text-[12px] text-[color:var(--nx-muted)] mt-2 leading-relaxed">Hier steuerst du, <span class="font-medium text-[color:var(--nx-text)]">was</span> je URL gesammelt wird und <span class="font-medium text-[color:var(--nx-text)]">was es kostet</span>. <span class="font-medium text-[color:var(--nx-text)]">GSC/Plausible</span>: Zelle klicken = an/aus, „Einstellen" für site-id/Property. <span class="font-medium text-[color:var(--nx-text)]">Rankings/On-Page/Backlinks</span>: über das Profil. Zellen: <span class="font-semibold" style="color:var(--nx-success)">✓</span> Daten (Alter) · <span class="font-semibold" style="color:var(--nx-warning)">•</span> aktiv, noch keine Daten · <span style="color:var(--nx-faint)">○</span> aus.</p>

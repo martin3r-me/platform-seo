@@ -7,7 +7,7 @@
     <span>Roter Faden:</span>
     <span class="px-1.5 py-0.5 rounded bg-[color:color-mix(in_srgb,var(--nx-info)_12%,transparent)] text-[color:var(--nx-info)] font-medium">Meta · Steckbrief</span>
     <span aria-hidden="true">→</span>
-    <button wire:click="setView('messen')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Daten</button>
+    <button wire:click="setView('measure')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Daten</button>
     <span class="text-[color:var(--nx-faint)]">— zuerst klären, worum es hier geht.</span>
 </div>
 

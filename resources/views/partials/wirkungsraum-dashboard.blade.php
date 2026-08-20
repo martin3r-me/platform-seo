@@ -83,7 +83,7 @@
     <x-nx-card>
         <div class="flex items-baseline justify-between">
             <div class="text-[10px] font-medium uppercase tracking-wide text-[color:var(--nx-faint)]">Durchdringung</div>
-            <button wire:click="setView('ordnen')" class="text-[11px] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Ordnen →</button>
+            <button wire:click="setView('organize')" class="text-[11px] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Ordnen →</button>
         </div>
         @if($clusterCount > 0)
             <div class="mt-1 flex items-baseline gap-1">
@@ -122,7 +122,7 @@
         </button>
 
         {{-- Ungeclusterter Rest (schon vorhanden) --}}
-        <button wire:click="setView('ordnen')" class="text-left rounded-md border px-3 py-2.5 transition-colors {{ $unclKw > 0 ? 'border-[color:var(--nx-line)] hover:border-[color:var(--nx-warning)]' : 'border-[color:var(--nx-line)] opacity-70' }}">
+        <button wire:click="setView('organize')" class="text-left rounded-md border px-3 py-2.5 transition-colors {{ $unclKw > 0 ? 'border-[color:var(--nx-line)] hover:border-[color:var(--nx-warning)]' : 'border-[color:var(--nx-line)] opacity-70' }}">
             <div class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)]">Ungeclusterter Rest</div>
             @if($unclKw > 0)
                 <div class="mt-0.5 flex items-baseline gap-1.5">
@@ -137,7 +137,7 @@
         </button>
 
         {{-- Posteingang --}}
-        <button wire:click="setView('vertiefen')" class="text-left rounded-md border px-3 py-2.5 transition-colors {{ $proposed > 0 ? 'border-[color:var(--nx-line)] hover:border-[color:var(--nx-info)]' : 'border-[color:var(--nx-line)] opacity-70' }}">
+        <button wire:click="setView('act')" class="text-left rounded-md border px-3 py-2.5 transition-colors {{ $proposed > 0 ? 'border-[color:var(--nx-line)] hover:border-[color:var(--nx-info)]' : 'border-[color:var(--nx-line)] opacity-70' }}">
             <div class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)]">Posteingang</div>
             @if($proposed > 0)
                 <div class="mt-0.5 flex items-baseline gap-1.5">

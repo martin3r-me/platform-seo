@@ -65,7 +65,7 @@ class SeoPortfolioDetail extends Component
      */
     public string $view = 'dashboard';
 
-    private const PHASES = ['messen', 'ordnen', 'verteilen', 'vertiefen', 'konvertieren'];
+    private const PHASES = ['measure', 'organize', 'distribute', 'act', 'impact'];
     private const BESTAND = ['keywords', 'clusters', 'competitors', 'entities'];
 
     /** Rückmeldung in der Entitäten-Sicht (Experiment/AI-Probe). */
@@ -1506,20 +1506,20 @@ class SeoPortfolioDetail extends Component
             'activePhase' => $activePhase,
             'activePhaseLabel' => $activePhaseLabel,
             'bestandKeywords' => $this->view === 'keywords' ? $this->bestandKeywords($effectiveIds) : collect(),
-            'pageHealth' => $activePhase === 'verteilen'
+            'pageHealth' => $activePhase === 'distribute'
                 ? $this->pageHealth($effectiveIds)
                 : ['unfocused' => [], 'cannibalized' => []],
             'members' => $pv['members'],
             'memberTotals' => $pv['memberTotals'],
-            'availableProfiles' => ($this->view === 'messen' || $this->showDataSettings)
+            'availableProfiles' => ($this->view === 'measure' || $this->showDataSettings)
                 ? app(\Platform\Seo\Services\SeoDataProfileService::class)->availableProfiles(true)
                 : [],
             'dataSettingsUrl' => ($this->showDataSettings && $this->openDataUrlId)
                 ? SeoUrl::where('team_id', $this->seoSettings->team_id)->find($this->openDataUrlId)
                 : null,
-            'board' => $this->view === 'verteilen' ? $this->orchestrationBoard($pv['members']) : ['rows' => []],
+            'board' => $this->view === 'distribute' ? $this->orchestrationBoard($pv['members']) : ['rows' => []],
             'entities' => $this->view === 'entities' ? $this->wirkungsraumEntities($pv['members']) : ['rows' => [], 'total' => 0, 'present' => 0, 'share' => null],
-            'measures' => $this->view === 'vertiefen'
+            'measures' => $this->view === 'act'
                 ? SeoPortfolioMeasure::where('portfolio_id', $this->portfolio->id)
                     ->with(['targetUrl', 'targetCluster'])
                     ->orderByRaw("FIELD(status,'proposed','accepted','released','done','rejected')")

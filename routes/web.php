@@ -54,7 +54,7 @@ Route::get('/lists/{seoUrlList}/signals', SeoSignalIndex::class)->name('seo.list
 // Wirkungsräume (Steuer-Scopes)
 Route::get('/portfolios', SeoPortfolioManager::class)->name('seo.portfolios');
 Route::get('/portfolios/{seoPortfolio}', SeoPortfolioDetail::class)->name('seo.portfolios.show');
-Route::get('/portfolios/{seoPortfolio}/posteingang', SeoPortfolioInbox::class)->name('seo.portfolios.inbox');
+Route::get('/portfolios/{seoPortfolio}/inbox', SeoPortfolioInbox::class)->name('seo.portfolios.inbox');
 Route::get('/portfolios/{seoPortfolio}/kosmos', SeoKosmos::class)->name('seo.portfolios.kosmos');
 
 // URL-Kontext

@@ -30,7 +30,7 @@
                 <span class="text-[10px] text-gray-400 w-3">◈</span>
                 <span class="flex-1 text-left">Meta <span class="text-gray-400 font-normal">· Steckbrief</span></span>
             </a>
-            @foreach(['messen' => 'Daten', 'ordnen' => 'Ordnen', 'verteilen' => 'Verteilen', 'konvertieren' => 'Wirkung'] as $stKey => $stLabel)
+            @foreach(['measure' => 'Daten', 'organize' => 'Ordnen', 'distribute' => 'Verteilen', 'impact' => 'Wirkung'] as $stKey => $stLabel)
                 <a href="{{ route('seo.portfolios.show', ['seoPortfolio' => $portfolio, 'view' => $stKey]) }}" wire:navigate class="{{ $navBtn($active === $stKey) }}">
                     <span class="text-[10px] tabular-nums text-gray-400 w-3">{{ $loop->iteration }}</span>
                     <span class="flex-1 text-left">{{ $stLabel }}</span>

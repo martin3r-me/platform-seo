@@ -10,7 +10,7 @@
             <span>→</span>
             <span class="px-1 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Entitäten · besitzen wir sie?</span>
             <span>→</span>
-            <button wire:click="setView('vertiefen')" class="px-1 py-0.5 rounded bg-gray-100 text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline">Maßnahmen · Lücken schließen</button>
+            <button wire:click="setView('act')" class="px-1 py-0.5 rounded bg-gray-100 text-gray-500 hover:text-gray-800 underline-offset-2 hover:underline">Maßnahmen · Lücken schließen</button>
         </div>
         <p class="text-[11px] text-gray-500 mt-1.5 leading-relaxed">Jedes Thema von zwei Seiten: <span style="color:#0f766e" class="font-medium">Angebot</span> = wir haben eine Antwort (aus dem echten Seiteninhalt) · <span style="color:#b45309" class="font-medium">Nachfrage</span> = es wird gesucht (aus deinen Clustern). <span class="font-medium">Beantwortet</span> = wir besitzen es; <span class="font-medium" style="color:#b45309">Lücke</span> = gefragt, aber (noch) keine Antwort → baubar. <span class="font-medium">SERP</span> = klassische Suche · <span class="font-medium">AI</span> = zitiert die KI uns.</p>
     </div>
@@ -92,6 +92,6 @@
     </div>
     <div class="mt-2 flex items-center justify-between gap-3 flex-wrap">
         <p class="text-[10px] text-gray-400 max-w-2xl">Zeilen mit <span style="color:#b45309">Lücke</span> = Nachfrage da, aber noch keine eigene Antwort → Content bauen. 🔮 „AI fragen" = Modell-Wissen (kein Live-Web). „Experiment" sichert die Baseline für die Wirkungsmessung.</p>
-        <button wire:click="setView('vertiefen')" class="shrink-0 text-[11px] font-medium text-indigo-600 hover:text-indigo-800">→ Lücken &amp; GEO-Chancen werden im Posteingang zu Maßnahmen</button>
+        <button wire:click="setView('act')" class="shrink-0 text-[11px] font-medium text-indigo-600 hover:text-indigo-800">→ Lücken &amp; GEO-Chancen werden im Posteingang zu Maßnahmen</button>
     </div>
 @endif

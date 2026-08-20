@@ -46,7 +46,7 @@
                     <span class="text-[10px] text-gray-400 w-3">◈</span>
                     <span class="flex-1 text-left">Meta <span class="text-gray-400 font-normal">· Steckbrief</span></span>
                 </button>
-                @foreach(['messen' => 'Daten', 'ordnen' => 'Ordnen', 'verteilen' => 'Verteilen', 'vertiefen' => 'Maßnahmen', 'konvertieren' => 'Wirkung'] as $stKey => $stLabel)
+                @foreach(['measure' => 'Daten', 'organize' => 'Ordnen', 'distribute' => 'Verteilen', 'act' => 'Maßnahmen', 'impact' => 'Wirkung'] as $stKey => $stLabel)
                     <button wire:click="setView('{{ $stKey }}')"
                             class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $stKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
                         <span class="text-[10px] tabular-nums text-gray-400 w-3">{{ $loop->iteration }}</span>
@@ -83,7 +83,7 @@
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
                     {{-- „Verteilung vorschlagen" ist eine Verteilen-Aktion — nur dort, nicht überall. --}}
-                    @if($view === 'verteilen')
+                    @if($view === 'distribute')
                         @if($health['can_distribute'])
                             <button wire:click="analyze" wire:target="analyze" wire:loading.attr="disabled"
                                     class="text-[13px] font-medium px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
@@ -150,7 +150,7 @@
 
             {{-- Auf der Daten-Station steht nur die Daten-Matrix (unten). KPIs/Abdeckung/Reifegrad/
                  Verbund gehören auf ihre jeweiligen Stationen, nicht hierher. --}}
-            @if(! in_array($view, ['messen', 'ordnen']))
+            @if(! in_array($view, ['measure', 'organize']))
             {{-- Aggregat-KPIs (Property-Ebene: Mitglieder inkl. eigener Unterseiten, dedupliziert) --}}
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-1">
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
@@ -176,17 +176,17 @@
             <div class="mb-6">
                 @include('seo::partials.data-source-coverage', ['urls' => $members])
             </div>
-            @endif {{-- /$view !== 'messen' (KPIs + Abdeckung) --}}
+            @endif {{-- /$view !== 'measure' (KPIs + Abdeckung) --}}
 
             {{-- Daten-Station: Matrix URL × Quelle (Aktivierung + Kosten) --}}
-            @if($view === 'messen')
+            @if($view === 'measure')
                 <div class="mb-8">
                     @include('seo::partials.wirkungsraum-daten', ['members' => $members, 'availableProfiles' => $availableProfiles, 'openDataUrlId' => $openDataUrlId, 'dataGscProperty' => $dataGscProperty, 'dataPlausibleSiteId' => $dataPlausibleSiteId])
                 </div>
             @endif
 
             {{-- Maßnahmen-Station: der Posteingang — die Zentrale des Wirkungsraums --}}
-            @if($view === 'vertiefen')
+            @if($view === 'act')
                 <div class="mb-8">
                     @include('seo::partials.wirkungsraum-posteingang', ['measures' => $measures, 'measureFlash' => $measureFlash])
                 </div>
@@ -194,10 +194,10 @@
 
             {{-- Ab hier folgt der stationsübergreifende Dashboard-Block (Reifegrad, Verbund,
                  Wirkung, Rollen, Board …). Auf der Daten-Station ausgeblendet. --}}
-            @if($view !== 'messen')
+            @if($view !== 'measure')
 
             {{-- Reifegrad + Verbund-Entwicklung gehören auf die Überblick-Sicht, nicht auf Ordnen. --}}
-            @if($view !== 'ordnen')
+            @if($view !== 'organize')
             {{-- Reifegrad — der Optimierungs-Trichter (Phase = erstes Gate, das reißt) --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
                 <div class="flex items-baseline justify-between mb-3">
@@ -301,9 +301,9 @@
                     </div>
                 @endif
             </div>
-            @endif {{-- /$view !== 'ordnen' (Reifegrad + Verbund) --}}
+            @endif {{-- /$view !== 'organize' (Reifegrad + Verbund) --}}
 
-            @if(in_array($activePhase, ['konvertieren']))
+            @if(in_array($activePhase, ['impact']))
             {{-- Wirkung im Verbund — die Plausible-Fakten aufs Portfolio gehoben --}}
             @if($verbundWirkung['has_data'])
                 <div class="mb-6">
@@ -430,7 +430,7 @@
 
             @endif
 
-            @if($activePhase === 'verteilen')
+            @if($activePhase === 'distribute')
             {{-- Rollen im Verbund — Fundament der Orchestrierung: wer spielt welche Rolle --}}
             <div class="mb-8">
                 <h2 class="text-[13px] font-semibold text-gray-700">Rollen im Verbund</h2>
@@ -465,14 +465,14 @@
             </div>
             @endif
 
-            @if($activePhase === 'verteilen')
+            @if($activePhase === 'distribute')
             {{-- Orchestrierungs-Board: Thema × Property (Owner küren, Kannibalisierung, Pillar) --}}
             <div class="mb-8">
                 @include('seo::partials.wirkungsraum-board', ['board' => $board])
             </div>
             @endif
 
-            @if($activePhase === 'verteilen')
+            @if($activePhase === 'distribute')
             {{-- Mitglieder — Property-Liste; gehört zu Daten/Verteilen, nicht auf Ordnen (dort zählt die Werkbank). --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>
             <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
@@ -515,22 +515,22 @@
             @endif
 
             {{-- Ordnen-Intro: selbst-erklärend + Faden-Verortung (nur auf der Station selbst). --}}
-            @if($view === 'ordnen')
+            @if($view === 'organize')
                 <div class="mb-4 max-w-2xl">
                     <h2 class="text-[13px] font-semibold text-[color:var(--nx-text)]">Ordnen <span class="text-[color:var(--nx-faint)] font-normal">· die Nachfrage in Themen bündeln</span></h2>
                     <div class="text-[10px] text-[color:var(--nx-faint)] mt-1 flex items-center gap-1.5 flex-wrap">
                         <span>Roter Faden:</span>
-                        <button wire:click="setView('messen')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Daten</button>
+                        <button wire:click="setView('measure')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Daten</button>
                         <span aria-hidden="true">→</span>
                         <span class="px-1.5 py-0.5 rounded bg-[color:color-mix(in_srgb,var(--nx-info)_12%,transparent)] text-[color:var(--nx-info)] font-medium">Ordnen · Themen bauen</span>
                         <span aria-hidden="true">→</span>
-                        <button wire:click="setView('verteilen')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Verteilen</button>
+                        <button wire:click="setView('distribute')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Verteilen</button>
                     </div>
                     <p class="text-[12px] text-[color:var(--nx-muted)] mt-2 leading-relaxed">Hier wird aus loser Nachfrage eine <span class="font-medium text-[color:var(--nx-text)]">Themen-Architektur</span>. Die <span class="font-medium text-[color:var(--nx-text)]">Durchdringung</span> zeigt, wie tief jedes bestehende Thema besetzt ist; die <span class="font-medium text-[color:var(--nx-text)]">semantische Karte</span> schlägt aus den Keyword-Bedeutungen neue Felder vor — „übernehmen" prüft per SERP und macht daraus einen echten Cluster (umkehrbar). Ungeclusterter Rest lässt sich gebündelt nach-clustern.</p>
                 </div>
             @endif
 
-            @if($activePhase === 'ordnen')
+            @if($activePhase === 'organize')
             {{-- Durchdringung je Cluster (IST rankend / SOLL laut Cluster) --}}
             @if($penetration['clusters']->isNotEmpty() || $penetration['unclustered'])
                 <div class="mt-8">
@@ -590,7 +590,7 @@
 
             @endif
 
-            @if(in_array($activePhase, ['ordnen', 'verteilen']))
+            @if(in_array($activePhase, ['organize', 'distribute']))
             {{-- Semantische Karte — die Wirkungsraum-Linse auf die Keyword-Bedeutungen (Slice 2) --}}
             <div class="mb-8" {{ (($semantic['status'] ?? null) === 'running' || ($portfolio->clustering_status ?? null) === 'running') ? 'wire:poll.5s' : '' }}>
                 <div class="flex items-start justify-between gap-3 mb-1">
@@ -800,7 +800,7 @@
                 </x-slot>
             </x-ui-modal>
 
-            @if($activePhase === 'verteilen')
+            @if($activePhase === 'distribute')
             {{-- Seiten-Gesundheit (Angebots-Achse): unfokussierte Seiten + konkrete Kannibalisierung --}}
             <div class="mb-8">
                 <div class="flex items-baseline justify-between gap-3 mb-1">
@@ -871,7 +871,7 @@
             </div>
             @endif
 
-            @if($activePhase === 'verteilen')
+            @if($activePhase === 'distribute')
             {{-- Wettbewerber-Benchmark (der Markt um den Verbund) --}}
             @if($competitors->isNotEmpty())
                 <div class="mt-8">
@@ -916,7 +916,7 @@
             @endif
 
             <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: KI-Vorschläge in Aktionen (Cluster-Owner, Briefs) · Snapshots im Takt der Datensammlung.</p>
-            @endif {{-- /$view !== 'messen' (Dashboard-Block) --}}
+            @endif {{-- /$view !== 'measure' (Dashboard-Block) --}}
 
             @endif {{-- /Stationen ($station) --}}
 

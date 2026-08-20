@@ -60,29 +60,29 @@ class SeoPortfolioHealth
 
         $defs = [
             [
-                'key' => 'messen', 'label' => 'Daten', 'met' => $hasData,
+                'key' => 'measure', 'label' => 'Daten', 'met' => $hasData,
                 'action' => 'Rankings/Keywords ziehen',
                 'why' => 'Noch keine Ranking-Daten — erst messen.',
             ],
             [
-                'key' => 'ordnen', 'label' => 'Ordnen', 'met' => $ordnungOk,
+                'key' => 'organize', 'label' => 'Ordnen', 'met' => $ordnungOk,
                 'action' => 'Ungeclusterten Rest clustern',
                 'why' => "Erst ordnen — {$ordnung}% geordnet (Ziel ≥ {$ordnungsgradMin}%).",
             ],
             [
-                'key' => 'verteilen', 'label' => 'Verteilen', 'met' => $ownersOk,
+                'key' => 'distribute', 'label' => 'Verteilen', 'met' => $ownersOk,
                 'action' => 'Verteilung vorschlagen · Cluster-Owner zuweisen',
                 'why' => $clustersWithoutOwner > 0
                     ? "{$clustersWithoutOwner} Cluster ohne Owner — zuweisen, entkannibalisieren."
                     : 'Themen auf Owner-Seiten verteilen.',
             ],
             [
-                'key' => 'vertiefen', 'label' => 'Maßnahmen', 'met' => $durchOk,
+                'key' => 'act', 'label' => 'Maßnahmen', 'met' => $durchOk,
                 'action' => 'Lücken schließen (Content-Briefs)',
                 'why' => "Durchdringung Ø {$durchdringung}% (Ziel ≥ {$durchdringungMin}%) — IST/SOLL-Lücken schließen.",
             ],
             [
-                'key' => 'konvertieren', 'label' => 'Wirkung', 'met' => $wirkungOk, 'future' => ! $hasConversionData,
+                'key' => 'impact', 'label' => 'Wirkung', 'met' => $wirkungOk, 'future' => ! $hasConversionData,
                 'action' => $hasConversionData
                     ? 'Conversion-schwache Landingpages heben, starke ausbauen'
                     : 'Wirkungsdaten erschließen (Plausible-Ziele aktivieren)',

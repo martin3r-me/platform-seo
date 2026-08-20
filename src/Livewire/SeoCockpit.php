@@ -274,7 +274,7 @@ class SeoCockpit extends Component
         }
 
         // Dringlichkeit: frühe Trichter-Phase zuerst, dann nach Sichtbarkeit (Hebelmasse).
-        $order = ['messen' => 0, 'ordnen' => 1, 'verteilen' => 2, 'vertiefen' => 3, 'konvertieren' => 4];
+        $order = ['measure' => 0, 'organize' => 1, 'distribute' => 2, 'act' => 3, 'impact' => 4];
         usort($rows, fn ($a, $b) => (($order[$a['phase_key']] ?? 9) <=> ($order[$b['phase_key']] ?? 9))
             ?: ($b['visibility'] <=> $a['visibility']));
 

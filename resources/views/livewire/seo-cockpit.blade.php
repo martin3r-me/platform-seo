@@ -63,7 +63,7 @@
                     </x-nx-table-header>
                     <x-nx-table-body>
                         @foreach($wirkungsraeume as $wr)
-                            @php($__phaseTone = ['messen' => 'var(--nx-info)', 'ordnen' => 'var(--nx-warning)', 'verteilen' => 'var(--nx-info)', 'vertiefen' => 'var(--nx-info)', 'konvertieren' => 'var(--nx-success)'][$wr['phase_key']] ?? 'var(--nx-faint)')
+                            @php($__phaseTone = ['measure' => 'var(--nx-info)', 'organize' => 'var(--nx-warning)', 'distribute' => 'var(--nx-info)', 'act' => 'var(--nx-info)', 'impact' => 'var(--nx-success)'][$wr['phase_key']] ?? 'var(--nx-faint)')
                             <x-nx-table-row>
                                 <x-nx-table-cell>
                                     <a href="{{ route('seo.portfolios.show', $wr['id']) }}" wire:navigate class="block truncate max-w-[220px] font-medium text-[color:var(--nx-text)] hover:underline">{{ $wr['name'] }}</a>
