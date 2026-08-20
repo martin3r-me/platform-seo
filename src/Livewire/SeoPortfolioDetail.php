@@ -71,8 +71,10 @@ class SeoPortfolioDetail extends Component
     /** Rückmeldung in der Entitäten-Sicht (Experiment/AI-Probe). */
     public ?string $entityFlash = null;
 
-    /** Daten-Matrix: welche URL-Settings-Zeile offen ist + ihre Felder. */
+    /** Daten-Matrix: welche URL im Settings-Modal offen ist + ihre Felder. */
+    public bool $showDataSettings = false;
     public ?int $openDataUrlId = null;
+    public string $dataUrlLabel = '';
     public string $dataGscProperty = '';
     public string $dataPlausibleSiteId = '';
 
@@ -1102,24 +1104,32 @@ class SeoPortfolioDetail extends Component
         }
     }
 
-    /**
-     * Daten-Matrix: Settings-Zeile einer URL auf-/zuklappen (Livewire-State,
-     * übersteht Re-Renders — Alpine-Geschwister-Scope funktioniert in Tabellen nicht).
-     */
-    public function toggleDataSettings(int $urlId): void
+    /** Daten-Matrix: Datenquellen-Einstellungen einer URL im NX-Modal öffnen. */
+    public function openDataSettings(int $urlId): void
     {
-        if ($this->openDataUrlId === $urlId) {
-            $this->openDataUrlId = null;
-
-            return;
-        }
         $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($urlId);
         if (! $u) {
             return;
         }
         $this->openDataUrlId = $urlId;
+        $this->dataUrlLabel = (string) $u->display_label;
         $this->dataGscProperty = (string) ($u->gsc_property ?? '');
         $this->dataPlausibleSiteId = (string) ($u->plausible_site_id ?? '');
+        $this->showDataSettings = true;
+    }
+
+    public function closeDataSettings(): void
+    {
+        $this->showDataSettings = false;
+        $this->openDataUrlId = null;
+    }
+
+    /** Beim Schließen über Backdrop/X (wire:model) die Auswahl mit aufräumen. */
+    public function updatedShowDataSettings(bool $value): void
+    {
+        if (! $value) {
+            $this->openDataUrlId = null;
+        }
     }
 
     public function saveDataGsc(): void
@@ -1478,9 +1488,12 @@ class SeoPortfolioDetail extends Component
                 : ['unfocused' => [], 'cannibalized' => []],
             'members' => $pv['members'],
             'memberTotals' => $pv['memberTotals'],
-            'availableProfiles' => $this->view === 'messen'
+            'availableProfiles' => ($this->view === 'messen' || $this->showDataSettings)
                 ? app(\Platform\Seo\Services\SeoDataProfileService::class)->availableProfiles(true)
                 : [],
+            'dataSettingsUrl' => ($this->showDataSettings && $this->openDataUrlId)
+                ? SeoUrl::where('team_id', $this->seoSettings->team_id)->find($this->openDataUrlId)
+                : null,
             'board' => $this->view === 'verteilen' ? $this->orchestrationBoard($pv['members']) : ['rows' => []],
             'entities' => $this->view === 'entities' ? $this->wirkungsraumEntities($pv['members']) : ['rows' => [], 'total' => 0, 'present' => 0, 'share' => null],
             'measures' => $this->view === 'vertiefen'

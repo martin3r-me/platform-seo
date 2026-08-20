@@ -4,7 +4,6 @@
      $dataPlausibleSiteId. Durchgaengig Block-Direktiven. --}}
 @php
     $costSvc = app(\Platform\Seo\Services\SeoCostProjectionService::class);
-    $profileSvc = app(\Platform\Seo\Services\SeoDataProfileService::class);
 
     // Zell-Status: satter Kontrast, damit die Matrix in einer Sekunde lesbar ist.
     $pill = function (array $info, bool $enabled) {
@@ -17,7 +16,7 @@
         if (! $enabled) {
             return ['sym' => '○', 'color' => 'var(--nx-faint)', 'text' => 'aus', 'strong' => false];
         }
-        return ['sym' => '⏳', 'color' => 'var(--nx-warning)', 'text' => 'aktiv, noch keine Daten', 'strong' => false];
+        return ['sym' => '•', 'color' => 'var(--nx-warning)', 'text' => 'aktiv, noch keine Daten', 'strong' => true];
     };
 
     $centsById = [];
@@ -45,7 +44,7 @@
         <button wire:click="setView('ordnen')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Ordnen</button>
         <span class="text-[color:var(--nx-faint)]">— alles fließt aus diesen Daten.</span>
     </div>
-    <p class="text-[12px] text-[color:var(--nx-muted)] mt-2 leading-relaxed">Hier steuerst du, <span class="font-medium text-[color:var(--nx-text)]">was</span> je URL gesammelt wird und <span class="font-medium text-[color:var(--nx-text)]">was es kostet</span>. <span class="font-medium text-[color:var(--nx-text)]">GSC/Plausible</span>: Zelle klicken = an/aus, „Einstellen" für site-id/Property. <span class="font-medium text-[color:var(--nx-text)]">Rankings/On-Page/Backlinks</span>: über das Profil. Zellen: <span class="font-semibold" style="color:var(--nx-success)">✓</span> Daten (Alter) · <span style="color:var(--nx-warning)">⏳</span> aktiv, noch keine Daten · <span style="color:var(--nx-faint)">○</span> aus.</p>
+    <p class="text-[12px] text-[color:var(--nx-muted)] mt-2 leading-relaxed">Hier steuerst du, <span class="font-medium text-[color:var(--nx-text)]">was</span> je URL gesammelt wird und <span class="font-medium text-[color:var(--nx-text)]">was es kostet</span>. <span class="font-medium text-[color:var(--nx-text)]">GSC/Plausible</span>: Zelle klicken = an/aus, „Einstellen" für site-id/Property. <span class="font-medium text-[color:var(--nx-text)]">Rankings/On-Page/Backlinks</span>: über das Profil. Zellen: <span class="font-semibold" style="color:var(--nx-success)">✓</span> Daten (Alter) · <span class="font-semibold" style="color:var(--nx-warning)">•</span> aktiv, noch keine Daten · <span style="color:var(--nx-faint)">○</span> aus.</p>
 </div>
 
 @if($members->isEmpty())
@@ -79,8 +78,6 @@
                         $back = $pill($fresh['backlinks'] ?? [], $profileActive);
                         $gscP = $pill($fresh['gsc'] ?? [], (bool) $u->gsc_enabled);
                         $plaP = $pill($fresh['plausible'] ?? [], (bool) $u->plausible_enabled);
-                        $eff = $profileSvc->effectiveProfile($u);
-                        $isOpen = $openDataUrlId === $u->id;
                     @endphp
                     <x-nx-table-row wire:key="data-{{ $u->id }}">
                         <x-nx-table-cell>
@@ -93,45 +90,9 @@
                         <x-nx-table-cell align="center"><button wire:click="toggleUrlPlausible({{ $u->id }})" class="hover:opacity-60 {{ $plaP['strong'] ? 'font-semibold' : '' }}" style="color:{{ $plaP['color'] }}" title="Plausible {{ $u->plausible_enabled ? 'aktiv' : 'aus' }} · {{ $plaP['text'] }} — klick zum Umschalten">{{ $plaP['sym'] }}</button></x-nx-table-cell>
                         <x-nx-table-cell align="right"><span class="tabular-nums text-[color:var(--nx-muted)]">{{ number_format(($centsById[$u->id] ?? 0) / 100, 2, ',', '.') }}</span></x-nx-table-cell>
                         <x-nx-table-cell align="right">
-                            <button wire:click="toggleDataSettings({{ $u->id }})" class="text-[12px] font-medium {{ $isOpen ? 'text-[color:var(--nx-text)]' : 'text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]' }}">{{ $isOpen ? 'schließen ▴' : 'Einstellen' }}</button>
+                            <button wire:click="openDataSettings({{ $u->id }})" class="text-[12px] font-medium text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Einstellen</button>
                         </x-nx-table-cell>
                     </x-nx-table-row>
-                    @if($isOpen)
-                        <x-nx-table-row wire:key="data-settings-{{ $u->id }}">
-                            <x-nx-table-cell colspan="8">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 py-1">
-                                    <div>
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <span class="text-[11px] font-medium uppercase tracking-wide text-[color:var(--nx-faint)]">GSC</span>
-                                            <button wire:click="toggleUrlGsc({{ $u->id }})" class="text-[11px] px-2 py-0.5 rounded {{ $u->gsc_enabled ? 'text-[color:var(--nx-bg)]' : 'text-[color:var(--nx-muted)]' }}" style="background:{{ $u->gsc_enabled ? 'var(--nx-info)' : 'var(--nx-line)' }}">{{ $u->gsc_enabled ? 'aktiv' : 'aus' }}</button>
-                                        </div>
-                                        <div class="flex items-center gap-1.5">
-                                            <input type="text" wire:model="dataGscProperty" placeholder="Property (leer = Domain)" class="flex-1 min-w-0 text-[12px] rounded-md px-2 py-1.5 bg-[color:var(--nx-bg)] border border-[color:var(--nx-line)] text-[color:var(--nx-text)] focus:outline-none focus:border-[color:var(--nx-info)]" />
-                                            <x-nx-button size="sm" wire:click="saveDataGsc">OK</x-nx-button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <span class="text-[11px] font-medium uppercase tracking-wide text-[color:var(--nx-faint)]">Plausible</span>
-                                            <button wire:click="toggleUrlPlausible({{ $u->id }})" class="text-[11px] px-2 py-0.5 rounded {{ $u->plausible_enabled ? 'text-[color:var(--nx-bg)]' : 'text-[color:var(--nx-muted)]' }}" style="background:{{ $u->plausible_enabled ? 'var(--nx-info)' : 'var(--nx-line)' }}">{{ $u->plausible_enabled ? 'aktiv' : 'aus' }}</button>
-                                        </div>
-                                        <div class="flex items-center gap-1.5">
-                                            <input type="text" wire:model="dataPlausibleSiteId" placeholder="site-id (leer = Domain)" class="flex-1 min-w-0 text-[12px] rounded-md px-2 py-1.5 bg-[color:var(--nx-bg)] border border-[color:var(--nx-line)] text-[color:var(--nx-text)] focus:outline-none focus:border-[color:var(--nx-info)]" />
-                                            <x-nx-button size="sm" wire:click="saveDataPlausible">OK</x-nx-button>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="text-[11px] font-medium uppercase tracking-wide text-[color:var(--nx-faint)] mb-1.5">Profil <span class="normal-case font-normal">(Tiefe &amp; Kosten)</span></div>
-                                        <select x-on:change="$wire.setUrlProfile({{ $u->id }}, $event.target.value)" class="w-full text-[12px] rounded-md px-2 py-1.5 bg-[color:var(--nx-bg)] border border-[color:var(--nx-line)] text-[color:var(--nx-text)] focus:outline-none focus:border-[color:var(--nx-info)]">
-                                            @foreach($availableProfiles as $p)
-                                                <option value="{{ $p }}" @selected($eff === $p)>{{ ucfirst($p) }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                </div>
-                            </x-nx-table-cell>
-                        </x-nx-table-row>
-                    @endif
                 @endforeach
             </x-nx-table-body>
         </x-nx-table>
