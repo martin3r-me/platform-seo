@@ -40,6 +40,7 @@ class SeoServiceProvider extends ServiceProvider
                 \Platform\Seo\Console\Commands\DispatchSignals::class,
                 \Platform\Seo\Console\Commands\ReconcileContentBriefs::class,
                 \Platform\Seo\Console\Commands\ClassifyIntent::class,
+                \Platform\Seo\Console\Commands\SyncGeoCatalog::class,
                 \Platform\Seo\Console\Commands\MigrateDataProfiles::class,
                 \Platform\Seo\Console\Commands\RefreshCompetitorFootprints::class,
                 \Platform\Seo\Console\Commands\ArchiveLegacySignals::class,
