@@ -1,4 +1,4 @@
-@props(['clusters' => null, 'coverage' => null])
+@props(['clusters' => null, 'coverage' => null, 'onlyClusters' => false])
 
 {{--
     Gemeinsames Scope-Panel — Ordnungsgrad + Durchdringung je Cluster (NX-Sprache).
@@ -12,7 +12,7 @@
     $barColor = fn ($pct) => $pct >= 70 ? 'var(--nx-success)' : ($pct >= 30 ? 'var(--nx-warning)' : 'var(--nx-faint)');
 @endphp
 
-@if(($cov['total'] ?? 0) > 0)
+@if(! $onlyClusters && ($cov['total'] ?? 0) > 0)
     <x-nx-card class="mb-3">
         <div class="flex items-center justify-between mb-1.5">
             <span class="text-[12px] font-medium text-[color:var(--nx-text)]">Ordnungsgrad</span>
