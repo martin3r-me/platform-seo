@@ -419,6 +419,13 @@ class SeoUrlDetail extends Component
             ->values();
     }
 
+    /** Nach dem Speichern des SEO-Ziels neu rendern (Badges aktualisieren). */
+    #[\Livewire\Attributes\On('url-target-saved')]
+    public function onTargetSaved(): void
+    {
+        // Kein State nötig — der Re-Render liest die frischen Dimensionen.
+    }
+
     public function render()
     {
         $data = $this->getChildData();

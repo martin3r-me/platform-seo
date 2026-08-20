@@ -160,6 +160,48 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Wirkungsraum-Dimensionen (URL-Ebene)
+    |--------------------------------------------------------------------------
+    | Fester Satz an Nachfrage-Achsen, auf denen eine URL ihr SEO-Ziel
+    | deklariert. Fix zur Laufzeit, erweiterbar hier zur Dev-Zeit (Speicherung
+    | ist Key-Value in seo_url_dimensions → neuer Slot = keine Migration).
+    | `kern` = Pflicht-Wurzelbegriff · `geo` = Wert kommt aus seo_geo_locations
+    | · `multi` = mehrere Werte erlaubt. GEO ist nur eine Facette, kein
+    | Sonderfall; „Marke" ist bewusst KEINE Dimension (branded = Flag am
+    | Basis-Cluster, Intent klassifiziert es ohnehin).
+    */
+    'dimensions' => [
+        'basis' => [
+            'label' => 'Basis',
+            'hint' => 'Der Wurzel-Begriff, den die Seite besitzen soll (z. B. „catering").',
+            'kern' => true,
+            'multi' => true,
+        ],
+        'geo' => [
+            'label' => 'GEO',
+            'hint' => 'Ort/Region aus dem Geo-Katalog — steuert die Ortsvarianten der Keywords.',
+            'geo' => true,
+            'multi' => false,
+        ],
+        'anlass' => [
+            'label' => 'Anlass',
+            'hint' => 'z. B. Hochzeit, Firmenfeier, Weihnachtsfeier.',
+            'multi' => true,
+        ],
+        'typ' => [
+            'label' => 'Typ / Format',
+            'hint' => 'z. B. mobil, Venue, Fingerfood, Foodtruck.',
+            'multi' => true,
+        ],
+        'zielgruppe' => [
+            'label' => 'Zielgruppe',
+            'hint' => 'z. B. B2B, Privat.',
+            'multi' => true,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Signal Detection Thresholds
     |--------------------------------------------------------------------------
     */

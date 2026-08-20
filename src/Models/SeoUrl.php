@@ -225,6 +225,12 @@ class SeoUrl extends Model
         return $this->hasMany(SeoUrlRegistration::class, 'url_id');
     }
 
+    /** Deklarierte SEO-Ziel-Facetten (Dimension → Wert) dieser URL. */
+    public function dimensions(): HasMany
+    {
+        return $this->hasMany(SeoUrlDimension::class, 'url_id');
+    }
+
     public function keywords(): BelongsToMany
     {
         return $this->belongsToMany(SeoKeyword::class, 'seo_url_keywords', 'url_id', 'keyword_id')

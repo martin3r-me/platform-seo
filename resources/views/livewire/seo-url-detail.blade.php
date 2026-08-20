@@ -36,6 +36,36 @@
                 @include('seo::partials.url-status-badge', ['status' => $seoUrl->status, 'httpStatus' => $seoUrl->http_status])
             </div>
 
+            {{-- SEO-Ziel: die deklarierten Dimensionen dieser Seite (nur eigene URLs).
+                 Bearbeiten öffnet die eigenständige UrlSeoTarget-Modal-Komponente. --}}
+            @if($seoUrl->is_own)
+                @php
+                    $dimsByType = $seoUrl->dimensions->groupBy('dimension');
+                    $dimCatalog = \Platform\Seo\Models\SeoUrlDimension::catalog();
+                @endphp
+                <div class="flex items-start gap-2 flex-wrap">
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mt-1">SEO-Ziel</span>
+                    <div class="flex-1 flex items-center gap-2 flex-wrap">
+                        @foreach($dimCatalog as $key => $cfg)
+                            @if(($group = $dimsByType->get($key)) && $group->isNotEmpty())
+                                <span class="inline-flex items-center gap-1 text-[11px] text-gray-600">
+                                    <span class="text-gray-400">{{ $cfg['label'] ?? $key }}:</span>
+                                    @foreach($group as $d)
+                                        <span class="px-1.5 py-0.5 rounded {{ $key === 'geo' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-700' }}">{{ $key === 'geo' ? '📍 ' : '' }}{{ $d->value }}</span>
+                                    @endforeach
+                                </span>
+                            @endif
+                        @endforeach
+                        @if($dimsByType->isEmpty())
+                            <span class="text-[11px] text-gray-400">noch nicht definiert</span>
+                        @endif
+                        <button wire:click="$dispatch('open-url-target', { urlId: {{ $seoUrl->id }} })"
+                                class="text-[11px] text-indigo-600 hover:underline">{{ $dimsByType->isEmpty() ? 'definieren' : 'bearbeiten' }} →</button>
+                    </div>
+                </div>
+                <livewire:seo.url-seo-target />
+            @endif
+
             {{-- Kontext: URL an Organisations-Knoten hängen (lose in Organization verlinkt) --}}
             @if(!empty($contextNodes) || !empty($availableNodes))
                 <div class="flex items-center gap-2 flex-wrap">
