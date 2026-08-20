@@ -768,6 +768,24 @@ class SeoPortfolioDetail extends Component
     }
 
     /**
+     * Ganzes Themenfeld abstellen = ignorieren: alle Keywords der Nachbarschaft
+     * stilllegen — sowohl auf Feld- als auch auf Raum-(Cluster-)Ebene — und das
+     * Feld aus der Karte nehmen. Umkehrbar (Disposition), wie jedes „abstellen".
+     */
+    public function retireNeighborhood(int $nbIndex): void
+    {
+        $nb = data_get($this->portfolio->semantic_map, "neighborhoods.{$nbIndex}", []);
+        $ids = is_array($nb['keyword_ids'] ?? null) ? $nb['keyword_ids'] : [];
+        foreach (($nb['rooms'] ?? []) as $room) {
+            if (is_array($room['keyword_ids'] ?? null)) {
+                $ids = array_merge($ids, $room['keyword_ids']);
+            }
+        }
+        $this->retireKeywords(array_values(array_unique(array_map('intval', $ids))));
+        $this->spliceRoom($nbIndex, null);
+    }
+
+    /**
      * Merken = Kandidaten-Cluster ohne SERP (verlässt die Frontier). Die
      * Keywords bekommen cluster_id → fallen aus der Karte, tauchen als Cluster
      * (status=candidate) auf, „übernehmen" validiert später per SERP.

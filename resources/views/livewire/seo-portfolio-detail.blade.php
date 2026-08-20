@@ -630,7 +630,7 @@
                                 <span class="tabular-nums">KW · Cluster · ↑Chance</span>
                             </div>
                             @foreach($sm['neighborhoods'] as $nbIdx => $nb)
-                                <div x-data="{open:false}" wire:key="nb-{{ $nbIdx }}" class="border-b border-[color:var(--nx-line)] last:border-0">
+                                <div x-data="{open:false, menu:false}" wire:key="nb-{{ $nbIdx }}" class="border-b border-[color:var(--nx-line)] last:border-0">
                                     <div x-on:click="open=!open" class="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-[color:var(--nx-line)]">
                                         <span class="flex items-center gap-2 min-w-0">
                                             <span class="text-[color:var(--nx-faint)] text-[10px] w-3 shrink-0" x-text="open?'▾':'▸'"></span>
@@ -642,8 +642,14 @@
                                             <span>{{ number_format($nb['size'] ?? 0) }} KW</span>
                                             @if(! empty($nb['rooms']))<span>{{ count($nb['rooms']) }} Cluster</span>@endif
                                             <span class="text-[12px] font-medium" style="color:var(--nx-warning)" title="Chance = Mehr-Traffic/Monat (Potenzial − IST)">↑{{ number_format($nb['gap'] ?? 0) }}</span>
+                                            @if(! empty($nb['rooms']))<button x-on:click.stop="menu = ! menu" class="text-[13px] leading-none text-[color:var(--nx-faint)] hover:text-[color:var(--nx-text)] px-1" title="Feld-Aktionen"><span x-text="menu ? '▴' : '⋯'"></span></button>@endif
                                         </span>
                                     </div>
+                                    @if(! empty($nb['rooms']))
+                                        <div x-show="menu" style="display:none" class="px-3 pb-2">
+                                            <button wire:click="retireNeighborhood({{ $nbIdx }})" wire:confirm="Ganzes Feld abstellen — alle Keywords ignorieren (umkehrbar)?" class="text-[11px] text-[color:var(--nx-faint)] hover:text-[color:var(--nx-danger)]" title="alle Keywords dieses Feldes stilllegen">Feld abstellen (ignorieren)</button>
+                                        </div>
+                                    @endif
 
                                     <div x-show="open" class="border-t border-[color:var(--nx-line)] px-2 py-1.5" style="display:none;background:color-mix(in srgb, var(--nx-line) 40%, transparent)">
                                         @if(! empty($nb['rooms']))
@@ -704,26 +710,29 @@
                     @endif
 
                     @if(! empty($sm['outliers']))
-                        {{-- Ausreißer = Einzelgänger ohne Nachbarn. Aktionsfähig: routen (Firma) oder abstellen (Rausch). --}}
-                        <div class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-3 mb-8" style="max-width:640px">
-                            <div class="flex items-baseline justify-between gap-2 mb-0.5">
-                                <span class="text-[12px] font-medium text-[color:var(--nx-text)]">Ausreißer ({{ count($sm['outliers']) }})</span>
-                                <button wire:click="retireOutliersWithoutCompany" class="text-[10px] text-[color:var(--nx-faint)] hover:text-[color:var(--nx-danger)]" title="alle Einzelgänger ohne Firmen-Bezug stilllegen">alle ohne Firma abstellen</button>
+                        {{-- Ausreißer = Einzelgänger ohne Nachbarn = Rauschen. Zu einer Firma routen oder abstellen (ignorieren). --}}
+                        <div x-data="{ showAll: false }" class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-3 mb-8" style="max-width:680px">
+                            <div class="flex items-center justify-between gap-2 mb-0.5">
+                                <span class="text-[12px] font-medium text-[color:var(--nx-text)]">Ausreißer <span class="font-normal text-[color:var(--nx-faint)]">· {{ count($sm['outliers']) }} Einzelgänger ohne Thema</span></span>
+                                <button wire:click="retireOutliersWithoutCompany" wire:confirm="Alle Ausreißer ohne Firmen-Bezug abstellen (ignorieren, umkehrbar)?" class="text-[10px] px-2 py-0.5 rounded border border-[color:var(--nx-line)] text-[color:var(--nx-faint)] hover:text-[color:var(--nx-danger)]" title="alle ohne Firmen-Bezug stilllegen">alle ohne Firma abstellen</button>
                             </div>
-                            <div class="text-[10px] text-[color:var(--nx-faint)] mb-2">Keine semantischen Nachbarn — passt zu einer Firma (zuordnen) oder zu keiner (abstellen).</div>
-                            <div class="flex flex-col gap-1">
-                                @foreach($sm['outliers'] as $kw)
-                                    <div class="flex items-center justify-between gap-2 text-[11px]">
-                                        <span class="text-gray-600 min-w-0" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="Vol {{ number_format($kw['volume']) }}">{{ $kw['keyword'] }}</span>
-                                        <span class="shrink-0 whitespace-nowrap flex items-center gap-1.5">
+                            <div class="text-[10px] text-[color:var(--nx-faint)] mb-2">Keine semantischen Nachbarn — einer Firma zuordnen oder abstellen (= ignorieren, umkehrbar).</div>
+                            <div class="divide-y divide-[color:var(--nx-line)]">
+                                @foreach($sm['outliers'] as $oi => $kw)
+                                    <div class="flex items-center justify-between gap-2 py-1 text-[11px]" @if($oi >= 12) x-show="showAll" style="display:none" @endif>
+                                        <span class="text-[color:var(--nx-muted)] min-w-0 truncate" title="Vol {{ number_format($kw['volume']) }}">{{ $kw['keyword'] }}</span>
+                                        <span class="shrink-0 flex items-center gap-1.5">
                                             @if(! empty($kw['company']))
-                                                <button wire:click="assignOutlierToCompany({{ $kw['id'] }}, @js($kw['company']['domain']))" class="text-[10px] px-1.5 py-0.5 rounded text-white" style="background:#6366f1" title="zu {{ $kw['company']['domain'] }} ({{ round($kw['company']['sim'] * 100) }}%) zuordnen">🏢 {{ $kw['company']['domain'] }}</button>
+                                                <button wire:click="assignOutlierToCompany({{ $kw['id'] }}, @js($kw['company']['domain']))" class="text-[10px] px-1.5 py-0.5 rounded text-white" style="background:var(--nx-info)" title="zu {{ $kw['company']['domain'] }} zuordnen">🏢 {{ $kw['company']['domain'] }}</button>
                                             @endif
-                                            <button wire:click="retireOutlier({{ $kw['id'] }})" class="text-[10px] text-gray-400 hover:text-rose-600">abstellen</button>
+                                            <button wire:click="retireOutlier({{ $kw['id'] }})" class="text-[10px] text-[color:var(--nx-faint)] hover:text-[color:var(--nx-danger)]">abstellen</button>
                                         </span>
                                     </div>
                                 @endforeach
                             </div>
+                            @if(count($sm['outliers']) > 12)
+                                <button x-on:click="showAll = ! showAll" class="mt-2 text-[10px] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]"><span x-text="showAll ? '▴ weniger' : '⋯ alle {{ count($sm['outliers']) }} zeigen'"></span></button>
+                            @endif
                         </div>
                     @endif
 
