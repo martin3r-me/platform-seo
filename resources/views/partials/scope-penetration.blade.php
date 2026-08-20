@@ -29,7 +29,7 @@
 
 @if($cls->isNotEmpty())
     <h3 class="text-[13px] font-semibold text-[color:var(--nx-text)] mb-1">Durchdringung je Cluster</h3>
-    <p class="text-[11px] text-[color:var(--nx-faint)] mb-3">IST (ranken) von SOLL (Ziel laut Cluster). Höher = Thema tiefer besetzt.</p>
+    <p class="text-[11px] text-[color:var(--nx-faint)] mb-3">SOLL = Keywords im Thema · IST = wie viele ranken · <span class="font-medium">Durchdringung positionsgewichtet</span> (Pos 1 zählt voll, tiefe Positionen kaum) = wie <span class="font-medium">sichtbar</span> wir im Thema sind.</p>
     <x-nx-card flush>
         <x-nx-table>
             <x-nx-table-header>

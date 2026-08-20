@@ -90,10 +90,25 @@ class SeoScopeMetrics
             ->get();
 
         $groups = $rows->groupBy(fn ($r) => $r->cluster_id ?? 0);
+
+        // Positionsgewicht (CTR-Kurve wie SerpRankingCollector, normiert: Pos 1 = 1.0).
+        // So zählt eine #1 voll, tiefe Positionen (z.B. #71) fast nichts — Durchdringung
+        // = wie SICHTBAR wir im Thema sind, nicht nur „ranken irgendwo".
+        $posWeight = static function ($pos): float {
+            if ($pos === null) {
+                return 0.0;
+            }
+            $ctr = [1 => 0.316, 2 => 0.158, 3 => 0.094, 4 => 0.06, 5 => 0.06][$pos]
+                ?? ($pos <= 10 ? 0.03 : 0.01);
+
+            return $ctr / 0.316;
+        };
+
         $build = fn ($kws) => [
             'soll' => $kws->count(),
             'ist' => $kws->filter(fn ($r) => $r->best_position !== null)->count(),
             'volume' => (int) $kws->sum('search_volume'),
+            'vis' => (float) $kws->sum(fn ($r) => $posWeight($r->best_position)),
         ];
 
         $unclusteredKws = $groups->get(0);
@@ -108,7 +123,8 @@ class SeoScopeMetrics
             $b['cluster_id'] = (int) $cid;
             $b['name'] = $names[(int) $cid] ?? ('#' . $cid);
             $b['origin'] = $origins[(int) $cid] ?? 'harvested';
-            $b['pct'] = $b['soll'] > 0 ? (int) round($b['ist'] / $b['soll'] * 100) : 0;
+            // Durchdringung positionsgewichtet: erreichte Sichtbarkeit / mögliche (alle #1).
+            $b['pct'] = $b['soll'] > 0 ? (int) round($b['vis'] / $b['soll'] * 100) : 0;
 
             return $b;
         })->sortByDesc('volume')->values();
