@@ -142,7 +142,7 @@
 
             {{-- Auf der Daten-Station steht nur die Daten-Matrix (unten). KPIs/Abdeckung/Reifegrad/
                  Verbund gehören auf ihre jeweiligen Stationen, nicht hierher. --}}
-            @if($view !== 'messen')
+            @if(! in_array($view, ['messen', 'ordnen']))
             {{-- Aggregat-KPIs (Property-Ebene: Mitglieder inkl. eigener Unterseiten, dedupliziert) --}}
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-1">
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
@@ -188,6 +188,8 @@
                  Wirkung, Rollen, Board …). Auf der Daten-Station ausgeblendet. --}}
             @if($view !== 'messen')
 
+            {{-- Reifegrad + Verbund-Entwicklung gehören auf die Überblick-Sicht, nicht auf Ordnen. --}}
+            @if($view !== 'ordnen')
             {{-- Reifegrad — der Optimierungs-Trichter (Phase = erstes Gate, das reißt) --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
                 <div class="flex items-baseline justify-between mb-3">
@@ -291,6 +293,7 @@
                     </div>
                 @endif
             </div>
+            @endif {{-- /$view !== 'ordnen' (Reifegrad + Verbund) --}}
 
             @if(in_array($activePhase, ['konvertieren']))
             {{-- Wirkung im Verbund — die Plausible-Fakten aufs Portfolio gehoben --}}
@@ -461,8 +464,8 @@
             </div>
             @endif
 
-            @if(in_array($activePhase, ['ordnen', 'verteilen']))
-            {{-- Mitglieder --}}
+            @if($activePhase === 'verteilen')
+            {{-- Mitglieder — Property-Liste; gehört zu Daten/Verteilen, nicht auf Ordnen (dort zählt die Werkbank). --}}
             <h2 class="text-[13px] font-semibold text-gray-700 mb-3">Mitglieder <span class="text-gray-400 font-normal">(kontrollierte URLs)</span></h2>
             <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
                 <table class="w-full text-[13px]" style="min-width: 640px">
@@ -503,16 +506,32 @@
 
             @endif
 
+            {{-- Ordnen-Intro: selbst-erklärend + Faden-Verortung (nur auf der Station selbst). --}}
+            @if($view === 'ordnen')
+                <div class="mb-4 max-w-2xl">
+                    <h2 class="text-[13px] font-semibold text-[color:var(--nx-text)]">Ordnen <span class="text-[color:var(--nx-faint)] font-normal">· die Nachfrage in Themen bündeln</span></h2>
+                    <div class="text-[10px] text-[color:var(--nx-faint)] mt-1 flex items-center gap-1.5 flex-wrap">
+                        <span>Roter Faden:</span>
+                        <button wire:click="setView('messen')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Daten</button>
+                        <span aria-hidden="true">→</span>
+                        <span class="px-1.5 py-0.5 rounded bg-[color:color-mix(in_srgb,var(--nx-info)_12%,transparent)] text-[color:var(--nx-info)] font-medium">Ordnen · Themen bauen</span>
+                        <span aria-hidden="true">→</span>
+                        <button wire:click="setView('verteilen')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Verteilen</button>
+                    </div>
+                    <p class="text-[12px] text-[color:var(--nx-muted)] mt-2 leading-relaxed">Hier wird aus loser Nachfrage eine <span class="font-medium text-[color:var(--nx-text)]">Themen-Architektur</span>. Die <span class="font-medium text-[color:var(--nx-text)]">Durchdringung</span> zeigt, wie tief jedes bestehende Thema besetzt ist; die <span class="font-medium text-[color:var(--nx-text)]">semantische Karte</span> schlägt aus den Keyword-Bedeutungen neue Felder vor — „übernehmen" prüft per SERP und macht daraus einen echten Cluster (umkehrbar). Ungeclusterter Rest lässt sich gebündelt nach-clustern.</p>
+                </div>
+            @endif
+
             @if($activePhase === 'ordnen')
             {{-- Durchdringung je Cluster (IST rankend / SOLL laut Cluster) --}}
             @if($penetration['clusters']->isNotEmpty() || $penetration['unclustered'])
                 <div class="mt-8">
                     @include('seo::partials.scope-penetration', ['clusters' => $penetration['clusters'], 'coverage' => $coverage])
                     @if($penetration['unclustered'] || ($portfolio->clustering_status ?? null))
-                        <div class="mt-3 bg-white rounded-lg border border-dashed border-gray-200 px-4 py-3"
+                        <div class="mt-3 rounded-lg border border-dashed border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] px-4 py-3"
                             @if(($portfolio->clustering_status ?? null) === 'running') wire:poll.10s @endif>
                             <div class="flex items-center justify-between gap-3 flex-wrap">
-                                <span class="text-[12px] text-gray-600">
+                                <span class="text-[12px] text-[color:var(--nx-muted)]">
                                     @if($penetration['unclustered'])
                                         Ungeclusterter Rest: <span class="font-medium">{{ number_format($penetration['unclustered']['soll']) }}</span> Keywords, davon <span class="font-medium">{{ number_format($penetration['unclustered']['ist']) }}</span> wild rankend
                                     @else
@@ -521,25 +540,24 @@
                                 </span>
 
                                 @if(($portfolio->clustering_status ?? null) === 'running')
-                                    <span class="text-[12px] font-medium" style="color:#1d4ed8">⏳ Nach-Clustern läuft…</span>
+                                    <span class="text-[12px] font-medium" style="color:var(--nx-info)">⏳ Nach-Clustern läuft…</span>
                                 @elseif($clusterable >= 2)
                                     <div class="flex items-center gap-2">
-                                        <label class="text-[11px] text-gray-500">ab Vol.
-                                            <select wire:model.live="clusterMinVolume" class="ml-1 text-[11px] border border-gray-200 rounded px-1 py-0.5 bg-white">
+                                        <label class="text-[11px] text-[color:var(--nx-muted)]">ab Vol.
+                                            <select wire:model.live="clusterMinVolume" class="ml-1 text-[11px] border border-[color:var(--nx-line)] rounded px-1 py-0.5 bg-[color:var(--nx-bg)]">
                                                 <option value="0">alle</option>
                                                 <option value="10">10</option>
                                                 <option value="50">50</option>
                                                 <option value="100">100</option>
                                             </select>
                                         </label>
-                                        <button wire:click="clusterRest" wire:loading.attr="disabled"
-                                            class="text-[12px] font-medium text-white rounded px-3 py-1.5" style="background:#0f766e">
+                                        <x-nx-button size="sm" wire:click="clusterRest" wire:loading.attr="disabled">
                                             Rest clustern
-                                            <span style="opacity:.8">({{ number_format($clusterable) }} KW · ~{{ number_format($clusterCostCents/100, 2, ',', '.') }} €)</span>
-                                        </button>
+                                            <span style="opacity:.75">({{ number_format($clusterable) }} KW · ~{{ number_format($clusterCostCents/100, 2, ',', '.') }} €)</span>
+                                        </x-nx-button>
                                     </div>
                                 @else
-                                    <span class="text-[11px] text-gray-400">→ nichts über der Schwelle zu clustern</span>
+                                    <span class="text-[11px] text-[color:var(--nx-faint)]">→ nichts über der Schwelle zu clustern</span>
                                 @endif
                             </div>
 
@@ -571,11 +589,11 @@
                     <h2 class="text-[13px] font-semibold text-gray-700">Semantische Karte</h2>
                     <div class="flex items-center gap-1 shrink-0">
                         <a href="{{ route('seo.portfolios.kosmos', $portfolio) }}"
-                           class="text-[11px] px-2.5 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 mr-1" title="Die Themen als 3D-Kosmos erkunden">🌌 Kosmos</a>
+                           class="text-[11px] px-2.5 py-1 rounded border border-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:bg-[color:var(--nx-line)] mr-1" title="Die Themen als 3D-Kosmos erkunden">🌌 Kosmos</a>
                         <button wire:click="buildSemanticMap('both')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
-                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'both' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Eigene + Wettbewerber-Keywords zusammen — Besitz-Mix je Feld (ordnen + erobern)">beide</button>
+                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'both' ? 'bg-[color:var(--nx-text)] text-[color:var(--nx-bg)]' : 'border border-[color:var(--nx-line)] text-[color:var(--nx-muted)]' }}" title="Eigene + Wettbewerber-Keywords zusammen — Besitz-Mix je Feld (ordnen + erobern)">beide</button>
                         <button wire:click="buildSemanticMap('own')" wire:loading.attr="disabled" @disabled(($semantic['status'] ?? null) === 'running')
-                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'own' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-600' }}" title="Nur eigene Keywords — ohne die Wettbewerber-Lücke">nur eigene</button>
+                                class="text-[11px] px-2.5 py-1 rounded disabled:opacity-50 {{ $semanticSource === 'own' ? 'bg-[color:var(--nx-text)] text-[color:var(--nx-bg)]' : 'border border-[color:var(--nx-line)] text-[color:var(--nx-muted)]' }}" title="Nur eigene Keywords — ohne die Wettbewerber-Lücke">nur eigene</button>
                     </div>
                 </div>
                 <p class="text-[11px] text-gray-400 mb-2 max-w-2xl">Die Keywords nach <span class="font-medium">Bedeutung</span> geordnet — Vorschlag, kein SERP. Jedes Feld zeigt den <span class="font-medium">Besitz-Mix</span>: <span style="color:#0f766e">eigen</span> (rankt schon → ordnen) vs. <span style="color:#e11d48">Lücke</span> (nur Wettbewerber ranken → erobern). Einen <span class="font-medium">Cluster übernehmen</span> lässt SERP prüfen und macht einen echten Cluster (umkehrbar). Nichts gespeichert, bis du übernimmst.</p>
@@ -587,9 +605,9 @@
                 @php($smStatus = $semantic['status'] ?? null)
 
                 @if($smStatus === 'running')
-                    <div class="bg-white rounded-lg border border-gray-200 p-4 text-[12px] text-gray-500">Karte wird gebaut … (Nachbarschaftssuche über Qdrant) — aktualisiert sich automatisch.</div>
+                    <div class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-4 text-[12px] text-[color:var(--nx-muted)]">Karte wird gebaut … (Nachbarschaftssuche über Qdrant) — aktualisiert sich automatisch.</div>
                 @elseif($smStatus === 'failed')
-                    <div class="bg-white rounded-lg border border-gray-200 p-4 text-[12px]" style="color:#b91c1c">Aufbau fehlgeschlagen{{ ! empty($sm['error']) ? ': ' . $sm['error'] : '' }}. Läuft <code>seo:embed-keywords</code> schon?</div>
+                    <div class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-4 text-[12px]" style="color:var(--nx-danger)">Aufbau fehlgeschlagen{{ ! empty($sm['error']) ? ': ' . $sm['error'] : '' }}. Läuft <code>seo:embed-keywords</code> schon?</div>
                 @elseif($sm && empty($sm['error']))
                     <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3 text-[12px] text-gray-600">
                         <span><span class="font-semibold tabular-nums">{{ number_format($sm['stats']['total']) }}</span> Keywords</span>
@@ -605,8 +623,8 @@
 
                     @if(! empty($sm['neighborhoods']))
                         {{-- Vollständige Themenfeld-Tabelle: alle Nachbarschaften, chance-sortiert. Klick = Cluster ausklappen. --}}
-                        <div class="bg-white rounded-lg border border-gray-200 overflow-hidden mb-2">
-                            <div class="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wide text-gray-400">
+                        <div class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] overflow-hidden mb-2">
+                            <div class="flex items-center justify-between px-3 py-2 bg-[color:var(--nx-line)] border-b border-[color:var(--nx-line)] text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)]">
                                 <span>Themenfelder &amp; Cluster ({{ count($sm['neighborhoods']) }})</span>
                                 <span class="tabular-nums">KWs · Cluster · Pot · IST · ↑Chance</span>
                             </div>
@@ -692,12 +710,12 @@
 
                     @if(! empty($sm['outliers']))
                         {{-- Ausreißer = Einzelgänger ohne Nachbarn. Aktionsfähig: routen (Firma) oder abstellen (Rausch). --}}
-                        <div class="bg-white rounded-lg border border-gray-200 p-3 mb-8" style="max-width:640px">
+                        <div class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-3 mb-8" style="max-width:640px">
                             <div class="flex items-baseline justify-between gap-2 mb-0.5">
-                                <span class="text-[12px] font-medium text-gray-700">Ausreißer ({{ count($sm['outliers']) }})</span>
-                                <button wire:click="retireOutliersWithoutCompany" class="text-[10px] text-gray-400 hover:text-rose-600" title="alle Einzelgänger ohne Firmen-Bezug stilllegen">alle ohne Firma abstellen</button>
+                                <span class="text-[12px] font-medium text-[color:var(--nx-text)]">Ausreißer ({{ count($sm['outliers']) }})</span>
+                                <button wire:click="retireOutliersWithoutCompany" class="text-[10px] text-[color:var(--nx-faint)] hover:text-[color:var(--nx-danger)]" title="alle Einzelgänger ohne Firmen-Bezug stilllegen">alle ohne Firma abstellen</button>
                             </div>
-                            <div class="text-[10px] text-gray-400 mb-2">Keine semantischen Nachbarn — passt zu einer Firma (zuordnen) oder zu keiner (abstellen).</div>
+                            <div class="text-[10px] text-[color:var(--nx-faint)] mb-2">Keine semantischen Nachbarn — passt zu einer Firma (zuordnen) oder zu keiner (abstellen).</div>
                             <div class="flex flex-col gap-1">
                                 @foreach($sm['outliers'] as $kw)
                                     <div class="flex items-center justify-between gap-2 text-[11px]">
@@ -718,73 +736,61 @@
                         <p class="text-[10px] text-gray-400 mt-2">Anker: {{ \Illuminate\Support\Str::limit($sm['anchor'], 140) }}</p>
                     @endif
                 @else
-                    <div class="bg-white rounded-lg border border-gray-200 p-4 text-[12px] text-gray-500">Noch keine Karte. Der Knopf liest die Keyword-Vektoren aus Qdrant und zeigt Nachbarschaften, Ausreißer und themenferne Keywords.</div>
+                    <div class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-4 text-[12px] text-[color:var(--nx-muted)]">Noch keine Karte. Der Knopf liest die Keyword-Vektoren aus Qdrant und zeigt Nachbarschaften, Ausreißer und themenferne Keywords.</div>
                 @endif
             </div>
 
             @endif
 
-            {{-- Cluster-Detailansicht: Keywords + rankende URLs + Übernehmen --}}
-            @if($showRoomDetail && $roomDetail)
-                <div class="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto" style="background:rgba(0,0,0,0.4)" wire:click="closeRoomDetail">
-                    <div class="bg-white rounded-lg border border-gray-200 shadow-xl w-full max-w-3xl mt-10" wire:click.stop>
-                        <div class="px-4 py-3 border-b border-gray-100 flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <div class="text-[14px] font-semibold text-gray-800">{{ $roomDetail['label'] }}</div>
-                                <div class="text-[11px] text-gray-400 tabular-nums">{{ $roomDetail['size'] }} Keywords · Pot ~{{ number_format($roomDetail['potenzial']) }} / IST ~{{ number_format($roomDetail['ist']) }} · Chance <span style="color:#e11d48">↑{{ number_format($roomDetail['gap']) }}</span></div>
-                            </div>
-                            <button wire:click="closeRoomDetail" class="text-gray-400 hover:text-gray-700 text-[13px] shrink-0">schließen</button>
-                        </div>
+            {{-- Cluster-Detailansicht: Keywords + rankende URLs + Übernehmen (NX-Modal) --}}
+            <x-ui-modal wire:model="showRoomDetail" title="{{ $roomDetail['label'] ?? 'Cluster-Detail' }}">
+                @if($roomDetail)
+                    <div class="text-[11px] text-[color:var(--nx-faint)] tabular-nums mb-3">{{ $roomDetail['size'] }} Keywords · Pot ~{{ number_format($roomDetail['potenzial']) }} / IST ~{{ number_format($roomDetail['ist']) }} · Chance <span style="color:var(--nx-danger)">↑{{ number_format($roomDetail['gap']) }}</span></div>
 
-                        @if($roomDetail['situation'] === 'whitespace')
-                            <div class="px-4 py-2 text-[12px] bg-rose-100 text-rose-700">Weißraum — keine eigene Seite rankt dafür. Chance: neue Seite bauen.</div>
-                        @elseif($roomDetail['situation'] === 'cannibalization')
-                            <div class="px-4 py-2 text-[12px] bg-amber-100 text-amber-700">Kannibalisierung — {{ $roomDetail['own_ranking'] }} eigene Seiten konkurrieren um dieses Thema. Auf eine Pillar-Seite konsolidieren.</div>
-                        @else
-                            <div class="px-4 py-2 text-[12px] bg-gray-100 text-gray-600">Eine eigene Seite rankt bereits — vertiefen.</div>
-                        @endif
+                    @if($roomDetail['situation'] === 'whitespace')
+                        <div class="rounded-md px-3 py-2 text-[12px] mb-3" style="background:color-mix(in srgb, var(--nx-danger) 12%, transparent); color:var(--nx-danger)">Weißraum — keine eigene Seite rankt dafür. Chance: neue Seite bauen.</div>
+                    @elseif($roomDetail['situation'] === 'cannibalization')
+                        <div class="rounded-md px-3 py-2 text-[12px] mb-3" style="background:color-mix(in srgb, var(--nx-warning) 14%, transparent); color:var(--nx-warning)">Kannibalisierung — {{ $roomDetail['own_ranking'] }} eigene Seiten konkurrieren um dieses Thema. Auf eine Pillar-Seite konsolidieren.</div>
+                    @else
+                        <div class="rounded-md px-3 py-2 text-[12px] mb-3 bg-[color:var(--nx-line)] text-[color:var(--nx-muted)]">Eine eigene Seite rankt bereits — vertiefen.</div>
+                    @endif
 
-                        <div class="grid md:grid-cols-2">
-                            <div class="p-4 border-r border-gray-100 overflow-y-auto" style="max-height:24rem">
-                                <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-2">Keywords ({{ count($roomDetail['keywords']) }}) · Vol · IST-Pos</div>
-                                <table class="w-full text-[12px]">
-                                    <tbody>
-                                        @foreach($roomDetail['keywords'] as $kw)
-                                            <tr class="border-b border-gray-50 last:border-0">
-                                                <td class="py-1 pr-2 text-gray-700">@if($kw['origin'] === 'competitor')<span style="color:#e11d48">◆</span> @endif{{ $kw['keyword'] }}</td>
-                                                <td class="py-1 px-2 text-right text-gray-500 tabular-nums">{{ number_format($kw['volume']) }}</td>
-                                                <td class="py-1 pl-2 text-right tabular-nums {{ $kw['position'] !== null ? 'text-gray-600' : 'text-gray-300' }}">{{ $kw['position'] !== null ? '#' . $kw['position'] : '—' }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div class="p-4 overflow-y-auto" style="max-height:24rem">
-                                <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-2">Rankende URLs ({{ count($roomDetail['urls']) }})</div>
-                                @if(empty($roomDetail['urls']))
-                                    <div class="text-[12px] text-gray-400">Noch keine rankenden URLs erfasst.</div>
-                                @else
-                                    @foreach($roomDetail['urls'] as $u)
-                                        <div class="flex items-baseline justify-between gap-2 py-1 border-b border-gray-50 last:border-0 text-[12px]">
-                                            <span class="{{ $u['is_own'] ? 'text-gray-800 font-medium' : 'text-gray-500' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@if($u['is_own'])<span class="text-[9px] px-1 rounded bg-teal-100 text-teal-700">eigen</span> @endif{{ $u['domain'] }}{{ $u['path'] !== '/' ? $u['path'] : '' }}</span>
-                                            <span class="text-gray-400 tabular-nums shrink-0 text-[11px]">{{ $u['kw'] }} KW · #{{ $u['best'] }}</span>
-                                        </div>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="overflow-y-auto" style="max-height:22rem">
+                            <div class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)] mb-2">Keywords ({{ count($roomDetail['keywords']) }}) · Vol · IST-Pos</div>
+                            <table class="w-full text-[12px]">
+                                <tbody>
+                                    @foreach($roomDetail['keywords'] as $kw)
+                                        <tr class="border-b border-[color:var(--nx-line)] last:border-0">
+                                            <td class="py-1 pr-2 text-[color:var(--nx-text)]">@if($kw['origin'] === 'competitor')<span style="color:var(--nx-danger)">◆</span> @endif{{ $kw['keyword'] }}</td>
+                                            <td class="py-1 px-2 text-right text-[color:var(--nx-muted)] tabular-nums">{{ number_format($kw['volume']) }}</td>
+                                            <td class="py-1 pl-2 text-right tabular-nums {{ $kw['position'] !== null ? 'text-[color:var(--nx-muted)]' : 'text-[color:var(--nx-faint)]' }}">{{ $kw['position'] !== null ? '#' . $kw['position'] : '—' }}</td>
+                                        </tr>
                                     @endforeach
-                                @endif
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
-
-                        <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                            <span class="text-[11px] text-gray-400">„Übernehmen" prüft per SERP und macht einen echten Cluster (umkehrbar).</span>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <button wire:click="closeRoomDetail" class="text-[12px] px-3 py-1.5 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50">Schließen</button>
-                                <button wire:click="adoptFromDetail" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
-                                        class="text-[12px] font-medium px-3 py-1.5 rounded-md bg-gray-900 text-white hover:bg-gray-700 disabled:opacity-50">Übernehmen → Cluster</button>
-                            </div>
+                        <div class="overflow-y-auto md:border-l md:border-[color:var(--nx-line)] md:pl-4" style="max-height:22rem">
+                            <div class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)] mb-2">Rankende URLs ({{ count($roomDetail['urls']) }})</div>
+                            @if(empty($roomDetail['urls']))
+                                <div class="text-[12px] text-[color:var(--nx-faint)]">Noch keine rankenden URLs erfasst.</div>
+                            @else
+                                @foreach($roomDetail['urls'] as $u)
+                                    <div class="flex items-baseline justify-between gap-2 py-1 border-b border-[color:var(--nx-line)] last:border-0 text-[12px]">
+                                        <span class="{{ $u['is_own'] ? 'text-[color:var(--nx-text)] font-medium' : 'text-[color:var(--nx-muted)]' }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@if($u['is_own'])<span class="text-[9px] px-1 rounded" style="background:color-mix(in srgb, var(--nx-success) 15%, transparent); color:var(--nx-success)">eigen</span> @endif{{ $u['domain'] }}{{ $u['path'] !== '/' ? $u['path'] : '' }}</span>
+                                        <span class="text-[color:var(--nx-faint)] tabular-nums shrink-0 text-[11px]">{{ $u['kw'] }} KW · #{{ $u['best'] }}</span>
+                                    </div>
+                                @endforeach
+                            @endif
                         </div>
                     </div>
-                </div>
-            @endif
+                @endif
+                <x-slot name="footer">
+                    <span class="text-[11px] text-[color:var(--nx-faint)] mr-auto">„Übernehmen" prüft per SERP und macht einen echten Cluster (umkehrbar).</span>
+                    <x-ui-button variant="secondary" size="sm" wire:click="closeRoomDetail" type="button">Schließen</x-ui-button>
+                    <x-ui-button variant="primary" size="sm" wire:click="adoptFromDetail" @disabled(($portfolio->clustering_status ?? null) === 'running')>Übernehmen → Cluster</x-ui-button>
+                </x-slot>
+            </x-ui-modal>
 
             @if($activePhase === 'verteilen')
             {{-- Seiten-Gesundheit (Angebots-Achse): unfokussierte Seiten + konkrete Kannibalisierung --}}

@@ -1,7 +1,7 @@
 @props(['clusters' => null, 'coverage' => null])
 
 {{--
-    Gemeinsames Scope-Panel — Ordnungsgrad + Durchdringung je Cluster.
+    Gemeinsames Scope-Panel — Ordnungsgrad + Durchdringung je Cluster (NX-Sprache).
     Reine Lesart einer URL-Menge (URL+Unterseiten / Portfolio / Liste), damit
     sich der Nutzer an EINE Sprache gewöhnt. Daten: Platform\Seo\Services\
     SeoScopeMetrics. Aktionen (clustern etc.) bleiben scope-spezifisch außerhalb.
@@ -9,55 +9,54 @@
 @php
     $cov = $coverage ?? ['pct' => 0, 'unclustered_pct' => 0, 'total' => 0, 'clustered' => 0, 'ranking' => 0];
     $cls = $clusters ?? collect();
+    $barColor = fn ($pct) => $pct >= 70 ? 'var(--nx-success)' : ($pct >= 30 ? 'var(--nx-warning)' : 'var(--nx-faint)');
 @endphp
 
 @if(($cov['total'] ?? 0) > 0)
-    <div class="bg-white rounded-lg border border-gray-200 px-4 py-3 mb-3">
+    <x-nx-card class="mb-3">
         <div class="flex items-center justify-between mb-1.5">
-            <span class="text-[12px] font-medium text-gray-700">Ordnungsgrad</span>
-            <span class="text-[12px] tabular-nums text-gray-500">
-                <span class="font-semibold text-gray-800">{{ $cov['pct'] }}%</span> in Cluster · {{ $cov['unclustered_pct'] }}% ohne Bezug
+            <span class="text-[12px] font-medium text-[color:var(--nx-text)]">Ordnungsgrad</span>
+            <span class="text-[12px] tabular-nums text-[color:var(--nx-muted)]">
+                <span class="font-semibold text-[color:var(--nx-text)]">{{ $cov['pct'] }}%</span> in Cluster · {{ $cov['unclustered_pct'] }}% ohne Bezug
             </span>
         </div>
-        <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-            <div class="h-full rounded-full {{ $cov['pct'] >= 70 ? 'bg-green-500' : ($cov['pct'] >= 30 ? 'bg-amber-500' : 'bg-gray-300') }}" style="width: {{ max(2, $cov['pct']) }}%"></div>
+        <div class="h-1.5 rounded-full bg-[color:var(--nx-line)] overflow-hidden">
+            <div class="h-full rounded-full" style="width: {{ max(2, $cov['pct']) }}%; background: {{ $barColor($cov['pct']) }}"></div>
         </div>
-        <p class="text-[11px] text-gray-400 mt-1.5">{{ number_format($cov['clustered']) }} von {{ number_format($cov['total']) }} Keywords einem Cluster zugeordnet · {{ number_format($cov['ranking']) }} ranken bereits.</p>
-    </div>
+        <p class="text-[11px] text-[color:var(--nx-faint)] mt-1.5">{{ number_format($cov['clustered']) }} von {{ number_format($cov['total']) }} Keywords einem Cluster zugeordnet · {{ number_format($cov['ranking']) }} ranken bereits.</p>
+    </x-nx-card>
 @endif
 
 @if($cls->isNotEmpty())
-    <h3 class="text-[13px] font-semibold text-gray-700 mb-1">Durchdringung je Cluster</h3>
-    <p class="text-[11px] text-gray-400 mb-3">IST (ranken) von SOLL (Ziel laut Cluster). Höher = Thema tiefer besetzt.</p>
-    <div class="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-        <table class="w-full text-[13px]" style="min-width: 640px">
-            <thead>
-                <tr class="text-[10px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                    <th class="text-left px-4 py-2">Cluster</th>
-                    <th class="text-right px-4 py-2">SOLL</th>
-                    <th class="text-right px-4 py-2">IST</th>
-                    <th class="text-left px-4 py-2" style="width: 160px">Durchdringung</th>
-                    <th class="text-right px-4 py-2">Volumen</th>
-                </tr>
-            </thead>
-            <tbody>
+    <h3 class="text-[13px] font-semibold text-[color:var(--nx-text)] mb-1">Durchdringung je Cluster</h3>
+    <p class="text-[11px] text-[color:var(--nx-faint)] mb-3">IST (ranken) von SOLL (Ziel laut Cluster). Höher = Thema tiefer besetzt.</p>
+    <x-nx-card flush>
+        <x-nx-table>
+            <x-nx-table-header>
+                <x-nx-table-header-cell>Cluster</x-nx-table-header-cell>
+                <x-nx-table-header-cell align="right">SOLL</x-nx-table-header-cell>
+                <x-nx-table-header-cell align="right">IST</x-nx-table-header-cell>
+                <x-nx-table-header-cell>Durchdringung</x-nx-table-header-cell>
+                <x-nx-table-header-cell align="right">Volumen</x-nx-table-header-cell>
+            </x-nx-table-header>
+            <x-nx-table-body>
                 @foreach($cls as $c)
-                    <tr class="border-b border-gray-50 last:border-0">
-                        <td class="px-4 py-2.5 text-gray-700">{{ $c['name'] }}</td>
-                        <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">{{ $c['soll'] }}</td>
-                        <td class="px-4 py-2.5 text-right font-medium text-gray-800 tabular-nums">{{ $c['ist'] }}</td>
-                        <td class="px-4 py-2.5">
-                            <div class="flex items-center gap-2">
-                                <div class="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                    <div class="h-full rounded-full {{ $c['pct'] >= 70 ? 'bg-green-500' : ($c['pct'] >= 30 ? 'bg-amber-500' : 'bg-gray-300') }}" style="width: {{ max(2, $c['pct']) }}%"></div>
+                    <x-nx-table-row>
+                        <x-nx-table-cell><span class="text-[color:var(--nx-text)]">{{ $c['name'] }}</span></x-nx-table-cell>
+                        <x-nx-table-cell align="right"><span class="tabular-nums text-[color:var(--nx-muted)]">{{ $c['soll'] }}</span></x-nx-table-cell>
+                        <x-nx-table-cell align="right"><span class="tabular-nums font-medium text-[color:var(--nx-text)]">{{ $c['ist'] }}</span></x-nx-table-cell>
+                        <x-nx-table-cell>
+                            <div class="flex items-center gap-2" style="min-width:140px">
+                                <div class="flex-1 h-1.5 rounded-full bg-[color:var(--nx-line)] overflow-hidden">
+                                    <div class="h-full rounded-full" style="width: {{ max(2, $c['pct']) }}%; background: {{ $barColor($c['pct']) }}"></div>
                                 </div>
-                                <span class="text-[11px] tabular-nums text-gray-500 w-9 text-right">{{ $c['pct'] }}%</span>
+                                <span class="text-[11px] tabular-nums text-[color:var(--nx-muted)] w-9 text-right">{{ $c['pct'] }}%</span>
                             </div>
-                        </td>
-                        <td class="px-4 py-2.5 text-right text-gray-500 tabular-nums">{{ number_format($c['volume']) }}</td>
-                    </tr>
+                        </x-nx-table-cell>
+                        <x-nx-table-cell align="right"><span class="tabular-nums text-[color:var(--nx-muted)]">{{ number_format($c['volume']) }}</span></x-nx-table-cell>
+                    </x-nx-table-row>
                 @endforeach
-            </tbody>
-        </table>
-    </div>
+            </x-nx-table-body>
+        </x-nx-table>
+    </x-nx-card>
 @endif
