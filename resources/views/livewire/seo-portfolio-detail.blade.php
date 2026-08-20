@@ -674,8 +674,9 @@
                                                 @include('seo::partials.zimmer-table', ['nbIdx' => $nbIdx, 'rooms' => $nb['rooms'], 'indices' => array_keys($nb['rooms'])])
                                             @endif
                                         @else
-                                            {{-- Einfaches Feld (ohne Cluster): Keywords + progressive Aktionen --}}
-                                            <div x-data="{ more: false }" class="px-1 py-1">
+                                            {{-- Einfaches Feld (ohne Cluster): Keywords + klare Entscheidung --}}
+                                            @php($nbCost = number_format(($nb['size'] ?? 0) * (int) config('seo.cost_estimates.serp', 10) / 100, 2, ',', '.'))
+                                            <div x-data="{ decide: false }" class="px-1 py-1">
                                                 <div class="flex items-center justify-between gap-3">
                                                     <div class="flex flex-wrap gap-1 min-w-0">
                                                         @foreach(array_slice($nb['keywords'], 0, 6) as $kw)
@@ -683,22 +684,44 @@
                                                         @endforeach
                                                         @if($nb['size'] > 6)<span class="text-[10px] text-[color:var(--nx-faint)]">+{{ $nb['size'] - 6 }}</span>@endif
                                                     </div>
-                                                    <span class="shrink-0 flex items-center gap-2">
-                                                        <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
-                                                                class="text-[11px] px-2 py-0.5 rounded bg-[color:var(--nx-text)] text-[color:var(--nx-bg)] disabled:opacity-40" title="SERP prüfen &amp; als Cluster übernehmen">übernehmen</button>
-                                                        <button x-on:click="more = ! more" class="text-[13px] leading-none text-[color:var(--nx-faint)] hover:text-[color:var(--nx-text)] px-1" title="mehr Aktionen"><span x-text="more ? '▴' : '⋯'"></span></button>
-                                                    </span>
+                                                    <button x-on:click="decide = ! decide" class="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded border border-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]"><span x-text="decide ? 'schließen ▴' : 'Entscheiden ▾'"></span></button>
                                                 </div>
-                                                <div x-show="more" style="display:none" class="mt-1.5 flex items-center gap-2 flex-wrap">
-                                                    <button wire:click="openSimple({{ $nbIdx }})" class="text-[11px] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Details</button>
-                                                    <button wire:click="rememberSimple({{ $nbIdx }})" class="text-[11px] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]" title="als Kandidaten-Cluster merken (ohne SERP)">merken</button>
-                                                    @if(! empty($nb['near_cluster']))
-                                                        <button wire:click="integrateSimple({{ $nbIdx }}, {{ $nb['near_cluster']['id'] }})" class="text-[11px] px-2 py-0.5 rounded" style="background:color-mix(in srgb, var(--nx-info) 14%, transparent);color:var(--nx-info)" title="in „{{ $nb['near_cluster']['name'] }}" integrieren">integrieren</button>
-                                                    @endif
-                                                    @if(! empty($nb['company']))
-                                                        <button wire:click="assignSimpleToCompany({{ $nbIdx }}, @js($nb['company']['domain']))" class="text-[11px] px-2 py-0.5 rounded" style="background:color-mix(in srgb, var(--nx-info) 14%, transparent);color:var(--nx-info)" title="zu {{ $nb['company']['domain'] }} zuordnen">→ {{ $nb['company']['domain'] }}</button>
-                                                    @endif
-                                                    <button wire:click="retireSimple({{ $nbIdx }})" class="text-[11px] text-[color:var(--nx-faint)] hover:text-[color:var(--nx-danger)]" title="abstellen — Keywords stilllegen (umkehrbar)">abstellen</button>
+                                                <div x-show="decide" style="display:none" class="mt-1.5">
+                                                    <div class="text-[10px] uppercase tracking-wide text-[color:var(--nx-faint)] mb-1">Was tun mit diesem Feld?</div>
+                                                    <div class="rounded-md border border-[color:var(--nx-line)] divide-y divide-[color:var(--nx-line)] overflow-hidden">
+                                                        <button wire:click="adoptSimple({{ $nbIdx }})" wire:loading.attr="disabled" @disabled(($portfolio->clustering_status ?? null) === 'running')
+                                                                class="w-full flex items-baseline justify-between gap-3 text-left px-2.5 py-1.5 hover:bg-[color:var(--nx-surface)] disabled:opacity-40">
+                                                            <span class="text-[12px] font-medium text-[color:var(--nx-text)]">Neuen Cluster bauen</span>
+                                                            <span class="text-[10px] text-[color:var(--nx-faint)] shrink-0">eigene Antwort-Einheit · prüft SERP (~{{ $nbCost }} €)</span>
+                                                        </button>
+                                                        @if(! empty($nb['near_cluster']))
+                                                            <button wire:click="integrateSimple({{ $nbIdx }}, {{ $nb['near_cluster']['id'] }})"
+                                                                    class="w-full flex items-baseline justify-between gap-3 text-left px-2.5 py-1.5 hover:bg-[color:var(--nx-surface)]">
+                                                                <span class="text-[12px] font-medium text-[color:var(--nx-text)]">Zu „{{ $nb['near_cluster']['name'] }}" dazupacken</span>
+                                                                <span class="text-[10px] text-[color:var(--nx-faint)] shrink-0">kein Doppel · kostenlos</span>
+                                                            </button>
+                                                        @endif
+                                                        @if(! empty($nb['company']))
+                                                            <button wire:click="assignSimpleToCompany({{ $nbIdx }}, @js($nb['company']['domain']))"
+                                                                    class="w-full flex items-baseline justify-between gap-3 text-left px-2.5 py-1.5 hover:bg-[color:var(--nx-surface)]">
+                                                                <span class="text-[12px] font-medium text-[color:var(--nx-text)]">An {{ $nb['company']['domain'] }} geben</span>
+                                                                <span class="text-[10px] text-[color:var(--nx-faint)] shrink-0">Firma als Owner</span>
+                                                            </button>
+                                                        @endif
+                                                        <button wire:click="rememberSimple({{ $nbIdx }})"
+                                                                class="w-full flex items-baseline justify-between gap-3 text-left px-2.5 py-1.5 hover:bg-[color:var(--nx-surface)]">
+                                                            <span class="text-[12px] font-medium text-[color:var(--nx-muted)]">Nur merken</span>
+                                                            <span class="text-[10px] text-[color:var(--nx-faint)] shrink-0">vormerken, ohne SERP/Kosten</span>
+                                                        </button>
+                                                        <button wire:click="retireSimple({{ $nbIdx }})"
+                                                                class="w-full flex items-baseline justify-between gap-3 text-left px-2.5 py-1.5 hover:bg-[color:var(--nx-surface)]">
+                                                            <span class="text-[12px] font-medium text-[color:var(--nx-muted)]">Ignorieren</span>
+                                                            <span class="text-[10px] text-[color:var(--nx-faint)] shrink-0">raus aus der Karte · umkehrbar</span>
+                                                        </button>
+                                                    </div>
+                                                    <div class="mt-1.5 text-[10px] text-[color:var(--nx-faint)]">
+                                                        <button wire:click="openSimple({{ $nbIdx }})" class="hover:text-[color:var(--nx-text)] underline underline-offset-2">Details (Keywords + rankende URLs)</button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         @endif
