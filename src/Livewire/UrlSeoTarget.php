@@ -168,9 +168,15 @@ class UrlSeoTarget extends Component
     public function render()
     {
         $geoResults = collect();
-        if (strlen(trim($this->geoSearch)) >= 2) {
-            $geoResults = SeoGeoLocation::where('name', 'like', '%'.trim($this->geoSearch).'%')
+        $term = trim($this->geoSearch);
+        if (strlen($term) >= 2) {
+            $geoResults = SeoGeoLocation::where('name', 'like', '%'.$term.'%')
+                // Exakter Ort zuerst (Name beginnt mit „Term," = die Stadt selbst,
+                // nicht „Term-Stadtteil"), dann Ebene, dann kürzere (= weniger
+                // spezifische) Namen — so steht Düsseldorf über Düsseldorf-Hafen.
+                ->orderByRaw('CASE WHEN name LIKE ? THEN 0 ELSE 1 END', [$term.',%'])
                 ->orderByRaw("CASE level WHEN 'country' THEN 0 WHEN 'region' THEN 1 WHEN 'city' THEN 2 ELSE 3 END")
+                ->orderByRaw('CHAR_LENGTH(name)')
                 ->orderBy('name')
                 ->limit(15)
                 ->get();
