@@ -91,6 +91,7 @@ class ClusterModal extends Component
         $bestPos = collect();
         $candidates = collect();
         $volume = 0;
+        $cannibalized = 0;
 
         if ($cluster) {
             $teamId = (int) $this->seoSettings->team_id;
@@ -119,6 +120,21 @@ class ClusterModal extends Component
                 ->groupBy('u.id', 'u.url', 'u.domain', 'u.path')
                 ->selectRaw('u.id, u.url, u.domain, u.path, COUNT(DISTINCT uk.keyword_id) as kw_covered, MIN(uk.position) as best')
                 ->orderByDesc('kw_covered')->limit(20)->get();
+
+            // Echte Kannibalisierung: Keywords, für die ≥2 EIGENE Seiten im
+            // umkämpften Bereich (Top 20) ranken. Nur das lohnt Konsolidieren —
+            // nicht „irgendwo ranken zwei Seiten" (tiefe/weit-auseinander egal).
+            $cannibalized = DB::table('seo_url_keywords as uk')
+                ->join('seo_urls as u', function ($j) use ($teamId) {
+                    $j->on('u.id', '=', 'uk.url_id')->where('u.is_own', true)
+                        ->whereNull('u.deleted_at')->where('u.team_id', $teamId);
+                })
+                ->whereIn('uk.keyword_id', $allIds)
+                ->where('uk.position', '<=', 20)
+                ->groupBy('uk.keyword_id')
+                ->havingRaw('COUNT(DISTINCT u.id) >= 2')
+                ->select('uk.keyword_id')
+                ->get()->count();
         }
 
         return view('seo::livewire.cluster-modal', [
@@ -127,6 +143,7 @@ class ClusterModal extends Component
             'bestPos' => $bestPos,
             'candidates' => $candidates,
             'volume' => $volume,
+            'cannibalized' => $cannibalized,
         ]);
     }
 }

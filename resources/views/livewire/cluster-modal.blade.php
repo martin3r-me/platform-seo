@@ -33,13 +33,12 @@
 
                 {{-- Rankende Seiten — welche unserer Seiten (welcher Firmen) beteiligt sind --}}
                 <div>
-                    @php($domainCount = $candidates->pluck('domain')->unique()->count())
                     <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">Rankende Seiten ({{ $candidates->count() }}) — welche unserer Seiten hier auftauchen</div>
                     @if($candidates->isEmpty())
                         <div class="text-[12px] text-gray-400 rounded-lg border border-dashed border-gray-200 p-3">Noch keine eigene Seite rankt für dieses Thema — klassischer Neu-Bau-Fall.</div>
                     @else
-                        @if($domainCount > 1)
-                            <div class="text-[11px] mb-1.5 rounded-md px-2 py-1.5" style="background:color-mix(in srgb, var(--nx-warning) 12%, transparent);color:var(--nx-warning)"><span class="font-medium">⚠ {{ $domainCount }} Domains ranken hier</span> — mehrere Verbund-Firmen konkurrieren ums selbe Thema (Kannibalisierung). Wähle <span class="font-medium">genau eine</span> als Owner; die anderen sollten nicht dagegen bauen.</div>
+                        @if($cannibalized > 0)
+                            <div class="text-[11px] mb-1.5 rounded-md px-2 py-1.5" style="background:color-mix(in srgb, var(--nx-warning) 12%, transparent);color:var(--nx-warning)"><span class="font-medium">⚠ Kannibalisierung: {{ $cannibalized }} Keyword(s)</span> mit ≥2 eigenen Seiten im Top-20 — die nehmen sich gegenseitig das Signal. Auf <span class="font-medium">einen Owner</span> konsolidieren, die andere(n) re-targeten/umbauen. <span class="opacity-80">(Bei #1&amp;#2 dominierst du · tiefe/weit-auseinander sind egal.)</span></div>
                         @endif
                         <div class="rounded-lg border border-gray-200 divide-y divide-gray-50">
                             @foreach($candidates as $cand)
