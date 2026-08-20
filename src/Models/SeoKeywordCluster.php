@@ -19,6 +19,10 @@ class SeoKeywordCluster extends Model
     public const STATUS_STALLED = 'stalled';
     public const STATUS_ARCHIVED = 'archived';
 
+    // Herkunft — s. docs/CLUSTER-PLAYBOOK.md
+    public const ORIGIN_HARVESTED = 'harvested'; // aus dem Bestands-Ranking geerntet (übernehmen)
+    public const ORIGIN_BUILD = 'build';         // bewusst als Netto-neu-Bauziel angelegt
+
     protected $fillable = [
         'uuid',
         'team_id',
@@ -27,6 +31,7 @@ class SeoKeywordCluster extends Model
         'color',
         'order',
         'status',
+        'origin',
         'pillar_url_id',
         'keyword_count',
         'covered_keywords',

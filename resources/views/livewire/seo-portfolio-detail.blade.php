@@ -526,7 +526,11 @@
                         <span aria-hidden="true">→</span>
                         <button wire:click="setView('distribute')" class="px-1.5 py-0.5 rounded bg-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">Verteilen</button>
                     </div>
-                    <p class="text-[12px] text-[color:var(--nx-muted)] mt-2 leading-relaxed">Hier wird aus loser Nachfrage eine <span class="font-medium text-[color:var(--nx-text)]">Themen-Architektur</span>. Die <span class="font-medium text-[color:var(--nx-text)]">Durchdringung</span> zeigt, wie tief jedes bestehende Thema besetzt ist; die <span class="font-medium text-[color:var(--nx-text)]">semantische Karte</span> schlägt aus den Keyword-Bedeutungen neue Felder vor — „übernehmen" prüft per SERP und macht daraus einen echten Cluster (umkehrbar). Ungeclusterter Rest lässt sich gebündelt nach-clustern.</p>
+                    <p class="text-[12px] text-[color:var(--nx-muted)] mt-2 leading-relaxed">Hier wird aus loser Nachfrage eine <span class="font-medium text-[color:var(--nx-text)]">Themen-Architektur</span>. Zwei Wege: <span class="font-medium text-[color:var(--nx-text)]">ernten</span> — aus der Karte übernehmen, was schon rankt; oder <span class="font-medium text-[color:var(--nx-text)]">bauen</span> — ein Kopfthema bewusst als Bauziel anlegen, für das du (noch) nicht rankst. „übernehmen" prüft per SERP und macht daraus einen echten Cluster (umkehrbar).</p>
+                    <div class="mt-2.5 flex items-center gap-2 flex-wrap">
+                        <button wire:click="openBuildTarget" class="text-[12px] font-medium px-3 py-1.5 rounded-md border border-[color:var(--nx-line)] text-[color:var(--nx-text)] hover:border-[color:var(--nx-info)]">+ Neues Bauziel</button>
+                        <span class="text-[10px] text-[color:var(--nx-faint)]">bewusst gebauter Cluster (nicht aus dem Ranking) → eigene/neue Ziel-Seite</span>
+                    </div>
                 </div>
             @endif
 
@@ -1128,6 +1132,41 @@
                 <x-slot name="footer">
                     <x-ui-button variant="secondary" size="sm" wire:click="closeDataSettings" type="button">Abbrechen</x-ui-button>
                     <x-ui-button variant="primary" size="sm" type="submit">Speichern</x-ui-button>
+                </x-slot>
+            </form>
+        </x-ui-modal>
+
+        {{-- Netto-neu-Bauziel: Cluster bewusst anlegen (nicht aus dem Ranking). --}}
+        <x-ui-modal wire:model="showBuildTarget" title="Neues Bauziel">
+            <form wire:submit="saveBuildTarget">
+                <div class="space-y-4">
+                    <p class="text-sm text-gray-500">Ein Kopfthema, das du <span class="font-medium text-gray-700">besitzen willst</span>, obwohl du (noch) nicht dafür rankst — also <span class="font-medium text-gray-700">bewusst gebaut</span>, nicht aus dem Bestand geerntet. Bekommt eine gesteuerte Ziel-Seite und wird über einen Brief in Produktion gebracht.</p>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Thema</label>
+                        <input type="text" wire:model="btName" placeholder="z. B. Catering (Kopfthema)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" autofocus />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ziel-Seite</label>
+                        <select wire:model="btPillarUrlId" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            <option value="">Neue Seite — der Brief legt sie an</option>
+                            @foreach($buildTargetUrls as $u)
+                                <option value="{{ $u->id }}">{{ $u->display_label }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Bestehende eigene URL als Pillar — oder „neue Seite" für den echten Netto-neu-Fall.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ziel-Keyword <span class="text-gray-400 font-normal">(optional)</span></label>
+                        <input type="text" wire:model="btSeedKeyword" placeholder="z. B. catering" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                        <p class="text-xs text-gray-500 mt-1">Bindet passende, noch ungeclusterte Keywords dieses Wirkungsraums ein — so hat das Bauziel echte Nachfrage hinterlegt.</p>
+                    </div>
+                </div>
+                <x-slot name="footer">
+                    <x-ui-button variant="secondary" size="sm" wire:click="closeBuildTarget" type="button">Abbrechen</x-ui-button>
+                    <x-ui-button variant="primary" size="sm" type="submit">Bauziel anlegen</x-ui-button>
                 </x-slot>
             </form>
         </x-ui-modal>

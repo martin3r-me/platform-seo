@@ -99,12 +99,15 @@ class SeoScopeMetrics
         $unclusteredKws = $groups->get(0);
         $unclustered = $unclusteredKws ? $build($unclusteredKws) : null;
 
-        $names = SeoKeywordCluster::whereIn('id', $groups->keys()->filter(fn ($k) => $k > 0))->pluck('name', 'id');
+        $clusterIds = $groups->keys()->filter(fn ($k) => $k > 0);
+        $names = SeoKeywordCluster::whereIn('id', $clusterIds)->pluck('name', 'id');
+        $origins = SeoKeywordCluster::whereIn('id', $clusterIds)->pluck('origin', 'id');
 
-        $clusters = $groups->except([0])->map(function ($kws, $cid) use ($build, $names) {
+        $clusters = $groups->except([0])->map(function ($kws, $cid) use ($build, $names, $origins) {
             $b = $build($kws);
             $b['cluster_id'] = (int) $cid;
             $b['name'] = $names[(int) $cid] ?? ('#' . $cid);
+            $b['origin'] = $origins[(int) $cid] ?? 'harvested';
             $b['pct'] = $b['soll'] > 0 ? (int) round($b['ist'] / $b['soll'] * 100) : 0;
 
             return $b;

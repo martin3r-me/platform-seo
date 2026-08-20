@@ -42,7 +42,7 @@
             <x-nx-table-body>
                 @foreach($cls as $c)
                     <x-nx-table-row>
-                        <x-nx-table-cell><span class="text-[color:var(--nx-text)]">{{ $c['name'] }}</span></x-nx-table-cell>
+                        <x-nx-table-cell><span class="text-[color:var(--nx-text)]">{{ $c['name'] }}</span>@if(($c['origin'] ?? 'harvested') === 'build')<span class="ml-1.5 text-[9px] uppercase tracking-wide px-1 py-0.5 rounded align-middle" style="background:color-mix(in srgb, var(--nx-info) 14%, transparent);color:var(--nx-info)" title="bewusst gebautes Ziel — nicht aus dem Bestands-Ranking geerntet">Bauziel</span>@endif</x-nx-table-cell>
                         <x-nx-table-cell align="right"><span class="tabular-nums text-[color:var(--nx-muted)]">{{ $c['soll'] }}</span></x-nx-table-cell>
                         <x-nx-table-cell align="right"><span class="tabular-nums font-medium text-[color:var(--nx-text)]">{{ $c['ist'] }}</span></x-nx-table-cell>
                         <x-nx-table-cell>

@@ -86,6 +86,12 @@ class SeoPortfolioDetail extends Component
     public string $metaGoal = '';
     public string $metaDescription = '';
 
+    /** Netto-neu-Bauziel: bewusst angelegter Cluster (nicht aus dem Ranking geerntet). */
+    public bool $showBuildTarget = false;
+    public string $btName = '';
+    public ?int $btPillarUrlId = null;
+    public string $btSeedKeyword = '';
+
     public function setView(string $view): void
     {
         $valid = array_merge(['dashboard', 'meta'], self::PHASES, self::BESTAND);
@@ -652,6 +658,83 @@ class SeoPortfolioDetail extends Component
 
         $this->clusterFlash = count($ids) . ' Keywords „' . $cluster->name . '" → ' . $domain
             . ' zugeordnet' . ($pillarUrlId ? ' (Pillar gesetzt)' : '') . '.';
+    }
+
+    // ── Netto-neu-Bauziel: ein Cluster bewusst anlegen (nicht aus dem Ranking) ────
+
+    public function openBuildTarget(): void
+    {
+        $this->btName = '';
+        $this->btPillarUrlId = null;
+        $this->btSeedKeyword = '';
+        $this->showBuildTarget = true;
+    }
+
+    public function closeBuildTarget(): void
+    {
+        $this->showBuildTarget = false;
+    }
+
+    /**
+     * Bauziel anlegen: ein Cluster für ein Kopfthema, das wir besitzen WOLLEN,
+     * obwohl wir (noch) nicht dafür ranken — also NICHT aus dem Bestand geerntet,
+     * sondern bewusst gebaut (origin=build). Ziel-Seite = bestehende Pillar-URL
+     * oder leer (= neue Seite, die der Brief anlegt). Optional mit Nachfrage
+     * hinterlegt: ein Ziel-Keyword bindet passende ungeclusterte WR-Keywords ein.
+     */
+    public function saveBuildTarget(): void
+    {
+        $name = trim($this->btName);
+        if ($name === '') {
+            return;
+        }
+
+        $pillar = null;
+        if ($this->btPillarUrlId) {
+            $pillar = SeoUrl::where('team_id', $this->portfolio->team_id)
+                ->where('id', (int) $this->btPillarUrlId)
+                ->where('is_own', true)->value('id');
+        }
+
+        // Optional: ungeclusterte WR-Keywords, die zum Ziel-Keyword passen, einbinden.
+        $seed = trim($this->btSeedKeyword);
+        $seedIds = [];
+        if ($seed !== '') {
+            $urlIds = $this->portfolio->effectiveUrlIds();
+            $wrKwIds = empty($urlIds) ? [] : DB::table('seo_url_keywords')
+                ->whereIn('url_id', $urlIds)->distinct()->pluck('keyword_id')->all();
+            if (! empty($wrKwIds)) {
+                $seedIds = SeoKeyword::where('team_id', $this->portfolio->team_id)
+                    ->whereIn('id', $wrKwIds)
+                    ->whereNull('cluster_id')
+                    ->where('keyword', 'like', '%' . $seed . '%')
+                    ->orderByDesc('search_volume')
+                    ->limit(50)
+                    ->pluck('id')->all();
+            }
+        }
+
+        $cluster = SeoKeywordCluster::create([
+            'team_id' => $this->portfolio->team_id,
+            'name' => mb_substr($name, 0, 120),
+            'status' => SeoKeywordCluster::STATUS_CANDIDATE,
+            'origin' => SeoKeywordCluster::ORIGIN_BUILD,
+            'keyword_count' => count($seedIds),
+            'pillar_url_id' => $pillar,
+        ]);
+
+        if (! empty($seedIds)) {
+            SeoKeyword::where('team_id', $this->portfolio->team_id)
+                ->whereIn('id', $seedIds)
+                ->whereNull('cluster_id')
+                ->update(['cluster_id' => $cluster->id]);
+        }
+
+        $this->showBuildTarget = false;
+        $this->clusterFlash = 'Bauziel „' . $cluster->name . '" angelegt'
+            . ($pillar ? ' (Ziel-Seite gesetzt)' : ' (neue Seite — Brief legt sie an)')
+            . (count($seedIds) ? ' · ' . count($seedIds) . ' Keyword(s) eingebunden' : '')
+            . '. Nächster Schritt: Owner in Verteilen, Brief in Maßnahmen.';
     }
 
     // ── C2: Seiten zurückbauen (De-Invest) — abschaffen/umbauen/re-targeten ──────
@@ -1557,6 +1640,10 @@ class SeoPortfolioDetail extends Component
             'dataSettingsUrl' => ($this->showDataSettings && $this->openDataUrlId)
                 ? SeoUrl::where('team_id', $this->seoSettings->team_id)->find($this->openDataUrlId)
                 : null,
+            'buildTargetUrls' => $this->showBuildTarget
+                ? SeoUrl::whereIn('id', $this->portfolio->effectiveUrlIds())
+                    ->where('is_own', true)->orderBy('domain')->orderBy('path')->get()
+                : collect(),
             'board' => $this->view === 'distribute' ? $this->orchestrationBoard($pv['members']) : ['rows' => []],
             'entities' => $this->view === 'entities' ? $this->wirkungsraumEntities($pv['members']) : ['rows' => [], 'total' => 0, 'present' => 0, 'share' => null],
             'measures' => $this->view === 'act'
