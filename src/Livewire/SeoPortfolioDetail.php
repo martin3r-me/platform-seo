@@ -105,6 +105,13 @@ class SeoPortfolioDetail extends Component
         $this->portfolio = $seoPortfolio;
         $this->metaGoal = (string) ($seoPortfolio->goal ?? '');
         $this->metaDescription = (string) ($seoPortfolio->description ?? '');
+
+        // Tief-Verlinkung aus der geteilten Sidebar (?view=ordnen …) — macht die
+        // noch nicht herausgelösten Stationen adressierbar, bis sie eigene Routen sind.
+        $view = request()->query('view');
+        if (is_string($view) && $view !== '') {
+            $this->setView($view);
+        }
     }
 
     /** Meta-Steckbrief bearbeiten: Ziel + Auftrag setzen. */

@@ -22,6 +22,7 @@ use Platform\Seo\Livewire\SeoUrlListDetail;
 use Platform\Seo\Livewire\SeoUrlListManager;
 use Platform\Seo\Livewire\SeoKosmos;
 use Platform\Seo\Livewire\SeoPortfolioDetail;
+use Platform\Seo\Livewire\SeoPortfolioInbox;
 use Platform\Seo\Livewire\SeoPortfolioManager;
 
 // Top-Level
@@ -53,6 +54,7 @@ Route::get('/lists/{seoUrlList}/signals', SeoSignalIndex::class)->name('seo.list
 // Wirkungsräume (Steuer-Scopes)
 Route::get('/portfolios', SeoPortfolioManager::class)->name('seo.portfolios');
 Route::get('/portfolios/{seoPortfolio}', SeoPortfolioDetail::class)->name('seo.portfolios.show');
+Route::get('/portfolios/{seoPortfolio}/posteingang', SeoPortfolioInbox::class)->name('seo.portfolios.inbox');
 Route::get('/portfolios/{seoPortfolio}/kosmos', SeoKosmos::class)->name('seo.portfolios.kosmos');
 
 // URL-Kontext

@@ -26,6 +26,14 @@
                         class="w-full text-left px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === 'dashboard' ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
                     Dashboard
                 </button>
+                {{-- Posteingang = die Zentrale, jetzt eigene Route (hinter Dashboard). --}}
+                <a href="{{ route('seo.portfolios.inbox', $portfolio) }}" wire:navigate
+                   class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors text-gray-600 hover:bg-gray-50">
+                    <span class="flex-1 text-left">Posteingang <span class="text-gray-400 font-normal">· Zentrale</span></span>
+                    @if(($measureInbox['proposed'] ?? 0) > 0)
+                        <span class="text-[10px] tabular-nums px-1.5 py-0.5 rounded-full text-white" style="background:var(--nx-info, #166EE1)">{{ $measureInbox['proposed'] }}</span>
+                    @endif
+                </a>
             </div>
 
             {{-- Stationen — die 5 Arbeitsschritte am Wirkungsraum (Reifegrad-Trichter) --}}
