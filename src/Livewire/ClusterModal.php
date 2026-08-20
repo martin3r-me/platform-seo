@@ -64,6 +64,19 @@ class ClusterModal extends Component
         }
     }
 
+    /** Ein Keyword aus dem Cluster nehmen (gehört nicht rein) → zurück in den Pool. */
+    public function removeKeyword(int $keywordId): void
+    {
+        $c = SeoKeywordCluster::where('team_id', $this->seoSettings->team_id)->find($this->clusterId);
+        if (! $c) {
+            return;
+        }
+        SeoKeyword::where('team_id', $this->seoSettings->team_id)
+            ->where('id', $keywordId)->where('cluster_id', $c->id)
+            ->update(['cluster_id' => null]);
+        $c->update(['keyword_count' => SeoKeyword::where('cluster_id', $c->id)->count()]);
+    }
+
     public function render()
     {
         $cluster = $this->clusterId
@@ -100,7 +113,7 @@ class ClusterModal extends Component
                 })
                 ->whereIn('uk.keyword_id', $allIds)
                 ->groupBy('u.id', 'u.url', 'u.path')
-                ->selectRaw('u.id, u.url, u.path, COUNT(DISTINCT uk.keyword_id) as kw_covered')
+                ->selectRaw('u.id, u.url, u.path, COUNT(DISTINCT uk.keyword_id) as kw_covered, MIN(uk.position) as best')
                 ->orderByDesc('kw_covered')->limit(20)->get();
         }
 
