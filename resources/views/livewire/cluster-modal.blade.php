@@ -68,10 +68,16 @@
                     <div class="rounded-lg border border-gray-200">
                         <table class="w-full text-[12px]">
                             <tbody>
+                                @php($monthAbbr = ['', 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'])
                                 @foreach($keywords as $kw)
                                     @php($pos = $bestPos[$kw->id] ?? null)
                                     <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
-                                        <td class="py-1 px-2 text-gray-700">{{ $kw->keyword }}</td>
+                                        <td class="py-1 px-2 text-gray-700">
+                                            {{ $kw->keyword }}
+                                            @if($kw->seasonality_index && $kw->seasonality_index >= 1.5 && $kw->peak_month)
+                                                <span class="ml-1 text-[9px] whitespace-nowrap px-1 py-0.5 rounded align-middle" style="background:color-mix(in srgb, var(--nx-warning) 14%, transparent);color:var(--nx-warning)" title="Saisonal — Peak {{ $monthAbbr[$kw->peak_month] ?? '' }}, {{ number_format($kw->seasonality_index, 1) }}× über Durchschnitt">⤴ {{ $monthAbbr[$kw->peak_month] ?? '' }}</span>
+                                            @endif
+                                        </td>
                                         <td class="py-1 px-2 text-right tabular-nums text-gray-500">{{ number_format($kw->search_volume) }}</td>
                                         <td class="py-1 px-2 text-right tabular-nums {{ $pos !== null && $pos <= 10 ? 'text-green-700' : ($pos !== null ? 'text-gray-500' : 'text-gray-300') }}">{{ $pos !== null ? '#' . $pos : '—' }}</td>
                                         <td class="py-1 px-2 text-right"><button wire:click="ignoreKeyword({{ $kw->id }})" class="text-[11px] text-gray-300 hover:text-rose-600" title="interessiert uns nicht — raus aus dem Arbeitsset (umkehrbar)">ignorieren</button></td>
