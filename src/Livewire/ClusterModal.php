@@ -64,8 +64,12 @@ class ClusterModal extends Component
         }
     }
 
-    /** Ein Keyword aus dem Cluster nehmen (gehört nicht rein) → zurück in den Pool. */
-    public function removeKeyword(int $keywordId): void
+    /**
+     * Ein Keyword ignorieren: wir können das Ranking nicht verhindern — es
+     * interessiert uns nur nicht. Also raus aus dem Arbeitsset (retired_at) UND
+     * aus dem Cluster. Umkehrbar (taucht in „Abgestellt" auf).
+     */
+    public function ignoreKeyword(int $keywordId): void
     {
         $c = SeoKeywordCluster::where('team_id', $this->seoSettings->team_id)->find($this->clusterId);
         if (! $c) {
@@ -73,7 +77,7 @@ class ClusterModal extends Component
         }
         SeoKeyword::where('team_id', $this->seoSettings->team_id)
             ->where('id', $keywordId)->where('cluster_id', $c->id)
-            ->update(['cluster_id' => null]);
+            ->update(['cluster_id' => null, 'retired_at' => now()]);
         $c->update(['keyword_count' => SeoKeyword::where('cluster_id', $c->id)->count()]);
     }
 

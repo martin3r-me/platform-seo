@@ -58,7 +58,8 @@
 
                 {{-- Keywords + beste eigene Position + entfernen (volle Höhe, kein Cap) --}}
                 <div>
-                    <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">Keywords ({{ $keywords->count() }}) · Vol · beste Position · raus</div>
+                    <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">Keywords ({{ $keywords->count() }}) · Vol · beste Position · ignorieren</div>
+                    <p class="text-[10px] text-gray-400 mb-1.5 normal-case">Wir ranken evtl. incidental (z. B. für fremde Marken) — „ignorieren" heißt nicht un-ranken, sondern: interessiert uns nicht, raus aus dem Arbeitsset (umkehrbar in „Abgestellt").</p>
                     <div class="rounded-lg border border-gray-200">
                         <table class="w-full text-[12px]">
                             <tbody>
@@ -68,7 +69,7 @@
                                         <td class="py-1 px-2 text-gray-700">{{ $kw->keyword }}</td>
                                         <td class="py-1 px-2 text-right tabular-nums text-gray-500">{{ number_format($kw->search_volume) }}</td>
                                         <td class="py-1 px-2 text-right tabular-nums {{ $pos !== null && $pos <= 10 ? 'text-green-700' : ($pos !== null ? 'text-gray-500' : 'text-gray-300') }}">{{ $pos !== null ? '#' . $pos : '—' }}</td>
-                                        <td class="py-1 px-2 text-right"><button wire:click="removeKeyword({{ $kw->id }})" class="text-[11px] text-gray-300 hover:text-rose-600" title="gehört nicht rein — aus dem Cluster nehmen">entfernen</button></td>
+                                        <td class="py-1 px-2 text-right"><button wire:click="ignoreKeyword({{ $kw->id }})" class="text-[11px] text-gray-300 hover:text-rose-600" title="interessiert uns nicht — raus aus dem Arbeitsset (umkehrbar)">ignorieren</button></td>
                                     </tr>
                                 @endforeach
                             </tbody>
