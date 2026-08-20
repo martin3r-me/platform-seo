@@ -580,7 +580,7 @@
                     <div x-data="{show:false}" class="mt-3 pt-2 border-t border-[color:var(--nx-line)]">
                         <button x-on:click="show=!show" class="text-[11px] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]"><span x-text="show?'▾':'▸'"></span> Bestehende Themen &amp; ihre Durchdringung ({{ $penetration['clusters']->count() }})</button>
                         <div x-show="show" style="display:none" class="mt-2">
-                            @include('seo::partials.scope-penetration', ['clusters' => $penetration['clusters'], 'coverage' => $coverage, 'onlyClusters' => true])
+                            @include('seo::partials.scope-penetration', ['clusters' => $penetration['clusters'], 'coverage' => $coverage, 'onlyClusters' => true, 'clickable' => true])
                         </div>
                     </div>
                 @endif
@@ -1021,7 +1021,7 @@
                     <p class="text-[11px] text-gray-400 mt-0.5">Die Themen dieses Wirkungsraums — Durchdringung IST (rankend) gegen SOLL.</p>
                 </div>
                 @if($penetration['clusters']->isNotEmpty() || $penetration['unclustered'])
-                    @include('seo::partials.scope-penetration', ['clusters' => $penetration['clusters'], 'coverage' => $coverage])
+                    @include('seo::partials.scope-penetration', ['clusters' => $penetration['clusters'], 'coverage' => $coverage, 'clickable' => true])
                 @else
                     <div class="bg-white rounded-lg border border-gray-200 p-6 text-[12px] text-gray-500">Noch keine Cluster — in der Station „Ordnen" bauen.</div>
                 @endif
@@ -1170,5 +1170,8 @@
                 </x-slot>
             </form>
         </x-ui-modal>
+
+        {{-- Cluster-Inspektor: eigene Komponente, per Event geöffnet (kein Anbau). --}}
+        <livewire:seo.cluster-modal />
     </x-ui-page-container>
 </x-ui-page>
