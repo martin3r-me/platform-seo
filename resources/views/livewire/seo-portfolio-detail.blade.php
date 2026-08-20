@@ -129,6 +129,9 @@
                 </div>
             @endif
 
+            {{-- Auf der Daten-Station steht nur die Daten-Matrix (unten). KPIs/Abdeckung/Reifegrad/
+                 Verbund gehören auf ihre jeweiligen Stationen, nicht hierher. --}}
+            @if($view !== 'messen')
             {{-- Aggregat-KPIs (Property-Ebene: Mitglieder inkl. eigener Unterseiten, dedupliziert) --}}
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-1">
                 <div class="bg-white rounded-lg border border-gray-200 p-4">
@@ -154,11 +157,12 @@
             <div class="mb-6">
                 @include('seo::partials.data-source-coverage', ['urls' => $members])
             </div>
+            @endif {{-- /$view !== 'messen' (KPIs + Abdeckung) --}}
 
             {{-- Daten-Station: Matrix URL × Quelle (Aktivierung + Kosten) --}}
             @if($view === 'messen')
                 <div class="mb-8">
-                    @include('seo::partials.wirkungsraum-daten', ['members' => $members, 'availableProfiles' => $availableProfiles])
+                    @include('seo::partials.wirkungsraum-daten', ['members' => $members, 'availableProfiles' => $availableProfiles, 'openDataUrlId' => $openDataUrlId, 'dataGscProperty' => $dataGscProperty, 'dataPlausibleSiteId' => $dataPlausibleSiteId])
                 </div>
             @endif
 
@@ -168,6 +172,10 @@
                     @include('seo::partials.wirkungsraum-posteingang', ['measures' => $measures, 'measureFlash' => $measureFlash])
                 </div>
             @endif
+
+            {{-- Ab hier folgt der stationsübergreifende Dashboard-Block (Reifegrad, Verbund,
+                 Wirkung, Rollen, Board …). Auf der Daten-Station ausgeblendet. --}}
+            @if($view !== 'messen')
 
             {{-- Reifegrad — der Optimierungs-Trichter (Phase = erstes Gate, das reißt) --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
@@ -883,6 +891,7 @@
             @endif
 
             <p class="mt-6 text-[11px] text-gray-400">Nächste Ausbaustufen: KI-Vorschläge in Aktionen (Cluster-Owner, Briefs) · Snapshots im Takt der Datensammlung.</p>
+            @endif {{-- /$view !== 'messen' (Dashboard-Block) --}}
 
             @endif {{-- /Stationen ($station) --}}
 

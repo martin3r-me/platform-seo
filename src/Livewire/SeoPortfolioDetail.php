@@ -71,6 +71,11 @@ class SeoPortfolioDetail extends Component
     /** Rückmeldung in der Entitäten-Sicht (Experiment/AI-Probe). */
     public ?string $entityFlash = null;
 
+    /** Daten-Matrix: welche URL-Settings-Zeile offen ist + ihre Felder. */
+    public ?int $openDataUrlId = null;
+    public string $dataGscProperty = '';
+    public string $dataPlausibleSiteId = '';
+
     public function setView(string $view): void
     {
         $valid = array_merge(['dashboard'], self::PHASES, self::BESTAND);
@@ -1064,6 +1069,40 @@ class SeoPortfolioDetail extends Component
         $svc = app(\Platform\Seo\Services\SeoDataProfileService::class);
         if ($svc->isValidProfile((bool) $u->is_own, $profile)) {
             $u->update(['data_profile' => $profile]);
+        }
+    }
+
+    /**
+     * Daten-Matrix: Settings-Zeile einer URL auf-/zuklappen (Livewire-State,
+     * übersteht Re-Renders — Alpine-Geschwister-Scope funktioniert in Tabellen nicht).
+     */
+    public function toggleDataSettings(int $urlId): void
+    {
+        if ($this->openDataUrlId === $urlId) {
+            $this->openDataUrlId = null;
+
+            return;
+        }
+        $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($urlId);
+        if (! $u) {
+            return;
+        }
+        $this->openDataUrlId = $urlId;
+        $this->dataGscProperty = (string) ($u->gsc_property ?? '');
+        $this->dataPlausibleSiteId = (string) ($u->plausible_site_id ?? '');
+    }
+
+    public function saveDataGsc(): void
+    {
+        if ($this->openDataUrlId) {
+            $this->saveUrlGscProperty($this->openDataUrlId, $this->dataGscProperty);
+        }
+    }
+
+    public function saveDataPlausible(): void
+    {
+        if ($this->openDataUrlId) {
+            $this->saveUrlPlausibleSiteId($this->openDataUrlId, $this->dataPlausibleSiteId);
         }
     }
 
