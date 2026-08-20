@@ -22,6 +22,7 @@ class SeoKeywordCluster extends Model
     // Herkunft — s. docs/CLUSTER-PLAYBOOK.md
     public const ORIGIN_HARVESTED = 'harvested'; // aus dem Bestands-Ranking geerntet (übernehmen)
     public const ORIGIN_BUILD = 'build';         // bewusst als Netto-neu-Bauziel angelegt
+    public const ORIGIN_BASE = 'base';           // aus URL-Dimensionen erzeugt (Soll-Anker, Spine gesperrt)
 
     protected $fillable = [
         'uuid',

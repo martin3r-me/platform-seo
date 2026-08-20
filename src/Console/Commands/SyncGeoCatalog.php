@@ -52,10 +52,19 @@ class SyncGeoCatalog extends Command
         }
 
         $upserted = 0;
+        $skipped = 0;
         foreach ($locations as $loc) {
             $code = $loc['location_code'] ?? null;
             $name = $loc['location_name'] ?? null;
             if (! $code || ! $name) {
+                continue;
+            }
+
+            $level = SeoGeoLocation::normalizeLevel($loc['location_type'] ?? null);
+            if ($level === null) {
+                // Nicht-geografisch (PLZ/Flughafen/Uni/DMA…) — nicht in den Picker.
+                $skipped++;
+
                 continue;
             }
 
@@ -65,13 +74,16 @@ class SyncGeoCatalog extends Command
                     'name' => (string) $name,
                     'country_iso' => $loc['country_iso_code'] ?? null,
                     'type' => $loc['location_type'] ?? null,
-                    'level' => SeoGeoLocation::normalizeLevel($loc['location_type'] ?? null),
+                    'level' => $level,
                 ],
             );
             $upserted++;
         }
 
-        $this->info("Fertig: {$upserted} Orte gespeichert.");
+        // Alt-Bestand ohne Ebene (aus früheren Läufen vor dem Filter) aufräumen.
+        $removed = SeoGeoLocation::whereNull('level')->delete();
+
+        $this->info("Fertig: {$upserted} Orte gespeichert, {$skipped} nicht-geografische übersprungen".($removed ? ", {$removed} Alt-Einträge ohne Ebene entfernt" : '').'.');
         foreach (SeoGeoLocation::selectRaw('level, COUNT(*) as n')->groupBy('level')->orderByDesc('n')->get() as $row) {
             $this->line('  '.($row->level ?? '—').': '.$row->n);
         }

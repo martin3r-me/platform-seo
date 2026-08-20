@@ -8,6 +8,10 @@
                 @if($urlLabel !== '')<span class="text-gray-500">· {{ $urlLabel }}</span>@endif
             </p>
 
+            @if($buildResult)
+                <div class="text-[12px] rounded-md px-3 py-2 {{ $buildError ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700' }}">{{ $buildResult }}</div>
+            @endif
+
             {{-- Multi-Wert-Dimensionen: Basis (Kern) · Anlass · Typ · Zielgruppe --}}
             @foreach(['basis', 'anlass', 'typ', 'zielgruppe'] as $dim)
                 @php($cfg = $catalog[$dim] ?? [])
@@ -76,7 +80,12 @@
 
         <x-slot name="footer">
             <x-ui-button variant="secondary" size="sm" wire:click="close" type="button">Abbrechen</x-ui-button>
-            <x-ui-button variant="primary" size="sm" wire:click="save" type="button">Speichern</x-ui-button>
+            <x-ui-button variant="secondary" size="sm" wire:click="save" type="button">Nur speichern</x-ui-button>
+            <x-ui-button variant="primary" size="sm" wire:click="buildBaseCluster" type="button"
+                         wire:target="buildBaseCluster" wire:loading.attr="disabled">
+                <span wire:loading.remove wire:target="buildBaseCluster">Speichern &amp; Basis-Cluster bauen</span>
+                <span wire:loading wire:target="buildBaseCluster">baue via DataForSEO…</span>
+            </x-ui-button>
         </x-slot>
     </x-ui-modal>
 </div>

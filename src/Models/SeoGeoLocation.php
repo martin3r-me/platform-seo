@@ -42,12 +42,25 @@ class SeoGeoLocation extends Model
     public static function normalizeLevel(?string $type): ?string
     {
         $t = strtolower(trim((string) $type));
+        if ($t === '') {
+            return null;
+        }
+
+        // Nicht-geografische / Marketing-Typen bewusst ausschließen — sie sollen
+        // nicht in den Ortspicker: Postleitzahlen (~8.000 allein für DE),
+        // Flughäfen, Unis, Nielsen-DMA/TV-Regionen, US-Wahlkreise.
+        foreach (['postal', 'airport', 'university', 'dma', 'tv region', 'congressional'] as $skip) {
+            if (str_contains($t, $skip)) {
+                return null;
+            }
+        }
 
         return match (true) {
-            $t === '' => null,
             str_contains($t, 'country') => self::LEVEL_COUNTRY,
-            str_contains($t, 'city'), str_contains($t, 'municipal'), str_contains($t, 'neighborhood'), str_contains($t, 'borough') => self::LEVEL_CITY,
-            str_contains($t, 'region'), str_contains($t, 'state'), str_contains($t, 'province'), str_contains($t, 'community'), str_contains($t, 'county'), str_contains($t, 'district') => self::LEVEL_REGION,
+            // Stadt & Sub-Stadt (Stadtteil/Bezirk/Nachbarschaft) = city — ein
+            // Stadtteil ist keine Region (Bundesland), sondern city-nah.
+            str_contains($t, 'city'), str_contains($t, 'municipal'), str_contains($t, 'neighborhood'), str_contains($t, 'borough'), str_contains($t, 'district'), str_contains($t, 'ward') => self::LEVEL_CITY,
+            str_contains($t, 'region'), str_contains($t, 'state'), str_contains($t, 'province'), str_contains($t, 'community'), str_contains($t, 'county'), str_contains($t, 'department'), str_contains($t, 'prefecture') => self::LEVEL_REGION,
             default => null,
         };
     }

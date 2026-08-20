@@ -8,6 +8,7 @@ use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoGeoLocation;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlDimension;
+use Platform\Seo\Services\SeoBaseClusterBuilder;
 
 /**
  * SEO-Ziel je URL — die Dimensionen (Basis/GEO/Anlass/Typ/Zielgruppe) als
@@ -38,6 +39,11 @@ class UrlSeoTarget extends Component
 
     public string $geoSearch = '';
 
+    /** Ergebnis-/Fehlermeldung der Basis-Cluster-Erzeugung. */
+    public ?string $buildResult = null;
+
+    public bool $buildError = false;
+
     public function mount(): void
     {
         $this->resolveSettings();
@@ -63,6 +69,8 @@ class UrlSeoTarget extends Component
         $this->geoLocationId = null;
         $this->geoName = null;
         $this->geoSearch = '';
+        $this->buildResult = null;
+        $this->buildError = false;
         $this->resetErrorBag();
 
         foreach (SeoUrlDimension::where('url_id', $this->urlId)->get() as $dim) {
@@ -113,14 +121,26 @@ class UrlSeoTarget extends Component
 
     public function save(): void
     {
+        if ($this->persist()) {
+            $this->show = false;
+            $this->dispatch('url-target-saved', urlId: $this->urlId);
+        }
+    }
+
+    /**
+     * Dimensionen schreiben (Basis-Pflicht). Gibt false zurück, wenn ungültig
+     * — der Fehler ist dann gesetzt. Geteilt von save() und buildBaseCluster().
+     */
+    protected function persist(): bool
+    {
         if (! $this->urlId) {
-            return;
+            return false;
         }
         // Basis ist der Kern — Pflicht.
         if (empty($this->values['basis'])) {
             $this->addError('basis', 'Mindestens ein Basis-Begriff ist nötig (der Kern des Themas).');
 
-            return;
+            return false;
         }
         $this->resetErrorBag();
 
@@ -156,8 +176,44 @@ class UrlSeoTarget extends Component
             SeoUrlDimension::insert($rows);
         }
 
-        $this->show = false;
+        return true;
+    }
+
+    /**
+     * Speichern UND den gesperrten Basis-Cluster via DataForSEO erzeugen/frischen
+     * (Basis × GEO → Seed-Expansion → Cluster). Modal bleibt offen, um das
+     * Ergebnis zu zeigen.
+     */
+    public function buildBaseCluster(SeoBaseClusterBuilder $builder): void
+    {
+        $this->buildResult = null;
+        $this->buildError = false;
+
+        if (! $this->persist()) {
+            return;
+        }
         $this->dispatch('url-target-saved', urlId: $this->urlId);
+
+        $url = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($this->urlId);
+        if (! $url) {
+            return;
+        }
+
+        $res = $builder->build($url);
+        if (! empty($res['error'])) {
+            $this->buildError = true;
+            $this->buildResult = $res['error'];
+
+            return;
+        }
+
+        $this->buildResult = sprintf(
+            '✓ Basis-Cluster „%s" erzeugt: %d Keywords angehängt (%d gefunden) · Potenzial %s/Monat.',
+            $res['cluster']->name ?? 'Basis-Cluster',
+            $res['attached'] ?? 0,
+            $res['fetched'] ?? 0,
+            number_format($res['potential'] ?? 0, 0, ',', '.'),
+        );
     }
 
     public function close(): void
