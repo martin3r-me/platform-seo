@@ -711,7 +711,7 @@
 
                     @if(! empty($sm['outliers']))
                         {{-- Ausreißer = Einzelgänger ohne Nachbarn = Rauschen. Zu einer Firma routen oder abstellen (ignorieren). --}}
-                        <div x-data="{ showAll: false }" class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-3 mb-8" style="max-width:680px">
+                        <div x-data="{ showAll: false }" class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-3 mb-8">
                             <div class="flex items-center justify-between gap-2 mb-0.5">
                                 <span class="text-[12px] font-medium text-[color:var(--nx-text)]">Ausreißer <span class="font-normal text-[color:var(--nx-faint)]">· {{ count($sm['outliers']) }} Einzelgänger ohne Thema</span></span>
                                 <button wire:click="retireOutliersWithoutCompany" wire:confirm="Alle Ausreißer ohne Firmen-Bezug abstellen (ignorieren, umkehrbar)?" class="text-[10px] px-2 py-0.5 rounded border border-[color:var(--nx-line)] text-[color:var(--nx-faint)] hover:text-[color:var(--nx-danger)]" title="alle ohne Firmen-Bezug stilllegen">alle ohne Firma abstellen</button>
@@ -743,6 +743,33 @@
                     <div class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] p-4 text-[12px] text-[color:var(--nx-muted)]">Noch keine Karte. Der Knopf liest die Keyword-Vektoren aus Qdrant und zeigt Nachbarschaften, Ausreißer und themenferne Keywords.</div>
                 @endif
             </div>
+
+            {{-- Abgestellt (ignoriert) — sichtbar & umkehrbar, ganz unten --}}
+            @if($activePhase === 'organize' && $retiredKeywords->isNotEmpty())
+                <div x-data="{ open: false, showAll: false }" class="rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] mb-8">
+                    <div class="flex items-center justify-between gap-2 px-3 py-2">
+                        <button x-on:click="open = ! open" class="flex items-center gap-1.5 text-[12px] font-medium text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">
+                            <span x-text="open ? '▾' : '▸'" class="text-[10px] text-[color:var(--nx-faint)]"></span>
+                            Abgestellt <span class="font-normal text-[color:var(--nx-faint)]">· {{ $retiredKeywords->count() }} ignorierte Keywords{{ $retiredKeywords->count() >= 300 ? '+' : '' }}</span>
+                        </button>
+                        <button wire:click="reactivateAllRetired" wire:confirm="Alle abgestellten Keywords reaktivieren?" class="text-[10px] px-2 py-0.5 rounded border border-[color:var(--nx-line)] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]" title="alle wieder in die Karte holen">alle reaktivieren</button>
+                    </div>
+                    <div x-show="open" style="display:none" class="px-3 pb-3">
+                        <div class="text-[10px] text-[color:var(--nx-faint)] mb-2">Ignoriert = raus aus dem Arbeitsset. „Reaktivieren" holt sie beim nächsten Karten-Bau zurück.</div>
+                        <div class="divide-y divide-[color:var(--nx-line)]">
+                            @foreach($retiredKeywords as $ri => $rk)
+                                <div class="flex items-center justify-between gap-2 py-1 text-[11px]" @if($ri >= 15) x-show="showAll" style="display:none" @endif>
+                                    <span class="text-[color:var(--nx-muted)] min-w-0 truncate line-through" title="Vol {{ number_format($rk->search_volume) }} · abgestellt {{ \Illuminate\Support\Carbon::parse($rk->retired_at)->diffForHumans() }}">{{ $rk->keyword }}</span>
+                                    <button wire:click="reactivateKeyword({{ $rk->id }})" class="shrink-0 text-[10px] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-info)]" title="wieder aufnehmen">reaktivieren</button>
+                                </div>
+                            @endforeach
+                        </div>
+                        @if($retiredKeywords->count() > 15)
+                            <button x-on:click="showAll = ! showAll" class="mt-2 text-[10px] text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]"><span x-text="showAll ? '▴ weniger' : '⋯ alle zeigen'"></span></button>
+                        @endif
+                    </div>
+                </div>
+            @endif
 
             @endif
 

@@ -834,6 +834,28 @@ class SeoPortfolioDetail extends Component
         $this->clusterFlash = count($ids) . ' Keywords abgestellt (raus aus der Karte, umkehrbar).';
     }
 
+    /** Ein abgestelltes Keyword reaktivieren — kommt beim nächsten Karten-Bau zurück. */
+    public function reactivateKeyword(int $keywordId): void
+    {
+        SeoKeyword::where('team_id', $this->portfolio->team_id)
+            ->where('id', $keywordId)
+            ->update(['retired_at' => null]);
+        $this->clusterFlash = 'Keyword reaktiviert — kommt beim nächsten Karten-Bau zurück in die Karte.';
+    }
+
+    /** Alle abgestellten Keywords dieses Wirkungsraums reaktivieren. */
+    public function reactivateAllRetired(): void
+    {
+        $kwIds = DB::table('seo_url_keywords')
+            ->whereIn('url_id', $this->portfolio->effectiveUrlIds())
+            ->distinct()->pluck('keyword_id');
+        $n = SeoKeyword::where('team_id', $this->portfolio->team_id)
+            ->whereNotNull('retired_at')
+            ->whereIn('id', $kwIds)
+            ->update(['retired_at' => null]);
+        $this->clusterFlash = $n . ' abgestellte Keywords reaktiviert — kommen beim nächsten Karten-Bau zurück.';
+    }
+
     /**
      * Entfernt ein Zimmer/eine Nachbarschaft sofort aus der gespeicherten Karte
      * (visuelles Feedback ohne teuren Neubau).
@@ -1564,6 +1586,14 @@ class SeoPortfolioDetail extends Component
                 'map' => $this->portfolio->semantic_map,
                 'built_at' => $this->portfolio->semantic_built_at,
             ],
+            'retiredKeywords' => $this->view === 'organize'
+                ? SeoKeyword::where('team_id', $this->portfolio->team_id)
+                    ->whereNotNull('retired_at')
+                    ->whereIn('id', DB::table('seo_url_keywords')->whereIn('url_id', $effectiveIds)->distinct()->pluck('keyword_id'))
+                    ->orderByDesc('retired_at')
+                    ->limit(300)
+                    ->get(['id', 'keyword', 'search_volume', 'retired_at'])
+                : collect(),
         ])->layout('platform::layouts.app');
     }
 }
