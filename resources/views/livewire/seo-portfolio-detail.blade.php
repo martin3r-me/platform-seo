@@ -1106,7 +1106,7 @@
                             <input type="checkbox" wire:model="dataGscEnabled" class="rounded">
                             <span>Google Search Console</span>
                         </label>
-                        <input type="text" wire:model="dataGscProperty" placeholder="Property (leer = Domain)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                        <input type="text" wire:model.blur="dataGscProperty" placeholder="Property (leer = Domain)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                     </div>
 
                     <div>
@@ -1114,7 +1114,7 @@
                             <input type="checkbox" wire:model="dataPlausibleEnabled" class="rounded">
                             <span>Plausible</span>
                         </label>
-                        <input type="text" wire:model="dataPlausibleSiteId" placeholder="site-id (leer = Domain)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                        <input type="text" wire:model.blur="dataPlausibleSiteId" placeholder="site-id (leer = Domain)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                     </div>
 
                     <div>
@@ -1131,7 +1131,7 @@
                 </div>
                 <x-slot name="footer">
                     <x-ui-button variant="secondary" size="sm" wire:click="closeDataSettings" type="button">Abbrechen</x-ui-button>
-                    <x-ui-button variant="primary" size="sm" type="submit">Speichern</x-ui-button>
+                    <x-ui-button variant="primary" size="sm" wire:click="saveDataSettings" type="button">Speichern</x-ui-button>
                 </x-slot>
             </form>
         </x-ui-modal>
@@ -1144,7 +1144,7 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Thema</label>
-                        <input type="text" wire:model="btName" placeholder="z. B. Catering (Kopfthema)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" autofocus />
+                        <input type="text" wire:model.blur="btName" placeholder="z. B. Catering (Kopfthema)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" autofocus />
                     </div>
 
                     <div>
@@ -1160,13 +1160,13 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ziel-Keyword <span class="text-gray-400 font-normal">(optional)</span></label>
-                        <input type="text" wire:model="btSeedKeyword" placeholder="z. B. catering" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                        <input type="text" wire:model.blur="btSeedKeyword" placeholder="z. B. catering" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                         <p class="text-xs text-gray-500 mt-1">Bindet passende, noch ungeclusterte Keywords dieses Wirkungsraums ein — so hat das Bauziel echte Nachfrage hinterlegt.</p>
                     </div>
                 </div>
                 <x-slot name="footer">
                     <x-ui-button variant="secondary" size="sm" wire:click="closeBuildTarget" type="button">Abbrechen</x-ui-button>
-                    <x-ui-button variant="primary" size="sm" type="submit">Bauziel anlegen</x-ui-button>
+                    <x-ui-button variant="primary" size="sm" wire:click="saveBuildTarget" type="button">Bauziel anlegen</x-ui-button>
                 </x-slot>
             </form>
         </x-ui-modal>
