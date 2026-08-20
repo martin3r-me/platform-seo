@@ -82,9 +82,13 @@ class SeoScopeMetrics
         }
 
         // Je Keyword: beste Position über die URLs (null = rankt nirgends = nur SOLL).
+        // Ignorierte Keywords (retired_at) zählen NICHT: wir ranken evtl. incidental
+        // (z.B. fremde Marken), aber der Sucher findet bei uns nichts Passendes — das
+        // darf Durchdringung/Ordnungsgrad nicht schönen.
         $rows = DB::table('seo_url_keywords as uk')
             ->join('seo_keywords as k', 'k.id', '=', 'uk.keyword_id')
             ->whereIn('uk.url_id', $urlIds)
+            ->whereNull('k.retired_at')
             ->groupBy('k.id', 'k.cluster_id', 'k.search_volume')
             ->select('k.id', 'k.cluster_id', 'k.search_volume', DB::raw('MIN(uk.position) as best_position'))
             ->get();

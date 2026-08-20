@@ -1156,7 +1156,9 @@ class SeoKeywordService implements SeoKeywordServiceInterface
     {
         $ctrModel = [1 => 0.316, 2 => 0.158, 3 => 0.094, 4 => 0.06, 5 => 0.06];
 
-        $keywords = $url->keywords()->get();
+        // Ignorierte Keywords (retired_at) zählen nicht mit — sonst schönt incidental
+        // Ranking (z.B. für fremde Marken) Sichtbarkeit/Keyword-Zahl/Volumen.
+        $keywords = $url->keywords()->whereNull('seo_keywords.retired_at')->get();
         $visibilityScore = 0;
 
         foreach ($keywords as $keyword) {
