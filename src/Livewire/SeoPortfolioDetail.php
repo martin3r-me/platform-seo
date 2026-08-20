@@ -76,9 +76,14 @@ class SeoPortfolioDetail extends Component
     public string $dataGscProperty = '';
     public string $dataPlausibleSiteId = '';
 
+    /** Meta-Steckbrief: Ziel + Auftrag des Wirkungsraums (bearbeitbar). */
+    public bool $metaEditing = false;
+    public string $metaGoal = '';
+    public string $metaDescription = '';
+
     public function setView(string $view): void
     {
-        $valid = array_merge(['dashboard'], self::PHASES, self::BESTAND);
+        $valid = array_merge(['dashboard', 'meta'], self::PHASES, self::BESTAND);
         $this->view = in_array($view, $valid, true) ? $view : 'dashboard';
         $this->viewPhase = in_array($this->view, self::PHASES, true) ? $this->view : null;
     }
@@ -93,6 +98,31 @@ class SeoPortfolioDetail extends Component
         $this->resolveSettings();
         abort_unless((int) $seoPortfolio->team_id === (int) $this->seoSettings->team_id, 404);
         $this->portfolio = $seoPortfolio;
+        $this->metaGoal = (string) ($seoPortfolio->goal ?? '');
+        $this->metaDescription = (string) ($seoPortfolio->description ?? '');
+    }
+
+    /** Meta-Steckbrief bearbeiten: Ziel + Auftrag setzen. */
+    public function editMeta(): void
+    {
+        $this->metaGoal = (string) ($this->portfolio->goal ?? '');
+        $this->metaDescription = (string) ($this->portfolio->description ?? '');
+        $this->metaEditing = true;
+    }
+
+    public function cancelMeta(): void
+    {
+        $this->metaEditing = false;
+    }
+
+    public function saveMeta(): void
+    {
+        $this->portfolio->update([
+            'goal' => trim($this->metaGoal) ?: null,
+            'description' => trim($this->metaDescription) ?: null,
+        ]);
+        $this->portfolio->refresh();
+        $this->metaEditing = false;
     }
 
     public function openAddUrls(): void

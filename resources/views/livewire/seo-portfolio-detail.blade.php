@@ -31,7 +31,13 @@
             {{-- Stationen — die 5 Arbeitsschritte am Wirkungsraum (Reifegrad-Trichter) --}}
             <div>
                 <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5 px-2">Stationen <span class="text-gray-300 normal-case font-normal">· der rote Faden</span></h3>
-                <p class="px-2 mb-1.5 text-[9px] text-gray-400 leading-tight">Daten → Ordnen → Verteilen → Handeln → Wirkung</p>
+                <p class="px-2 mb-1.5 text-[9px] text-gray-400 leading-tight">Meta → Daten → Ordnen → Verteilen → Handeln → Wirkung</p>
+                {{-- Meta: der Steckbrief des Wirkungsraums (Ziel/Auftrag) — steht vor den Gates. --}}
+                <button wire:click="setView('meta')"
+                        class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === 'meta' ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
+                    <span class="text-[10px] text-gray-400 w-3">◈</span>
+                    <span class="flex-1 text-left">Meta <span class="text-gray-400 font-normal">· Steckbrief</span></span>
+                </button>
                 @foreach(['messen' => 'Daten', 'ordnen' => 'Ordnen', 'verteilen' => 'Verteilen', 'vertiefen' => 'Maßnahmen', 'konvertieren' => 'Wirkung'] as $stKey => $stLabel)
                     <button wire:click="setView('{{ $stKey }}')"
                             class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $stKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
@@ -95,13 +101,18 @@
                 @include('seo::partials.wirkungsraum-dashboard', ['agg' => $agg, 'health' => $health, 'trend' => $trend, 'penetration' => $penetration, 'competitors' => $competitors, 'measureInbox' => $measureInbox])
             @endif
 
+            {{-- Meta — der Steckbrief: was ist dieser Wirkungsraum, was ist das Ziel. Steht vor den Gates. --}}
+            @if($view === 'meta')
+                @include('seo::partials.wirkungsraum-meta', ['portfolio' => $portfolio, 'agg' => $agg, 'health' => $health, 'penetration' => $penetration, 'metaEditing' => $metaEditing])
+            @endif
+
             {{-- Stationen — die Werkbank (Kontext + fokussiertes Phasen-Werkzeug).
                  Bestand-Views (Keywords/Cluster/Wettbewerber) zeigen ihre eigene
                  Liste weiter unten; das Dashboard seine gecraftete Sicht oben. --}}
             @if($station)
 
-            {{-- Defensive Hilfe: was ist ein Wirkungsraum + wie funktioniert die gated Werkbank (wegklickbar) --}}
-            @include('seo::partials.help-banner', ['lens' => 'wirkungsraum'])
+            {{-- (Die „Was ist ein Wirkungsraum"-Erklärung wohnt jetzt in der Meta-Station,
+                 nicht mehr als Banner auf jeder Station.) --}}
 
             {{-- KI-Verteilungs-Vorschlag --}}
             @if($advice)
