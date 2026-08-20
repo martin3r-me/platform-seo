@@ -104,12 +104,20 @@ class KeywordMetricsCollector implements SeoCollectorInterface
         foreach ($keywordsToFetch as $keyword) {
             if (isset($metricsMap[$keyword->keyword])) {
                 $m = $metricsMap[$keyword->keyword];
-                $keyword->update([
+                // Der Search-Volume-Call liefert competition + monthlySearches
+                // (history) bereits mit — mappen statt wegwerfen. Saison-Trio
+                // über den geteilten Helfer (gleiche Formel wie Ranked-Upsert).
+                $season = \Platform\Seo\Services\SeoKeywordService::normalizeMonthlySearches($m->monthlySearches);
+                $keyword->update(array_filter([
                     'search_volume' => $m->searchVolume ?? $keyword->search_volume,
                     'cpc_cents' => $m->cpcHigh !== null ? (int) round($m->cpcHigh * 100) : $keyword->cpc_cents,
+                    'competition' => $m->competition,
+                    'monthly_volumes' => $season['monthly_volumes'],
+                    'peak_month' => $season['peak_month'],
+                    'seasonality_index' => $season['seasonality_index'],
                     'last_fetched_at' => now(),
                     'dataforseo_raw' => $m->toArray(),
-                ]);
+                ], fn ($v) => $v !== null));
                 $processed++;
             }
         }

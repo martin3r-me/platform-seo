@@ -1078,34 +1078,16 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         foreach ($rankedResults as $rk) {
             $keywordLower = strtolower(trim($rk->keyword));
 
-            $monthlyVolumes = null;
-            $peakMonth = null;
-            $seasonalityIndex = null;
-
-            if ($rk->monthlySearches && count($rk->monthlySearches) >= 6) {
-                $byMonth = [];
-                foreach ($rk->monthlySearches as $m) {
-                    $month = $m['month'] ?? 0;
-                    if ($month >= 1 && $month <= 12) {
-                        $byMonth[$month] = $m['search_volume'] ?? 0;
-                    }
-                }
-                if (count($byMonth) >= 6) {
-                    $monthlyVolumes = $byMonth;
-                    $peakMonth = array_search(max($byMonth), $byMonth);
-                    $avg = array_sum($byMonth) / count($byMonth);
-                    $seasonalityIndex = $avg > 0 ? round(max($byMonth) / $avg, 2) : null;
-                }
-            }
+            $season = self::normalizeMonthlySearches($rk->monthlySearches);
 
             $updateData = array_filter([
                 'search_volume' => $rk->searchVolume,
                 'cpc_cents' => $rk->cpc !== null ? (int) round($rk->cpc * 100) : null,
                 'competition' => $rk->competition,
                 'keyword_difficulty' => $rk->keywordDifficulty,
-                'monthly_volumes' => $monthlyVolumes,
-                'peak_month' => $peakMonth,
-                'seasonality_index' => $seasonalityIndex,
+                'monthly_volumes' => $season['monthly_volumes'],
+                'peak_month' => $season['peak_month'],
+                'seasonality_index' => $season['seasonality_index'],
                 'last_fetched_at' => now(),
             ], fn ($v) => $v !== null);
 
@@ -1116,6 +1098,46 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         }
 
         return $models;
+    }
+
+    /**
+     * DataForSEO `monthly_searches` ([{year, month, search_volume}, …]) → die
+     * gespeicherten Saison-Felder. Aggregiert auf Monat-des-Jahres (1–12) und
+     * braucht ≥6 Monate, sonst bleibt alles null (nicht genug Signal). Der
+     * seasonality_index ist Peak/Durchschnitt (1.0 = flach, >1 = saisonal).
+     *
+     * Ein einziger Ort für diese Formel, damit Collector und Ranked-Upsert
+     * garantiert dieselben Werte schreiben (keine zwei driftenden Formeln).
+     *
+     * @return array{monthly_volumes: ?array<int,int>, peak_month: ?int, seasonality_index: ?float}
+     */
+    public static function normalizeMonthlySearches(?array $monthlySearches): array
+    {
+        $none = ['monthly_volumes' => null, 'peak_month' => null, 'seasonality_index' => null];
+
+        if (! $monthlySearches || count($monthlySearches) < 6) {
+            return $none;
+        }
+
+        $byMonth = [];
+        foreach ($monthlySearches as $m) {
+            $month = $m['month'] ?? 0;
+            if ($month >= 1 && $month <= 12) {
+                $byMonth[$month] = (int) ($m['search_volume'] ?? 0);
+            }
+        }
+
+        if (count($byMonth) < 6) {
+            return $none;
+        }
+
+        $avg = array_sum($byMonth) / count($byMonth);
+
+        return [
+            'monthly_volumes' => $byMonth,
+            'peak_month' => (int) array_search(max($byMonth), $byMonth),
+            'seasonality_index' => $avg > 0 ? round(max($byMonth) / $avg, 2) : null,
+        ];
     }
 
     /**
