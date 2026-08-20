@@ -3,6 +3,7 @@
 namespace Platform\Seo\Services;
 
 use Platform\Integrations\Services\DataForSeoApiService;
+use Platform\Seo\Models\SeoGeoLocation;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoTeamSettings;
@@ -44,18 +45,19 @@ class SeoBaseClusterBuilder
             return ['error' => 'Kein Basis-Begriff gesetzt — erst das SEO-Ziel definieren.'];
         }
 
-        // GEO in den Seed nehmen (Weg 1): Kurzname = erster Teil vor dem Komma
-        // („Dusseldorf,North Rhine-Westphalia,Germany" → „Dusseldorf").
+        // GEO über den exakten location_code targeten (Weg 2), NICHT im Seed-Text:
+        // Der Ortskatalog nutzt ASCII/englische Namen („Dusseldorf"/„Munich"),
+        // DataForSEOs Keyword-DB aber native Umlaute („düsseldorf") — ein Seed
+        // „catering dusseldorf" fände nichts. Der location_code lokalisiert die
+        // Volumina sauber; der Seed bleibt der Basis-Begriff.
         $geoDim = $dims->get(SeoUrlDimension::DIM_GEO, collect())->first();
-        $geoShort = $geoDim ? trim(explode(',', (string) $geoDim->value)[0]) : null;
+        $geoLoc = ($geoDim && $geoDim->geo_location_id)
+            ? SeoGeoLocation::find($geoDim->geo_location_id)
+            : null;
+        $locationCode = $geoLoc?->code ?? $settings->location_code;
+        $geoShort = $geoLoc ? trim(explode(',', (string) $geoLoc->name)[0]) : null;
 
-        // Seeds = Basis × GEO (die starken Achsen). DataForSEO liefert die
-        // Typ/Anlass/Zielgruppen-Varianten von selbst zurück — Kosten bounded.
-        $seeds = [];
-        foreach ($basis as $b) {
-            $seeds[] = $geoShort ? mb_strtolower("{$b} {$geoShort}") : mb_strtolower($b);
-        }
-        $seeds = array_values(array_unique($seeds));
+        $seeds = array_values(array_unique(array_map(fn ($b) => mb_strtolower(trim($b)), $basis)));
 
         $connectionId = $settings->resolveConnectionId();
         if (! $connectionId) {
@@ -67,7 +69,7 @@ class SeoBaseClusterBuilder
             $results = $api->getLabsKeywordSuggestions(
                 null,
                 $seeds,
-                $settings->location_code,
+                $locationCode,
                 $settings->resolveLanguageName(),
                 100,
             );
