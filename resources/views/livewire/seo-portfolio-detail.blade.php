@@ -793,10 +793,11 @@
                         </div>
                     </div>
                 @endif
+                @php($adoptRunning = ($portfolio->clustering_status ?? null) === 'running')
                 <x-slot name="footer">
                     <span class="text-[11px] text-[color:var(--nx-faint)] mr-auto">„Übernehmen" prüft per SERP und macht einen echten Cluster (umkehrbar).</span>
                     <x-ui-button variant="secondary" size="sm" wire:click="closeRoomDetail" type="button">Schließen</x-ui-button>
-                    <x-ui-button variant="primary" size="sm" wire:click="adoptFromDetail" @disabled(($portfolio->clustering_status ?? null) === 'running')>Übernehmen → Cluster</x-ui-button>
+                    <x-ui-button variant="primary" size="sm" wire:click="adoptFromDetail" wire:loading.attr="disabled" class="{{ $adoptRunning ? 'opacity-50 pointer-events-none' : '' }}">Übernehmen → Cluster</x-ui-button>
                 </x-slot>
             </x-ui-modal>
 
