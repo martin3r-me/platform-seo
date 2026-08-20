@@ -23,13 +23,13 @@
         <div class="h-1.5 rounded-full bg-[color:var(--nx-line)] overflow-hidden">
             <div class="h-full rounded-full" style="width: {{ max(2, $cov['pct']) }}%; background: {{ $barColor($cov['pct']) }}"></div>
         </div>
-        <p class="text-[11px] text-[color:var(--nx-faint)] mt-1.5">{{ number_format($cov['clustered']) }} von {{ number_format($cov['total']) }} Keywords einem Cluster zugeordnet · {{ number_format($cov['ranking']) }} ranken bereits.</p>
+        <p class="text-[11px] text-[color:var(--nx-faint)] mt-1.5">{{ number_format($cov['clustered']) }} von {{ number_format($cov['total']) }} Keywords einem Cluster zugeordnet · {{ number_format($cov['ranking']) }} ranken bereits. <span class="text-[color:var(--nx-faint)]">Ignorierte Keywords (Rauschen) sind hier ausgenommen.</span></p>
     </x-nx-card>
 @endif
 
 @if($cls->isNotEmpty())
     <h3 class="text-[13px] font-semibold text-[color:var(--nx-text)] mb-1">Durchdringung je Cluster</h3>
-    <p class="text-[11px] text-[color:var(--nx-faint)] mb-3">SOLL = Keywords im Thema · IST = wie viele ranken · <span class="font-medium">Durchdringung positionsgewichtet</span> (Pos 1 zählt voll, tiefe Positionen kaum) = wie <span class="font-medium">sichtbar</span> wir im Thema sind.</p>
+    <p class="text-[11px] text-[color:var(--nx-faint)] mb-3">SOLL = Keywords im Thema · IST = wie viele ranken · <span class="font-medium">Durchdringung positionsgewichtet</span> (Pos 1 zählt voll, tiefe Positionen kaum) = wie <span class="font-medium">sichtbar</span> wir im Thema sind. <span class="text-[color:var(--nx-faint)]">Ignorierte Keywords zählen nicht mit.</span></p>
     <x-nx-card flush>
         <x-nx-table>
             <x-nx-table-header>

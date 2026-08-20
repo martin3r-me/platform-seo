@@ -40,7 +40,7 @@
     <x-nx-card class="lg:col-span-2">
         <div class="flex items-start justify-between gap-4">
             <div>
-                <div class="text-[10px] font-medium uppercase tracking-wide text-[color:var(--nx-faint)]">Sichtbarkeit im Wirkungsraum</div>
+                <div class="text-[10px] font-medium uppercase tracking-wide text-[color:var(--nx-faint)]">Sichtbarkeit im Wirkungsraum <span class="normal-case font-normal cursor-help" title="Sichtbarkeit = Suchvolumen × Positions-CTR (Pos 1 voll, tiefe Positionen kaum). Ignorierte Keywords zählen nicht mit.">ⓘ</span></div>
                 @if($share !== null)
                     <div class="mt-1 flex items-baseline gap-2">
                         <span class="text-[40px] leading-none font-semibold tabular-nums text-[color:var(--nx-text)]">{{ $share }}<span class="text-[20px] text-[color:var(--nx-muted)]">%</span></span>
@@ -102,7 +102,7 @@
                 <span><span style="color:var(--nx-warning)">●</span> {{ $mittel }} mittel</span>
                 <span><span style="color:color-mix(in srgb, var(--nx-danger) 60%, transparent)">●</span> {{ $offen }} offen</span>
             </div>
-            <div class="mt-1 text-[10px] text-[color:var(--nx-faint)]">Ordnung {{ $health['dimensions']['ordnung'] ?? 0 }}% · Ø Tiefe {{ $health['dimensions']['durchdringung'] ?? 0 }}%</div>
+            <div class="mt-1 text-[10px] text-[color:var(--nx-faint)]">Ordnung {{ $health['dimensions']['ordnung'] ?? 0 }}% · Ø Tiefe {{ $health['dimensions']['durchdringung'] ?? 0 }}% <span title="Ø Tiefe ist positionsgewichtet (Pos 1 voll, tiefe Positionen kaum); ignorierte Keywords zählen nicht mit.">ⓘ</span></div>
         @else
             <div class="mt-2 text-[11px] text-[color:var(--nx-faint)]">Noch keine Cluster — in „Ordnen" die Themen bauen.</div>
         @endif
