@@ -116,8 +116,8 @@ class ClusterModal extends Component
                         ->whereNull('u.deleted_at')->where('u.team_id', $teamId);
                 })
                 ->whereIn('uk.keyword_id', $allIds)
-                ->groupBy('u.id', 'u.url', 'u.path')
-                ->selectRaw('u.id, u.url, u.path, COUNT(DISTINCT uk.keyword_id) as kw_covered, MIN(uk.position) as best')
+                ->groupBy('u.id', 'u.url', 'u.domain', 'u.path')
+                ->selectRaw('u.id, u.url, u.domain, u.path, COUNT(DISTINCT uk.keyword_id) as kw_covered, MIN(uk.position) as best')
                 ->orderByDesc('kw_covered')->limit(20)->get();
         }
 

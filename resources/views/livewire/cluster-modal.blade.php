@@ -19,8 +19,8 @@
 
                 {{-- Ziel-Seite (Pillar) mit Erklärung --}}
                 <div class="rounded-lg border border-gray-200 p-3">
-                    <div class="text-[12px] font-semibold text-gray-700">Ziel-Seite (Pillar)</div>
-                    <p class="text-[11px] text-gray-400 mb-1.5">Die <span class="font-medium">eine</span> starke Seite, die dieses Thema besitzt und bespielt — hierher fließen Inhalt &amp; interne Links, sie soll für den Cluster ranken.</p>
+                    <div class="text-[12px] font-semibold text-gray-700">Ziel-Seite (Pillar) — der Owner</div>
+                    <p class="text-[11px] text-gray-400 mb-1.5">Die <span class="font-medium">eine</span> Seite (= die Owner-Firma), die dieses Thema besitzt und bespielt. <span class="font-medium">Genau eine</span> — unten eine wählen setzt sie (ersetzt die vorige). Das ist die Verteilen-Entscheidung: wem im Verbund gehört das Thema.</p>
                     @if($cluster->pillarUrl)
                         <div class="text-[12px] text-gray-700 flex items-center gap-2 flex-wrap">
                             <a href="{{ route('seo.urls.show', $cluster->pillarUrl->id) }}" wire:navigate class="text-indigo-600 hover:underline">{{ $cluster->pillarUrl->display_label }}</a>
@@ -31,23 +31,29 @@
                     @endif
                 </div>
 
-                {{-- Rankende Seiten — welche unserer Seiten aktuell beteiligt sind --}}
+                {{-- Rankende Seiten — welche unserer Seiten (welcher Firmen) beteiligt sind --}}
                 <div>
+                    @php($domainCount = $candidates->pluck('domain')->unique()->count())
                     <div class="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">Rankende Seiten ({{ $candidates->count() }}) — welche unserer Seiten hier auftauchen</div>
                     @if($candidates->isEmpty())
                         <div class="text-[12px] text-gray-400 rounded-lg border border-dashed border-gray-200 p-3">Noch keine eigene Seite rankt für dieses Thema — klassischer Neu-Bau-Fall.</div>
                     @else
+                        @if($domainCount > 1)
+                            <div class="text-[11px] mb-1.5 rounded-md px-2 py-1.5" style="background:color-mix(in srgb, var(--nx-warning) 12%, transparent);color:var(--nx-warning)"><span class="font-medium">⚠ {{ $domainCount }} Domains ranken hier</span> — mehrere Verbund-Firmen konkurrieren ums selbe Thema (Kannibalisierung). Wähle <span class="font-medium">genau eine</span> als Owner; die anderen sollten nicht dagegen bauen.</div>
+                        @endif
                         <div class="rounded-lg border border-gray-200 divide-y divide-gray-50">
                             @foreach($candidates as $cand)
                                 @php($isPillar = (int) $cluster->pillar_url_id === (int) $cand->id)
                                 <div class="flex items-center justify-between gap-2 px-2 py-1.5 text-[12px]">
-                                    <a href="{{ route('seo.urls.show', $cand->id) }}" wire:navigate class="text-indigo-600 hover:underline truncate">{{ $cand->path ?: '/' }}</a>
+                                    <a href="{{ route('seo.urls.show', $cand->id) }}" wire:navigate class="min-w-0 truncate hover:underline">
+                                        <span class="text-gray-800 font-medium">{{ $cand->domain }}</span><span class="text-gray-400">{{ $cand->path !== '/' ? $cand->path : '' }}</span>
+                                    </a>
                                     <span class="shrink-0 flex items-center gap-2 text-[11px]">
                                         <span class="tabular-nums text-gray-400">{{ $cand->kw_covered }} KW · #{{ $cand->best }}</span>
                                         @if($isPillar)
-                                            <span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">Ziel-Seite</span>
+                                            <span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">Owner</span>
                                         @else
-                                            <button wire:click="setPillarUrl({{ $cand->id }})" class="text-gray-500 hover:text-indigo-600">→ als Ziel-Seite</button>
+                                            <button wire:click="setPillarUrl({{ $cand->id }})" class="text-gray-500 hover:text-indigo-600">→ als Owner setzen</button>
                                         @endif
                                     </span>
                                 </div>
