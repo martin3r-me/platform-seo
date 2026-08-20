@@ -1031,51 +1031,45 @@
             </div>
         @endif
 
-        {{-- Daten-Station: Datenquellen-Einstellungen je URL im NX-Modal (fokussiert, nicht inline). --}}
+        {{-- Daten-Station: Datenquellen-Einstellungen je URL im NX-Modal (Standard-Formular). --}}
         <x-ui-modal wire:model="showDataSettings" title="Datenquellen{{ $dataUrlLabel ? ' — '.$dataUrlLabel : '' }}">
-            @if($dataSettingsUrl)
+            <form wire:submit="saveDataSettings">
                 <div class="space-y-4">
-                    <p class="text-[12px] text-gray-500">Was für diese URL gesammelt wird. <span class="font-medium text-gray-700">GSC/Plausible</span> sind gratis, das <span class="font-medium text-gray-700">Profil</span> steuert Tiefe &amp; Kosten der bezahlten Quellen.</p>
+                    <p class="text-sm text-gray-500">Was für diese URL gesammelt wird. <span class="font-medium text-gray-700">GSC/Plausible</span> sind gratis, das <span class="font-medium text-gray-700">Profil</span> steuert Tiefe &amp; Kosten der bezahlten Quellen.</p>
 
-                    {{-- GSC --}}
-                    <div class="rounded-lg border border-gray-200 p-3">
-                        <div class="flex items-center justify-between mb-1.5">
-                            <span class="text-[12px] font-semibold text-gray-700">Google Search Console</span>
-                            <button wire:click="toggleUrlGsc({{ $dataSettingsUrl->id }})" class="text-[11px] px-2 py-0.5 rounded {{ $dataSettingsUrl->gsc_enabled ? 'bg-[color:var(--nx-info)] text-white' : 'bg-gray-200 text-gray-600' }}">{{ $dataSettingsUrl->gsc_enabled ? 'aktiv' : 'aus' }}</button>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <input type="text" wire:model="dataGscProperty" placeholder="Property (leer = Domain)" class="flex-1 min-w-0 text-[13px] border border-gray-300 rounded-lg px-3 py-2" />
-                            <x-ui-button variant="secondary" size="sm" wire:click="saveDataGsc">Speichern</x-ui-button>
-                        </div>
+                    <div>
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                            <input type="checkbox" wire:model="dataGscEnabled" class="rounded">
+                            <span>Google Search Console</span>
+                        </label>
+                        <input type="text" wire:model="dataGscProperty" placeholder="Property (leer = Domain)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                     </div>
 
-                    {{-- Plausible --}}
-                    <div class="rounded-lg border border-gray-200 p-3">
-                        <div class="flex items-center justify-between mb-1.5">
-                            <span class="text-[12px] font-semibold text-gray-700">Plausible</span>
-                            <button wire:click="toggleUrlPlausible({{ $dataSettingsUrl->id }})" class="text-[11px] px-2 py-0.5 rounded {{ $dataSettingsUrl->plausible_enabled ? 'bg-[color:var(--nx-info)] text-white' : 'bg-gray-200 text-gray-600' }}">{{ $dataSettingsUrl->plausible_enabled ? 'aktiv' : 'aus' }}</button>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <input type="text" wire:model="dataPlausibleSiteId" placeholder="site-id (leer = Domain)" class="flex-1 min-w-0 text-[13px] border border-gray-300 rounded-lg px-3 py-2" />
-                            <x-ui-button variant="secondary" size="sm" wire:click="saveDataPlausible">Speichern</x-ui-button>
-                        </div>
+                    <div>
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+                            <input type="checkbox" wire:model="dataPlausibleEnabled" class="rounded">
+                            <span>Plausible</span>
+                        </label>
+                        <input type="text" wire:model="dataPlausibleSiteId" placeholder="site-id (leer = Domain)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
                     </div>
 
-                    {{-- Profil --}}
-                    <div class="rounded-lg border border-gray-200 p-3">
-                        <div class="text-[12px] font-semibold text-gray-700 mb-1.5">Profil <span class="text-gray-400 font-normal">— Rankings / On-Page / Backlinks (Tiefe &amp; Kosten)</span></div>
-                        <select x-on:change="$wire.setUrlProfile({{ $dataSettingsUrl->id }}, $event.target.value)" class="w-full text-[13px] border border-gray-300 rounded-lg px-3 py-2 bg-white">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Profil <span class="text-gray-400 font-normal">— Rankings / On-Page / Backlinks (Tiefe &amp; Kosten)</span></label>
+                        <select wire:model="dataProfile" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                             @foreach($availableProfiles as $p)
-                                <option value="{{ $p }}" @selected(app(\Platform\Seo\Services\SeoDataProfileService::class)->effectiveProfile($dataSettingsUrl) === $p)>{{ ucfirst($p) }}</option>
+                                <option value="{{ $p }}">{{ ucfirst($p) }}</option>
                             @endforeach
                         </select>
-                        <p class="text-[11px] text-gray-400 mt-1.5">Monatskosten dieser URL: <span class="font-medium text-gray-600 tabular-nums">{{ number_format(app(\Platform\Seo\Services\SeoCostProjectionService::class)->urlMonthlyCents($dataSettingsUrl) / 100, 2, ',', '.') }} €</span></p>
+                        @if($dataSettingsUrl)
+                            <p class="text-xs text-gray-500 mt-1">Monatskosten dieser URL: <span class="font-medium text-gray-600 tabular-nums">{{ number_format(app(\Platform\Seo\Services\SeoCostProjectionService::class)->urlMonthlyCents($dataSettingsUrl) / 100, 2, ',', '.') }} €</span> <span class="text-gray-400">(nach Speichern aktualisiert)</span></p>
+                        @endif
                     </div>
                 </div>
-            @endif
-            <x-slot name="footer">
-                <x-ui-button variant="primary" size="sm" wire:click="closeDataSettings">Fertig</x-ui-button>
-            </x-slot>
+                <x-slot name="footer">
+                    <x-ui-button variant="secondary" size="sm" wire:click="closeDataSettings" type="button">Abbrechen</x-ui-button>
+                    <x-ui-button variant="primary" size="sm" type="submit">Speichern</x-ui-button>
+                </x-slot>
+            </form>
         </x-ui-modal>
     </x-ui-page-container>
 </x-ui-page>

@@ -71,12 +71,15 @@ class SeoPortfolioDetail extends Component
     /** Rückmeldung in der Entitäten-Sicht (Experiment/AI-Probe). */
     public ?string $entityFlash = null;
 
-    /** Daten-Matrix: welche URL im Settings-Modal offen ist + ihre Felder. */
+    /** Daten-Matrix: welche URL im Settings-Modal offen ist + ihre (gestuften) Felder. */
     public bool $showDataSettings = false;
     public ?int $openDataUrlId = null;
     public string $dataUrlLabel = '';
+    public bool $dataGscEnabled = false;
     public string $dataGscProperty = '';
+    public bool $dataPlausibleEnabled = false;
     public string $dataPlausibleSiteId = '';
+    public string $dataProfile = '';
 
     /** Meta-Steckbrief: Ziel + Auftrag des Wirkungsraums (bearbeitbar). */
     public bool $metaEditing = false;
@@ -1113,8 +1116,11 @@ class SeoPortfolioDetail extends Component
         }
         $this->openDataUrlId = $urlId;
         $this->dataUrlLabel = (string) $u->display_label;
+        $this->dataGscEnabled = (bool) $u->gsc_enabled;
         $this->dataGscProperty = (string) ($u->gsc_property ?? '');
+        $this->dataPlausibleEnabled = (bool) $u->plausible_enabled;
         $this->dataPlausibleSiteId = (string) ($u->plausible_site_id ?? '');
+        $this->dataProfile = app(\Platform\Seo\Services\SeoDataProfileService::class)->effectiveProfile($u);
         $this->showDataSettings = true;
     }
 
@@ -1132,18 +1138,28 @@ class SeoPortfolioDetail extends Component
         }
     }
 
-    public function saveDataGsc(): void
+    /** Alle Datenquellen-Felder der URL in einem Rutsch speichern (Form-Modal). */
+    public function saveDataSettings(): void
     {
-        if ($this->openDataUrlId) {
-            $this->saveUrlGscProperty($this->openDataUrlId, $this->dataGscProperty);
+        if (! $this->openDataUrlId) {
+            return;
         }
-    }
-
-    public function saveDataPlausible(): void
-    {
-        if ($this->openDataUrlId) {
-            $this->saveUrlPlausibleSiteId($this->openDataUrlId, $this->dataPlausibleSiteId);
+        $u = SeoUrl::where('team_id', $this->seoSettings->team_id)->find($this->openDataUrlId);
+        if (! $u) {
+            return;
         }
+        $svc = app(\Platform\Seo\Services\SeoDataProfileService::class);
+        $attrs = [
+            'gsc_enabled' => $this->dataGscEnabled,
+            'gsc_property' => trim($this->dataGscProperty) ?: null,
+            'plausible_enabled' => $this->dataPlausibleEnabled,
+            'plausible_site_id' => trim($this->dataPlausibleSiteId) ?: null,
+        ];
+        if ($svc->isValidProfile((bool) $u->is_own, $this->dataProfile)) {
+            $attrs['data_profile'] = $this->dataProfile;
+        }
+        $u->update($attrs);
+        $this->closeDataSettings();
     }
 
     /**
