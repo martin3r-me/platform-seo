@@ -19,11 +19,12 @@
         @include('seo::partials.help-banner', ['lens' => 'clusters'])
 
         {{-- Intro --}}
-        <p class="text-[13px] text-gray-500 mb-6">Der Cluster ist die strategische Einheit: systematisch aufgebaut und über die Zeit gemessen. Abdeckung, Sichtbarkeit und Trajektorie zeigen, ob ein Thema gewonnen wird.</p>
+        <p class="text-[13px] text-gray-500 mb-1">Der Cluster ist die strategische Einheit: systematisch aufgebaut und über die Zeit gemessen. Durchdringung, Sichtbarkeit und Trajektorie zeigen, ob ein Thema gewonnen wird.</p>
+        <p class="text-[11px] text-gray-400 mb-6"><span class="font-medium">Durchdringung positionsgewichtet</span> (Pos 1 zählt voll, tiefe Positionen kaum) = wie sichtbar wir im Thema sind — <span class="font-medium">ignorierte Keywords zählen nicht mit</span>. <span class="text-indigo-500">Basis</span> = aus URL-Dimensionen erzeugt, <span class="text-sky-500">Bauziel</span> = bewusst gebaut, sonst geerntet.</p>
 
         {{-- Sort --}}
         <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 mb-6 w-fit">
-            @foreach(['health' => 'Health', 'coverage' => 'Abdeckung', 'visibility' => 'Sichtbarkeit', 'keywords' => 'Keywords'] as $key => $label)
+            @foreach(['health' => 'Health', 'coverage' => 'Durchdringung', 'visibility' => 'Sichtbarkeit', 'keywords' => 'Keywords'] as $key => $label)
                 <button wire:click="setSort('{{ $key }}')"
                         class="px-3 py-1.5 text-[12px] rounded-md transition-colors {{ $sort === $key ? 'bg-white text-gray-900 font-medium shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
                     {{ $label }}
@@ -36,12 +37,12 @@
             @forelse($clusters as $cluster)
                 @php
                     $health = $cluster->health_score;
-                    $coverage = (float) $cluster->coverage_pct;
-                    // „Im Aufbau": hat Keywords, aber noch keine Sichtbarkeit/Abdeckung
-                    // (rankt noch nicht) → NICHT rot „ungesund", sondern neutral „Aufbau".
-                    $building = ($cluster->keywords_count ?? 0) > 0
-                        && (float) $cluster->visibility <= 0
-                        && $coverage <= 0;
+                    // Ehrliche, positionsgewichtete Durchdringung (live, ignorierte raus)
+                    // statt des binären, stalen coverage_pct.
+                    $m = $metrics[$cluster->id] ?? ['soll' => (int) ($cluster->keywords_count ?? 0), 'ist' => 0, 'pen' => 0];
+                    $coverage = (float) $m['pen'];
+                    // „Im Aufbau": hat Keywords, rankt aber noch nicht → neutral, nicht rot.
+                    $building = $m['soll'] > 0 && $m['ist'] === 0;
                     $healthColor = match(true) {
                         $building => 'bg-blue-100 text-blue-700',
                         $health === null => 'bg-gray-100 text-gray-400',
@@ -62,15 +63,22 @@
                         <div class="flex items-center gap-2.5 min-w-[180px] flex-1">
                             <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background: {{ $cluster->color ?: '#94a3b8' }}"></span>
                             <div class="min-w-0">
-                                <a href="{{ route('seo.clusters.show', $cluster) }}" wire:navigate class="font-medium text-[13px] text-gray-900 hover:text-indigo-600 truncate block">{{ $cluster->name }}</a>
-                                <div class="text-[11px] text-gray-400">{{ $cluster->keywords_count }} Keywords · {{ $cluster->covered_keywords }} abgedeckt</div>
+                                <div class="flex items-center gap-1.5 min-w-0">
+                                    <a href="{{ route('seo.clusters.show', $cluster) }}" wire:navigate class="font-medium text-[13px] text-gray-900 hover:text-indigo-600 truncate">{{ $cluster->name }}</a>
+                                    @if(($cluster->origin ?? '') === 'base')
+                                        <span class="shrink-0 text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-indigo-50 text-indigo-600" title="aus URL-Dimensionen erzeugt (Soll-Anker)">Basis</span>
+                                    @elseif(($cluster->origin ?? '') === 'build')
+                                        <span class="shrink-0 text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-sky-50 text-sky-600" title="bewusst gebautes Ziel">Bauziel</span>
+                                    @endif
+                                </div>
+                                <div class="text-[11px] text-gray-400">{{ number_format($m['soll']) }} Keywords · {{ number_format($m['ist']) }} ranken</div>
                             </div>
                         </div>
 
                         {{-- Coverage --}}
                         <div class="w-[130px]">
                             <div class="flex items-center justify-between text-[11px] mb-1">
-                                <span class="text-gray-400 uppercase tracking-wide">Abdeckung</span>
+                                <span class="text-gray-400 uppercase tracking-wide">Durchdringung</span>
                                 <span class="font-medium text-gray-700 tabular-nums">{{ number_format($coverage, 0) }}%</span>
                             </div>
                             <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">

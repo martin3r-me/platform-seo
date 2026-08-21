@@ -178,8 +178,10 @@ class SeoClusterMetricsService
     /**
      * Grobe organische CTR-Kurve je Position (für die volumen-gewichtete Sichtbarkeit).
      * Bewusst modul-lokal; ein gemeinsamer CTR-Helfer ist ein Aufräum-Thema (Phase 4).
+     * Public, damit die ehrliche (positionsgewichtete) Durchdringung im Cluster-
+     * Index dieselbe Kurve nutzt.
      */
-    protected function ctr(int $position): float
+    public function ctr(int $position): float
     {
         return match (true) {
             $position <= 1 => 0.28,
