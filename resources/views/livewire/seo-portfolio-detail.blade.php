@@ -103,12 +103,6 @@
                 </div>
             </div>
 
-            {{-- Dashboard — eigene, gecraftete nx-Überblickssicht (Held-Metrik +
-                 Wirkungsgrad + nächster Zug + kompakter Reifegrad + Sparkline). --}}
-            @if($view === 'dashboard')
-                @include('seo::partials.wirkungsraum-dashboard', ['agg' => $agg, 'health' => $health, 'trend' => $trend, 'penetration' => $penetration, 'competitors' => $competitors, 'measureInbox' => $measureInbox])
-            @endif
-
             {{-- Stationen — die Werkbank (Kontext + fokussiertes Phasen-Werkzeug).
                  Bestand-Views (Keywords/Cluster/Wettbewerber) zeigen ihre eigene
                  Liste weiter unten; das Dashboard seine gecraftete Sicht oben. --}}

@@ -1088,57 +1088,8 @@ class SeoPortfolioDetail extends Component
      */
     protected function trend(array $memberIds): array
     {
-        $empty = ['points' => [], 'count' => 0, 'since' => null, 'current' => null, 'delta' => null];
-        if (empty($memberIds)) {
-            return $empty;
-        }
-
-        $rows = SeoUrlSnapshot::whereIn('url_id', $memberIds)
-            ->where('snapshot_date', '>=', now()->subDays(90))
-            ->selectRaw('snapshot_date, SUM(visibility_score) as total_visibility')
-            ->groupBy('snapshot_date')
-            ->orderBy('snapshot_date')
-            ->get();
-
-        if ($rows->isEmpty()) {
-            return $empty;
-        }
-
-        $points = $rows->map(fn ($r) => [
-            'date' => \Illuminate\Support\Carbon::parse($r->snapshot_date)->format('Y-m-d'),
-            'visibility' => (float) $r->total_visibility,
-        ])->values()->all();
-
-        $count = count($points);
-        $current = $points[$count - 1]['visibility'];
-        $first = $points[0]['visibility'];
-
-        // Sparkline-Geometrie (Polyline + Flächen-Pfad) fürs Dashboard vorberechnen.
-        $spark = null;
-        if ($count >= 2) {
-            $w = 240;
-            $h = 40;
-            $vals = array_column($points, 'visibility');
-            $mn = min($vals);
-            $rng = (max($vals) - $mn) ?: 1;
-            $line = [];
-            foreach ($points as $i => $p) {
-                $x = round($i / ($count - 1) * $w, 1);
-                $y = round($h - (($p['visibility'] - $mn) / $rng) * ($h - 4) - 2, 1);
-                $line[] = $x.','.$y;
-            }
-            $poly = implode(' ', $line);
-            $spark = ['w' => $w, 'h' => $h, 'line' => $poly, 'area' => '0,'.$h.' '.$poly.' '.$w.','.$h];
-        }
-
-        return [
-            'points' => $points,
-            'count' => $count,
-            'since' => $points[0]['date'],
-            'current' => $current,
-            'delta' => $count >= 2 ? $current - $first : null,
-            'spark' => $spark,
-        ];
+        // Geteilt mit den herausgelösten Stations-Komponenten (SeoPortfolioView).
+        return app(\Platform\Seo\Services\SeoPortfolioView::class)->trendForUrlIds($memberIds);
     }
 
     /**
