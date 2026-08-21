@@ -39,14 +39,14 @@
             {{-- Stationen — die 5 Arbeitsschritte am Wirkungsraum (Reifegrad-Trichter) --}}
             <div>
                 <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5 px-2">Stationen <span class="text-gray-300 normal-case font-normal">· der rote Faden</span></h3>
-                <p class="px-2 mb-1.5 text-[9px] text-gray-400 leading-tight">Meta → Daten → Ordnen → Verteilen → Handeln → Wirkung</p>
+                <p class="px-2 mb-1.5 text-[9px] text-gray-400 leading-tight">Meta → Daten → Basis → Ordnen → Verteilen → Handeln → Wirkung</p>
                 {{-- Meta: der Steckbrief des Wirkungsraums (Ziel/Auftrag) — steht vor den Gates. --}}
                 <button wire:click="setView('meta')"
                         class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === 'meta' ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
                     <span class="text-[10px] text-gray-400 w-3">◈</span>
                     <span class="flex-1 text-left">Meta <span class="text-gray-400 font-normal">· Steckbrief</span></span>
                 </button>
-                @foreach(['measure' => 'Daten', 'organize' => 'Ordnen', 'distribute' => 'Verteilen', 'act' => 'Maßnahmen', 'impact' => 'Wirkung'] as $stKey => $stLabel)
+                @foreach(['measure' => 'Daten', 'basis' => 'Basis', 'organize' => 'Ordnen', 'distribute' => 'Verteilen', 'act' => 'Maßnahmen', 'impact' => 'Wirkung'] as $stKey => $stLabel)
                     <button wire:click="setView('{{ $stKey }}')"
                             class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors {{ $view === $stKey ? 'bg-gray-100 font-medium text-gray-900' : 'text-gray-600 hover:bg-gray-50' }}">
                         <span class="text-[10px] tabular-nums text-gray-400 w-3">{{ $loop->iteration }}</span>
@@ -538,16 +538,12 @@
                 </div>
             @endif
 
-            @if($activePhase === 'organize')
-            {{-- Ordnen ist zweistufig: ① Basis (SEO-Ziel + Basis-Cluster je URL) → ② Themenfelder darüber (gated). --}}
-            <div class="mt-6 flex items-center gap-1 rounded-lg bg-[color:var(--nx-line)] p-0.5 w-fit text-[12px]">
-                <button wire:click="setOrganizeStep('basis')" class="px-3 py-1 rounded-md {{ $organizeStep === 'basis' ? 'bg-[color:var(--nx-surface)] font-medium text-[color:var(--nx-text)] shadow-sm' : 'text-[color:var(--nx-muted)]' }}">① Basis</button>
-                <button wire:click="setOrganizeStep('themen')" class="px-3 py-1 rounded-md {{ $organizeStep === 'themen' ? 'bg-[color:var(--nx-surface)] font-medium text-[color:var(--nx-text)] shadow-sm' : 'text-[color:var(--nx-muted)]' }}">② Themenfelder</button>
-            </div>
-
-            @if($organizeStep === 'basis')
+            {{-- Station „Basis" — eigener Handlungsort: SEO-Ziel + Basis-Cluster je URL (Index aller Beteiligten). --}}
+            @if($activePhase === 'basis')
                 @include('seo::partials.wirkungsraum-basis', ['basisRows' => $basisRows, 'clusterFlash' => $clusterFlash])
-            @else
+            @endif
+
+            @if($activePhase === 'organize')
             @php($cov = $coverage ?? ['pct' => 0, 'unclustered_pct' => 0, 'total' => 0])
             {{-- Kompakter Ordnungs-Status + Nach-Clustern; Durchdringung je Cluster eingeklappt darunter. --}}
             <div class="mt-6 mb-5 rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] px-4 py-3"
@@ -812,7 +808,6 @@
                     </div>
                 </div>
             @endif
-            @endif {{-- Ende ② Themenfelder (@else organizeStep) --}}
 
             @endif
 

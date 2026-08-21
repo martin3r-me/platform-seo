@@ -5,6 +5,7 @@ namespace Platform\Seo\Services;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlDimension;
 
 /**
  * Portfolio-Reifegrad — der Optimierungs-Trichter als Gate-Modell (kein
@@ -53,6 +54,7 @@ class SeoPortfolioHealth
 
         // Gates (geordnet). met = Bedingung erfüllt.
         $hasData = ($cov['ranking'] ?? 0) > 0;
+        $hasBaseSettings = ! empty($ids) && SeoUrlDimension::whereIn('url_id', $ids)->where('dimension', 'basis')->exists();
         $ordnungOk = $ordnung >= $ordnungsgradMin;
         $ownersOk = ! empty($clusterIds) && $clustersWithoutOwner === 0;
         $durchOk = $durchdringung >= $durchdringungMin;
@@ -63,6 +65,11 @@ class SeoPortfolioHealth
                 'key' => 'measure', 'label' => 'Daten', 'met' => $hasData,
                 'action' => 'Rankings/Keywords ziehen',
                 'why' => 'Noch keine Ranking-Daten — erst messen.',
+            ],
+            [
+                'key' => 'basis', 'label' => 'Basis', 'met' => $hasBaseSettings,
+                'action' => 'SEO-Ziel je URL setzen · Basis-Cluster bauen',
+                'why' => 'Erst je Seite das SEO-Ziel (Dimensionen) — daraus entstehen die Basis-Cluster.',
             ],
             [
                 'key' => 'organize', 'label' => 'Ordnen', 'met' => $ordnungOk,

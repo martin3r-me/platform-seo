@@ -67,7 +67,7 @@ class SeoPortfolioDetail extends Component
      */
     public string $view = 'dashboard';
 
-    private const PHASES = ['measure', 'organize', 'distribute', 'act', 'impact'];
+    private const PHASES = ['measure', 'basis', 'organize', 'distribute', 'act', 'impact'];
     private const BESTAND = ['keywords', 'clusters', 'competitors', 'entities'];
 
     /** Rückmeldung in der Entitäten-Sicht (Experiment/AI-Probe). */
@@ -440,14 +440,6 @@ class SeoPortfolioDetail extends Component
      * Mitglieder) zu Themen bündeln — abgegrenzt von bereits geclusterten
      * (der Service fasst nur cluster_id=null an). Läuft im Hintergrund (SERP).
      */
-    /** Ordnen-Zweischritt: 'basis' (SEO-Ziel + Basis-Cluster je URL) | 'themen'. */
-    public string $organizeStep = 'basis';
-
-    public function setOrganizeStep(string $step): void
-    {
-        $this->organizeStep = in_array($step, ['basis', 'themen'], true) ? $step : 'basis';
-    }
-
     /** Nach dem Speichern eines SEO-Ziels (UrlSeoTarget-Modal) neu rendern. */
     #[\Livewire\Attributes\On('url-target-saved')]
     public function onUrlTargetSaved(): void
@@ -1703,7 +1695,7 @@ class SeoPortfolioDetail extends Component
         // Basis-Index (Ordnen ①): alle beteiligten eigenen URLs mit ihrem SEO-Ziel
         // (Dimensionen) + Basis-Cluster-Status. Der Handlungsort für die Basis-Arbeit.
         $basisRows = collect();
-        if ($activePhase === 'organize') {
+        if ($activePhase === 'basis') {
             $ownUrls = SeoUrl::whereIn('id', $effectiveIds)->where('is_own', true)
                 ->orderBy('domain')->orderBy('path')->get();
             $urlIds = $ownUrls->pluck('id');
@@ -1728,7 +1720,6 @@ class SeoPortfolioDetail extends Component
             'view' => $this->view,
             'station' => $station,
             'hasBaseSettings' => $this->hasBaseSettings(),
-            'organizeStep' => $this->organizeStep,
             'basisRows' => $basisRows,
             'activePhase' => $activePhase,
             'activePhaseLabel' => $activePhaseLabel,
