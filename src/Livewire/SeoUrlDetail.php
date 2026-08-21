@@ -66,6 +66,9 @@ class SeoUrlDetail extends Component
     {
         $this->resolveSettings();
         $this->seoUrl = $seoUrl;
+        if ($seoUrl->is_own) {
+            $seoUrl->loadMissing(['ctas.ctaType']);
+        }
         $this->plausibleSiteId = (string) ($seoUrl->plausible_site_id ?? '');
         $this->gscProperty = (string) ($seoUrl->gsc_property ?? '');
         $this->loadSteckbrief();
@@ -424,6 +427,13 @@ class SeoUrlDetail extends Component
     public function onTargetSaved(): void
     {
         // Kein State nötig — der Re-Render liest die frischen Dimensionen.
+    }
+
+    /** Nach dem Speichern der Ziel-CTAs die Relation neu laden (Badges aktualisieren). */
+    #[\Livewire\Attributes\On('url-ctas-saved')]
+    public function onCtasSaved(): void
+    {
+        $this->seoUrl->load(['ctas.ctaType']);
     }
 
     public function render()

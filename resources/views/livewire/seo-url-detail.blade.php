@@ -66,6 +66,32 @@
                 <livewire:seo.url-seo-target />
             @endif
 
+            {{-- Ziel-CTAs: was die Seite den Besucher tun lassen soll (nur eigene URLs).
+                 Bearbeiten öffnet die eigenständige UrlCtaManager-Modal-Komponente. --}}
+            @if($seoUrl->is_own)
+                @php
+                    $targetCtas = $seoUrl->ctas
+                        ->where('source', \Platform\Seo\Models\SeoCta::SOURCE_TARGET)
+                        ->sortBy(fn ($c) => array_search($c->prominence, \Platform\Seo\Models\SeoCta::PROMINENCES));
+                @endphp
+                <div class="flex items-start gap-2 flex-wrap">
+                    <span class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mt-1">Ziel-CTAs</span>
+                    <div class="flex-1 flex items-center gap-2 flex-wrap">
+                        @forelse($targetCtas as $cta)
+                            <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded {{ $cta->prominence === 'primary' ? 'bg-indigo-50 text-indigo-700' : 'bg-gray-100 text-gray-600' }}">
+                                @if($cta->prominence === 'primary')<span class="text-[9px] uppercase tracking-wide">1.</span>@endif
+                                {{ $cta->label ?: ($cta->ctaType?->label ?? 'CTA') }}
+                            </span>
+                        @empty
+                            <span class="text-[11px] text-gray-400">noch nicht definiert</span>
+                        @endforelse
+                        <button wire:click="$dispatch('open-url-ctas', { urlId: {{ $seoUrl->id }} })"
+                                class="text-[11px] text-indigo-600 hover:underline">{{ $targetCtas->isEmpty() ? 'definieren' : 'bearbeiten' }} →</button>
+                    </div>
+                </div>
+                <livewire:seo.url-cta-manager />
+            @endif
+
             {{-- Kontext: URL an Organisations-Knoten hängen (lose in Organization verlinkt) --}}
             @if(!empty($contextNodes) || !empty($availableNodes))
                 <div class="flex items-center gap-2 flex-wrap">
