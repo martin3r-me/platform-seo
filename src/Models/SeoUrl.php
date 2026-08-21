@@ -231,6 +231,12 @@ class SeoUrl extends Model
         return $this->hasMany(SeoUrlDimension::class, 'url_id');
     }
 
+    /** Call-to-Actions dieser URL (observed aus Crawl + target für Flynk-Push). */
+    public function ctas(): HasMany
+    {
+        return $this->hasMany(SeoCta::class, 'url_id');
+    }
+
     public function keywords(): BelongsToMany
     {
         return $this->belongsToMany(SeoKeyword::class, 'seo_url_keywords', 'url_id', 'keyword_id')

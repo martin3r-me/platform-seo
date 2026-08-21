@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Platform\FlynkConnector\Contracts\ProvidesFlynkContext;
 use Platform\Organization\Models\OrganizationEntity;
 use Platform\Seo\Models\SeoContentBrief;
+use Platform\Seo\Models\SeoCta;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoSignal;
@@ -48,8 +49,9 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
         $clusters = $this->clusters($clusterModels);
         $contentBriefs = $this->contentBriefs($briefs);
         $urls = $this->urlSummary($urlIds);
+        $ctas = $this->ctaTargets($urlIds);
 
-        if (empty($recommendations) && empty($clusters) && empty($contentBriefs) && $urls === null) {
+        if (empty($recommendations) && empty($clusters) && empty($contentBriefs) && $urls === null && empty($ctas)) {
             return null;
         }
 
@@ -58,6 +60,7 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
             'clusters' => $clusters ?: null,
             'content_briefs' => $contentBriefs ?: null,
             'urls' => $urls,
+            'ctas' => $ctas ?: null,
         ], fn ($value) => $value !== null);
     }
 
@@ -284,5 +287,41 @@ class SeoFlynkContextProvider implements ProvidesFlynkContext
             'visibility' => round((float) $agg->visibility, 4),
             'visitors_30d' => (int) $agg->visitors,
         ];
+    }
+
+    /**
+     * Ziel-CTAs je URL für den Flynk-Push: WAS die Agentur bauen soll (typisiert:
+     * Mechanik + Prominenz + Copy-Vorschlag), NICHT wo/wie — das ist ihr Handwerk.
+     * Nur source=target (observed bleibt intern fürs Gegenmessen).
+     */
+    protected function ctaTargets(array $urlIds): array
+    {
+        if (empty($urlIds)) {
+            return [];
+        }
+
+        $ctas = SeoCta::whereIn('url_id', $urlIds)
+            ->where('source', SeoCta::SOURCE_TARGET)
+            ->with(['ctaType', 'url'])
+            ->orderBy('url_id')
+            ->orderByRaw("FIELD(prominence,'primary','secondary','tertiary')")
+            ->get();
+
+        if ($ctas->isEmpty()) {
+            return [];
+        }
+
+        return $ctas->groupBy('url_id')->map(function ($group) {
+            return [
+                'url' => $group->first()->url?->url,
+                'ctas' => $group->map(fn (SeoCta $c) => array_filter([
+                    'type' => $c->ctaType?->code,
+                    'mechanism' => $c->ctaType?->mechanism,
+                    'prominence' => $c->prominence,
+                    'label' => $c->label,
+                    'target' => $c->target,
+                ], fn ($v) => $v !== null && $v !== ''))->values()->all(),
+            ];
+        })->values()->all();
     }
 }
