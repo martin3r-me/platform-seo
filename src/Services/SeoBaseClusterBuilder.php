@@ -45,16 +45,18 @@ class SeoBaseClusterBuilder
             return ['error' => 'Kein Basis-Begriff gesetzt — erst das SEO-Ziel definieren.'];
         }
 
-        // GEO über den exakten location_code targeten (Weg 2), NICHT im Seed-Text:
-        // Der Ortskatalog nutzt ASCII/englische Namen („Dusseldorf"/„Munich"),
-        // DataForSEOs Keyword-DB aber native Umlaute („düsseldorf") — ein Seed
-        // „catering dusseldorf" fände nichts. Der location_code lokalisiert die
-        // Volumina sauber; der Seed bleibt der Basis-Begriff.
+        // GEO steuert die Auswahl NACH dem Fetch (accent-insensitiver Filter auf
+        // den Ortsnamen), nicht den Seed-Text und nicht den location_code:
+        // - Seed-Text „catering dusseldorf" (ASCII) fände nichts (DB nutzt „düsseldorf").
+        // - Stadt-location_code wird vom Labs-Endpoint nicht akzeptiert (→ leer).
+        // Also: national seeden mit dem Basis-Begriff, DataForSEO liefert das
+        // Universum inkl. „catering düsseldorf" (korrekter Umlaut) — wir behalten
+        // die Treffer, deren Keyword den Ort enthält. Volumen stimmt (national =
+        // lokal, weil der Ort im Term steckt).
         $geoDim = $dims->get(SeoUrlDimension::DIM_GEO, collect())->first();
         $geoLoc = ($geoDim && $geoDim->geo_location_id)
             ? SeoGeoLocation::find($geoDim->geo_location_id)
             : null;
-        $locationCode = $geoLoc?->code ?? $settings->location_code;
         $geoShort = $geoLoc ? trim(explode(',', (string) $geoLoc->name)[0]) : null;
 
         $seeds = array_values(array_unique(array_map(fn ($b) => mb_strtolower(trim($b)), $basis)));
@@ -69,7 +71,7 @@ class SeoBaseClusterBuilder
             $results = $api->getLabsKeywordSuggestions(
                 null,
                 $seeds,
-                $locationCode,
+                $settings->location_code,
                 $settings->resolveLanguageName(),
                 100,
             );
@@ -89,9 +91,22 @@ class SeoBaseClusterBuilder
         }
         $cluster->save();
 
+        // Geo-Fokus: nur Keywords behalten, deren Text den Ort enthält (umlaut-/
+        // akzent-insensitiv). Fallback auf alle, wenn <3 matchen (kein leerer
+        // Cluster, und man sieht, dass der Fetch überhaupt lieferte).
+        $use = $results;
+        if ($geoShort) {
+            $needle = $this->stripAccents(mb_strtolower($geoShort));
+            $matched = array_values(array_filter(
+                $results,
+                fn ($r) => $needle !== '' && str_contains($this->stripAccents(mb_strtolower((string) $r->keyword)), $needle),
+            ));
+            $use = count($matched) >= 3 ? $matched : $results;
+        }
+
         // Keywords upserten + nur ungeclusterte anhängen (kein Cluster-Diebstahl).
         $attached = 0;
-        foreach ($results as $r) {
+        foreach ($use as $r) {
             $kwText = mb_strtolower(trim((string) $r->keyword));
             if ($kwText === '') {
                 continue;
@@ -137,5 +152,14 @@ class SeoBaseClusterBuilder
         $core = implode(' / ', $basis);
 
         return $geoShort ? "{$core} · {$geoShort}" : $core;
+    }
+
+    /** Deutsche Umlaute/ß & Akzente auf ASCII abbilden — für den Ort-Filter. */
+    protected function stripAccents(string $s): string
+    {
+        return strtr($s, [
+            'ä' => 'a', 'ö' => 'o', 'ü' => 'u', 'ß' => 'ss',
+            'é' => 'e', 'è' => 'e', 'ê' => 'e', 'á' => 'a', 'à' => 'a', 'â' => 'a',
+        ]);
     }
 }
