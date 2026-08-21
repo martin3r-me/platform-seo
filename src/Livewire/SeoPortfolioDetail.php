@@ -18,6 +18,7 @@ use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoPortfolioMeasure;
 use Platform\Seo\Models\SeoUrl;
+use Platform\Seo\Models\SeoUrlDimension;
 use Platform\Seo\Models\SeoUrlSnapshot;
 use Platform\Seo\Services\SeoPortfolioAdvisor;
 use Platform\Seo\Services\SeoPortfolioHealth;
@@ -438,9 +439,28 @@ class SeoPortfolioDetail extends Component
      * Mitglieder) zu Themen bündeln — abgegrenzt von bereits geclusterten
      * (der Service fasst nur cluster_id=null an). Läuft im Hintergrund (SERP).
      */
+    /**
+     * Gate: Themenfelder/Cluster entstehen ÜBER den Basis-Clustern, die aus den
+     * URL-Dimensionen (SEO-Ziel je URL) kommen. Ohne mindestens eine URL mit
+     * Basis-Settings darf im Wirkungsraum nichts geclustert/gebaut werden —
+     * sonst ordnet man bottom-up ins Leere, statt top-down vom Ziel her.
+     */
+    public function hasBaseSettings(): bool
+    {
+        $urlIds = $this->portfolio->effectiveUrlIds();
+
+        return ! empty($urlIds) && SeoUrlDimension::whereIn('url_id', $urlIds)->exists();
+    }
+
     public function clusterRest(): void
     {
         if (($this->portfolio->clustering_status ?? null) === 'running') {
+            return;
+        }
+
+        if (! $this->hasBaseSettings()) {
+            $this->clusterFlash = 'Erst SEO-Ziel je URL setzen (Basis-Settings). Themenfelder entstehen ÜBER den Basis-Clustern — nicht davor.';
+
             return;
         }
 
@@ -684,6 +704,12 @@ class SeoPortfolioDetail extends Component
      */
     public function saveBuildTarget(): void
     {
+        if (! $this->hasBaseSettings()) {
+            $this->clusterFlash = 'Erst SEO-Ziel je URL setzen (Basis-Settings), dann Bauziele/Themenfelder.';
+
+            return;
+        }
+
         $name = trim($this->btName);
         if ($name === '') {
             return;
@@ -1626,6 +1652,7 @@ class SeoPortfolioDetail extends Component
             'health' => $health,
             'view' => $this->view,
             'station' => $station,
+            'hasBaseSettings' => $this->hasBaseSettings(),
             'activePhase' => $activePhase,
             'activePhaseLabel' => $activePhaseLabel,
             'bestandKeywords' => $this->view === 'keywords' ? $this->bestandKeywords($effectiveIds) : collect(),

@@ -528,8 +528,12 @@
                     </div>
                     <p class="text-[12px] text-[color:var(--nx-muted)] mt-2 leading-relaxed">Hier wird aus loser Nachfrage eine <span class="font-medium text-[color:var(--nx-text)]">Themen-Architektur</span>. Zwei Wege: <span class="font-medium text-[color:var(--nx-text)]">ernten</span> — aus der Karte übernehmen, was schon rankt; oder <span class="font-medium text-[color:var(--nx-text)]">bauen</span> — ein Kopfthema bewusst als Bauziel anlegen, für das du (noch) nicht rankst. „übernehmen" prüft per SERP und macht daraus einen echten Cluster (umkehrbar).</p>
                     <div class="mt-2.5 flex items-center gap-2 flex-wrap">
-                        <button wire:click="openBuildTarget" class="text-[12px] font-medium px-3 py-1.5 rounded-md border border-[color:var(--nx-line)] text-[color:var(--nx-text)] hover:border-[color:var(--nx-info)]">+ Neues Bauziel</button>
-                        <span class="text-[10px] text-[color:var(--nx-faint)]">bewusst gebauter Cluster (nicht aus dem Ranking) → eigene/neue Ziel-Seite</span>
+                        @if($hasBaseSettings)
+                            <button wire:click="openBuildTarget" class="text-[12px] font-medium px-3 py-1.5 rounded-md border border-[color:var(--nx-line)] text-[color:var(--nx-text)] hover:border-[color:var(--nx-info)]">+ Neues Bauziel</button>
+                            <span class="text-[10px] text-[color:var(--nx-faint)]">bewusst gebauter Cluster (nicht aus dem Ranking) → eigene/neue Ziel-Seite</span>
+                        @else
+                            <span class="text-[11px] px-2 py-1 rounded" style="background:color-mix(in srgb, var(--nx-warning) 12%, transparent);color:var(--nx-warning)">🔒 Erst <span class="font-medium">SEO-Ziel je URL</span> setzen (Basis-Settings) — Themenfelder/Bauziele entstehen ÜBER den Basis-Clustern.</span>
+                        @endif
                     </div>
                 </div>
             @endif
@@ -546,7 +550,7 @@
                     </div>
                     @if(($portfolio->clustering_status ?? null) === 'running')
                         <span class="text-[12px] font-medium" style="color:var(--nx-info)">⏳ Nach-Clustern läuft…</span>
-                    @elseif($penetration['unclustered'] && $clusterable >= 2)
+                    @elseif($penetration['unclustered'] && $clusterable >= 2 && $hasBaseSettings)
                         <div class="flex items-center gap-2">
                             <label class="text-[11px] text-[color:var(--nx-muted)]">ab Vol.
                                 <select wire:model.live="clusterMinVolume" class="ml-1 text-[11px] border border-[color:var(--nx-line)] rounded px-1 py-0.5 bg-[color:var(--nx-bg)]">
@@ -558,6 +562,8 @@
                             </label>
                             <x-nx-button size="sm" wire:click="clusterRest" wire:loading.attr="disabled">Rest clustern <span style="opacity:.75">({{ number_format($clusterable) }} KW · ~{{ number_format($clusterCostCents/100, 2, ',', '.') }} €)</span></x-nx-button>
                         </div>
+                    @elseif($penetration['unclustered'] && $clusterable >= 2)
+                        <span class="text-[11px] px-2 py-1 rounded" style="background:color-mix(in srgb, var(--nx-warning) 12%, transparent);color:var(--nx-warning)">🔒 „Rest clustern" gesperrt — erst SEO-Ziel je URL setzen (Basis-Settings).</span>
                     @endif
                 </div>
                 <div class="mt-2 h-1.5 rounded-full bg-[color:var(--nx-line)] overflow-hidden">
