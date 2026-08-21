@@ -141,6 +141,24 @@ class SeoBaseClusterBuilder
             $kw->save();
         }
 
+        // Bestands-Sweep: unclusterte Pool-Keywords, die zum Thema passen (ein
+        // Basis-Begriff enthalten UND — falls gesetzt — den Ort), mit in den
+        // Basis-Cluster ziehen. So landen bereits getrackte, aber ungeordnete
+        // Keywords direkt im Soll-Anker statt ungeordnet herumzuschwirren.
+        // (DB-Collation ist accent-insensitiv → „dusseldorf" matcht „düsseldorf".)
+        $sweepQuery = SeoKeyword::where('team_id', $teamId)
+            ->whereNull('cluster_id')
+            ->whereNull('retired_at')
+            ->where(function ($q) use ($basis) {
+                foreach ($basis as $b) {
+                    $q->orWhere('keyword', 'like', '%'.$b.'%');
+                }
+            });
+        if ($geoShort !== null && $geoShort !== '') {
+            $sweepQuery->where('keyword', 'like', '%'.$geoShort.'%');
+        }
+        $swept = $sweepQuery->update(['cluster_id' => $cluster->id]);
+
         $cluster->keyword_count = SeoKeyword::where('cluster_id', $cluster->id)->count();
         $cluster->save();
 
@@ -150,6 +168,7 @@ class SeoBaseClusterBuilder
             'cluster' => $cluster,
             'attached' => $attached,
             'fetched' => count($results),
+            'swept' => $swept,
             'potential' => $potential,
             'seeds' => $seeds,
         ];
