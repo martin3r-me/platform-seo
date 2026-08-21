@@ -539,6 +539,15 @@
             @endif
 
             @if($activePhase === 'organize')
+            {{-- Ordnen ist zweistufig: ① Basis (SEO-Ziel + Basis-Cluster je URL) → ② Themenfelder darüber (gated). --}}
+            <div class="mt-6 flex items-center gap-1 rounded-lg bg-[color:var(--nx-line)] p-0.5 w-fit text-[12px]">
+                <button wire:click="setOrganizeStep('basis')" class="px-3 py-1 rounded-md {{ $organizeStep === 'basis' ? 'bg-[color:var(--nx-surface)] font-medium text-[color:var(--nx-text)] shadow-sm' : 'text-[color:var(--nx-muted)]' }}">① Basis</button>
+                <button wire:click="setOrganizeStep('themen')" class="px-3 py-1 rounded-md {{ $organizeStep === 'themen' ? 'bg-[color:var(--nx-surface)] font-medium text-[color:var(--nx-text)] shadow-sm' : 'text-[color:var(--nx-muted)]' }}">② Themenfelder</button>
+            </div>
+
+            @if($organizeStep === 'basis')
+                @include('seo::partials.wirkungsraum-basis', ['basisRows' => $basisRows, 'clusterFlash' => $clusterFlash])
+            @else
             @php($cov = $coverage ?? ['pct' => 0, 'unclustered_pct' => 0, 'total' => 0])
             {{-- Kompakter Ordnungs-Status + Nach-Clustern; Durchdringung je Cluster eingeklappt darunter. --}}
             <div class="mt-6 mb-5 rounded-lg border border-[color:var(--nx-line)] bg-[color:var(--nx-surface)] px-4 py-3"
@@ -803,6 +812,7 @@
                     </div>
                 </div>
             @endif
+            @endif {{-- Ende ② Themenfelder (@else organizeStep) --}}
 
             @endif
 
