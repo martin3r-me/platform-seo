@@ -202,6 +202,42 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Geo — native Such-Schreibweise (Seed-Auflösung)
+    |--------------------------------------------------------------------------
+    | Der Ortskatalog (DataForSEO SERP-Locations) speichert ASCII/englische
+    | Namen (Dusseldorf/Munich/Cologne), die Keyword-DB nutzt aber native
+    | Umlaute (düsseldorf/münchen/köln). Für Seed-Phrasen mappen wir die
+    | bekannten Fälle zurück; unbekannte laufen unverändert durch (Berlin,
+    | Hamburg … brauchen nichts). Schlüssel = lowercased Katalog-Kurzname.
+    */
+    'geo_native_names' => [
+        'dusseldorf' => 'düsseldorf',
+        'duesseldorf' => 'düsseldorf',
+        'munich' => 'münchen',
+        'muenchen' => 'münchen',
+        'munchen' => 'münchen',
+        'cologne' => 'köln',
+        'koeln' => 'köln',
+        'koln' => 'köln',
+        'nuremberg' => 'nürnberg',
+        'nurnberg' => 'nürnberg',
+        'nuernberg' => 'nürnberg',
+        'hanover' => 'hannover',
+        'brunswick' => 'braunschweig',
+        'wurzburg' => 'würzburg',
+        'wuerzburg' => 'würzburg',
+        'osnabruck' => 'osnabrück',
+        'saarbrucken' => 'saarbrücken',
+        'gottingen' => 'göttingen',
+        'tubingen' => 'tübingen',
+        'lubeck' => 'lübeck',
+        'monchengladbach' => 'mönchengladbach',
+        'furth' => 'fürth',
+        'gutersloh' => 'gütersloh',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Signal Detection Thresholds
     |--------------------------------------------------------------------------
     */

@@ -45,21 +45,24 @@ class SeoBaseClusterBuilder
             return ['error' => 'Kein Basis-Begriff gesetzt — erst das SEO-Ziel definieren.'];
         }
 
-        // GEO steuert die Auswahl NACH dem Fetch (accent-insensitiver Filter auf
-        // den Ortsnamen), nicht den Seed-Text und nicht den location_code:
-        // - Seed-Text „catering dusseldorf" (ASCII) fände nichts (DB nutzt „düsseldorf").
-        // - Stadt-location_code wird vom Labs-Endpoint nicht akzeptiert (→ leer).
-        // Also: national seeden mit dem Basis-Begriff, DataForSEO liefert das
-        // Universum inkl. „catering düsseldorf" (korrekter Umlaut) — wir behalten
-        // die Treffer, deren Keyword den Ort enthält. Volumen stimmt (national =
-        // lokal, weil der Ort im Term steckt).
+        // Geo-fokussiert seeden: „catering düsseldorf" in NATIVER Umlaut-Schreibweise
+        // (Katalog-ASCII „Dusseldorf"/„Munich" → nativ via SeoGeoLocation::nativeName).
+        // Nur so liefert DataForSEO die lokale Long-Tail statt des nationalen
+        // Universums; der Stadt-location_code wird vom Labs-Endpoint nicht
+        // akzeptiert. Der accent-insensitive Filter unten bleibt als Sicherung.
         $geoDim = $dims->get(SeoUrlDimension::DIM_GEO, collect())->first();
         $geoLoc = ($geoDim && $geoDim->geo_location_id)
             ? SeoGeoLocation::find($geoDim->geo_location_id)
             : null;
         $geoShort = $geoLoc ? trim(explode(',', (string) $geoLoc->name)[0]) : null;
+        $geoNative = SeoGeoLocation::nativeName($geoShort);
 
-        $seeds = array_values(array_unique(array_map(fn ($b) => mb_strtolower(trim($b)), $basis)));
+        $seeds = [];
+        foreach ($basis as $b) {
+            $b = mb_strtolower(trim($b));
+            $seeds[] = $geoNative ? "{$b} {$geoNative}" : $b;
+        }
+        $seeds = array_values(array_unique($seeds));
 
         $connectionId = $settings->resolveConnectionId();
         if (! $connectionId) {
@@ -90,6 +93,11 @@ class SeoBaseClusterBuilder
             $cluster->status = SeoKeywordCluster::STATUS_CANDIDATE;
         }
         $cluster->save();
+
+        // Bei Neubau die Membership ersetzen (alte Seed-Artefakte lösen), dann
+        // frisch anhängen — der Basis-Cluster ist das Soll aus den Dimensionen.
+        // (Andocken von entdecktem Ranking ist ein späteres Feature.)
+        SeoKeyword::where('cluster_id', $cluster->id)->update(['cluster_id' => null]);
 
         // Geo-Fokus: nur Keywords behalten, deren Text den Ort enthält (umlaut-/
         // akzent-insensitiv). Fallback auf alle, wenn <3 matchen (kein leerer

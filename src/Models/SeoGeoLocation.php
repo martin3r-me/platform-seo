@@ -35,6 +35,23 @@ class SeoGeoLocation extends Model
     ];
 
     /**
+     * Katalog-Kurzname (ASCII/englisch, z. B. „Dusseldorf"/„Munich") auf die
+     * native Such-Schreibweise abbilden („düsseldorf"/„münchen") — für
+     * Seed-Phrasen, weil DataForSEOs Keyword-DB native Umlaute nutzt. Bekannte
+     * Fälle aus config('seo.geo_native_names'); unbekannte unverändert (klein).
+     */
+    public static function nativeName(?string $asciiShort): ?string
+    {
+        $s = trim((string) $asciiShort);
+        if ($s === '') {
+            return null;
+        }
+        $map = (array) config('seo.geo_native_names', []);
+
+        return $map[mb_strtolower($s)] ?? mb_strtolower($s);
+    }
+
+    /**
      * DataForSEOs `location_type` (Country, Region, City, Municipality,
      * Autonomous Community, County, …) auf unsere drei Ebenen normalisieren.
      * Unbekanntes fällt auf null (bleibt wählbar, trägt nur keine Hierarchie).
