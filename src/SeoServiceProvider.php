@@ -323,6 +323,12 @@ class SeoServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Seo\Tools\DeleteClusterTool());
             $registry->register(new \Platform\Seo\Tools\AutoClusterTool());
 
+            // CTA-Typen (kuratierte CTA-Mechaniken, per MCP pflegbar)
+            $registry->register(new \Platform\Seo\Tools\ListCtaTypesTool());
+            $registry->register(new \Platform\Seo\Tools\CreateCtaTypeTool());
+            $registry->register(new \Platform\Seo\Tools\UpdateCtaTypeTool());
+            $registry->register(new \Platform\Seo\Tools\DeleteCtaTypeTool());
+
             // Content-Briefs (Cluster → Arbeitsauftrag → Flynk-Loop)
             $registry->register(new \Platform\Seo\Tools\ListContentBriefsTool());
             $registry->register(new \Platform\Seo\Tools\CreateContentBriefTool());
