@@ -320,6 +320,7 @@ class SeoServiceProvider extends ServiceProvider
             // Cluster
             $registry->register(new \Platform\Seo\Tools\ListClustersTool());
             $registry->register(new \Platform\Seo\Tools\CreateClusterTool());
+            $registry->register(new \Platform\Seo\Tools\DeleteClusterTool());
             $registry->register(new \Platform\Seo\Tools\AutoClusterTool());
 
             // Content-Briefs (Cluster → Arbeitsauftrag → Flynk-Loop)
