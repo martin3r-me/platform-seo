@@ -1705,14 +1705,18 @@ class SeoPortfolioDetail extends Component
                 ->whereIn('pillar_url_id', $urlIds)->get()->keyBy('pillar_url_id');
             foreach ($ownUrls as $u) {
                 $bc = $baseClusters[$u->id] ?? null;
+                $dims = ($dimsAll[$u->id] ?? collect())->groupBy('dimension');
                 $basisRows->push([
                     'url' => $u,
-                    'dims' => ($dimsAll[$u->id] ?? collect())->groupBy('dimension'),
+                    'dims' => $dims,
+                    'hasBasis' => $dims->has('basis') && $dims->get('basis')->isNotEmpty(),
                     'cluster' => $bc,
                     'kw' => (int) ($bc?->keyword_count ?? 0),
                     'potential' => $bc ? (int) SeoKeyword::where('cluster_id', $bc->id)->sum('search_volume') : 0,
                 ]);
             }
+            // Definierte Seiten nach oben — die positionierten Firmen zuerst.
+            $basisRows = $basisRows->sortByDesc('hasBasis')->values();
         }
 
         return view('seo::livewire.seo-portfolio-detail', [
