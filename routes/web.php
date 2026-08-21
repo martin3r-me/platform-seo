@@ -56,6 +56,12 @@ Route::get('/portfolios', SeoPortfolioManager::class)->name('seo.portfolios');
 Route::get('/portfolios/{seoPortfolio}', SeoPortfolioDetail::class)->name('seo.portfolios.show');
 Route::get('/portfolios/{seoPortfolio}/inbox', SeoPortfolioInbox::class)->name('seo.portfolios.inbox');
 Route::get('/portfolios/{seoPortfolio}/kosmos', SeoKosmos::class)->name('seo.portfolios.kosmos');
+// Eine Pfad-Route je Wirkungsraum-View (Station). Englische Keys (= $view/PHASES),
+// constrained; die Gott-Komponente liest {station} in mount(). Basis für die
+// spätere Entflechtung: jede View lässt sich einzeln aufräumen/herauslösen.
+Route::get('/portfolios/{seoPortfolio}/{station}', SeoPortfolioDetail::class)
+    ->whereIn('station', ['dashboard', 'meta', 'measure', 'basis', 'organize', 'distribute', 'act', 'impact', 'entities', 'keywords', 'clusters', 'competitors'])
+    ->name('seo.portfolios.station');
 
 // URL-Kontext
 Route::get('/urls/{seoUrl}/keywords', SeoKeywordExplorer::class)->name('seo.urls.keywords');

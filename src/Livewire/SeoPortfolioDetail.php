@@ -94,11 +94,27 @@ class SeoPortfolioDetail extends Component
     public ?int $btPillarUrlId = null;
     public string $btSeedKeyword = '';
 
-    public function setView(string $view): void
+    /** Setzt die View direkt (ohne Navigation) — für mount/initiale Auflösung. */
+    protected function applyView(string $view): void
     {
         $valid = array_merge(['dashboard', 'meta'], self::PHASES, self::BESTAND);
         $this->view = in_array($view, $valid, true) ? $view : 'dashboard';
         $this->viewPhase = in_array($this->view, self::PHASES, true) ? $this->view : null;
+    }
+
+    /**
+     * View-Wechsel = Navigation zur Station-Route (/portfolios/{p}/{station}):
+     * eigene URL je View, Deep-Link + Back/Forward. Die Gott-Komponente re-mountet
+     * sauber; jede View lässt sich so einzeln aufräumen/entflechten.
+     */
+    public function setView(string $view): void
+    {
+        $valid = array_merge(['dashboard', 'meta'], self::PHASES, self::BESTAND);
+        $station = in_array($view, $valid, true) ? $view : 'dashboard';
+        $this->redirect(
+            route('seo.portfolios.station', ['seoPortfolio' => $this->portfolio->id, 'station' => $station]),
+            navigate: true,
+        );
     }
 
     public function setPhase(string $phase): void
@@ -106,7 +122,7 @@ class SeoPortfolioDetail extends Component
         $this->setView($phase);
     }
 
-    public function mount(SeoPortfolio $seoPortfolio): void
+    public function mount(SeoPortfolio $seoPortfolio, ?string $station = null): void
     {
         $this->resolveSettings();
         abort_unless((int) $seoPortfolio->team_id === (int) $this->seoSettings->team_id, 404);
@@ -114,12 +130,10 @@ class SeoPortfolioDetail extends Component
         $this->metaGoal = (string) ($seoPortfolio->goal ?? '');
         $this->metaDescription = (string) ($seoPortfolio->description ?? '');
 
-        // Tief-Verlinkung aus der geteilten Sidebar (?view=ordnen …) — macht die
-        // noch nicht herausgelösten Stationen adressierbar, bis sie eigene Routen sind.
-        $view = request()->query('view');
-        if (is_string($view) && $view !== '') {
-            $this->setView($view);
-        }
+        // Station aus der Pfad-Route (/portfolios/{p}/{station}); Fallback auf ?view=
+        // (Alt-Links). applyView setzt direkt, ohne erneute Navigation.
+        $initial = $station ?: request()->query('view');
+        $this->applyView(is_string($initial) && $initial !== '' ? $initial : 'dashboard');
     }
 
     /** Meta-Steckbrief bearbeiten: Ziel + Auftrag setzen. */
