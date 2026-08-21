@@ -538,11 +538,6 @@
                 </div>
             @endif
 
-            {{-- Station „Basis" — eigener Handlungsort: SEO-Ziel + Basis-Cluster je URL (Index aller Beteiligten). --}}
-            @if($activePhase === 'basis')
-                @include('seo::partials.wirkungsraum-basis', ['basisRows' => $basisRows, 'clusterFlash' => $clusterFlash])
-            @endif
-
             @if($activePhase === 'organize')
             @php($cov = $coverage ?? ['pct' => 0, 'unclustered_pct' => 0, 'total' => 0])
             {{-- Kompakter Ordnungs-Status + Nach-Clustern; Durchdringung je Cluster eingeklappt darunter. --}}

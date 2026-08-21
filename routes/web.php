@@ -21,6 +21,7 @@ use Platform\Seo\Livewire\SeoUrlExplorer;
 use Platform\Seo\Livewire\SeoUrlListDetail;
 use Platform\Seo\Livewire\SeoUrlListManager;
 use Platform\Seo\Livewire\SeoKosmos;
+use Platform\Seo\Livewire\SeoPortfolioBasis;
 use Platform\Seo\Livewire\SeoPortfolioDetail;
 use Platform\Seo\Livewire\SeoPortfolioInbox;
 use Platform\Seo\Livewire\SeoPortfolioManager;
@@ -56,11 +57,13 @@ Route::get('/portfolios', SeoPortfolioManager::class)->name('seo.portfolios');
 Route::get('/portfolios/{seoPortfolio}', SeoPortfolioDetail::class)->name('seo.portfolios.show');
 Route::get('/portfolios/{seoPortfolio}/inbox', SeoPortfolioInbox::class)->name('seo.portfolios.inbox');
 Route::get('/portfolios/{seoPortfolio}/kosmos', SeoKosmos::class)->name('seo.portfolios.kosmos');
-// Eine Pfad-Route je Wirkungsraum-View (Station). Englische Keys (= $view/PHASES),
-// constrained; die Gott-Komponente liest {station} in mount(). Basis für die
-// spätere Entflechtung: jede View lässt sich einzeln aufräumen/herauslösen.
+// Herausgelöste Stationen als eigene Komponenten/Routen (Stufe-2-Entflechtung) —
+// gehen VOR dem {station}-Catch-all der Gott-Komponente.
+Route::get('/portfolios/{seoPortfolio}/basis', SeoPortfolioBasis::class)->name('seo.portfolios.basis');
+// Übrige Stationen laufen (noch) über die Gott-Komponente; sie liest {station}
+// in mount(). Englische Keys (= $view/PHASES), constrained.
 Route::get('/portfolios/{seoPortfolio}/{station}', SeoPortfolioDetail::class)
-    ->whereIn('station', ['dashboard', 'meta', 'measure', 'basis', 'organize', 'distribute', 'act', 'impact', 'entities', 'keywords', 'clusters', 'competitors'])
+    ->whereIn('station', ['dashboard', 'meta', 'measure', 'organize', 'distribute', 'act', 'impact', 'entities', 'keywords', 'clusters', 'competitors'])
     ->name('seo.portfolios.station');
 
 // URL-Kontext

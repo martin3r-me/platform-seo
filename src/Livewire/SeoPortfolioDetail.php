@@ -19,7 +19,6 @@ use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoPortfolioMeasure;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlDimension;
-use Platform\Seo\Services\SeoBaseClusterBuilder;
 use Platform\Seo\Models\SeoUrlSnapshot;
 use Platform\Seo\Services\SeoPortfolioAdvisor;
 use Platform\Seo\Services\SeoPortfolioHealth;
@@ -454,49 +453,6 @@ class SeoPortfolioDetail extends Component
      * Mitglieder) zu Themen bündeln — abgegrenzt von bereits geclusterten
      * (der Service fasst nur cluster_id=null an). Läuft im Hintergrund (SERP).
      */
-    /** Nach dem Speichern eines SEO-Ziels (UrlSeoTarget-Modal) neu rendern. */
-    #[\Livewire\Attributes\On('url-target-saved')]
-    public function onUrlTargetSaved(): void
-    {
-    }
-
-    /** Basis-Cluster einer eigenen WR-URL bauen/frischen (DataForSEO). */
-    public function buildBaseClusterFor(int $urlId, SeoBaseClusterBuilder $builder): void
-    {
-        $url = SeoUrl::whereIn('id', $this->portfolio->effectiveUrlIds())
-            ->where('id', $urlId)->where('is_own', true)->first();
-        if (! $url) {
-            return;
-        }
-        $res = $builder->build($url);
-        $this->clusterFlash = ! empty($res['error'])
-            ? $res['error']
-            : sprintf('✓ „%s": %d neu, %d aus Bestand · Potenzial %s/Mon.',
-                $res['cluster']->name ?? 'Basis-Cluster', $res['attached'] ?? 0, $res['swept'] ?? 0,
-                number_format($res['potential'] ?? 0, 0, ',', '.'));
-    }
-
-    /** Alle eigenen WR-URLs mit SEO-Ziel bauen (der Rutsch). */
-    public function buildAllBaseClusters(SeoBaseClusterBuilder $builder): void
-    {
-        $ids = $this->portfolio->effectiveUrlIds();
-        $urls = empty($ids) ? collect() : SeoUrl::whereIn('id', $ids)->where('is_own', true)->get();
-        $built = 0;
-        $skipped = 0;
-        foreach ($urls as $url) {
-            if (! SeoUrlDimension::where('url_id', $url->id)->where('dimension', 'basis')->exists()) {
-                $skipped++;
-
-                continue;
-            }
-            $res = $builder->build($url);
-            if (empty($res['error'])) {
-                $built++;
-            }
-        }
-        $this->clusterFlash = "✓ {$built} Basis-Cluster gebaut/gefrischt".($skipped ? " · {$skipped} ohne SEO-Ziel übersprungen" : '').'.';
-    }
-
     /**
      * Gate: Themenfelder/Cluster entstehen ÜBER den Basis-Clustern, die aus den
      * URL-Dimensionen (SEO-Ziel je URL) kommen. Ohne mindestens eine URL mit
@@ -1706,39 +1662,11 @@ class SeoPortfolioDetail extends Component
         $activePhase = $station ?? 'dashboard';
         $activePhaseLabel = collect($health['phases'])->firstWhere('key', $activePhase)['label'] ?? $activePhase;
 
-        // Basis-Index (Ordnen ①): alle beteiligten eigenen URLs mit ihrem SEO-Ziel
-        // (Dimensionen) + Basis-Cluster-Status. Der Handlungsort für die Basis-Arbeit.
-        $basisRows = collect();
-        if ($activePhase === 'basis') {
-            $ownUrls = SeoUrl::whereIn('id', $effectiveIds)->where('is_own', true)
-                ->orderBy('domain')->orderBy('path')->get();
-            $urlIds = $ownUrls->pluck('id');
-            $dimsAll = SeoUrlDimension::whereIn('url_id', $urlIds)->get()->groupBy('url_id');
-            $baseClusters = SeoKeywordCluster::where('team_id', $this->portfolio->team_id)
-                ->where('origin', SeoKeywordCluster::ORIGIN_BASE)
-                ->whereIn('pillar_url_id', $urlIds)->get()->keyBy('pillar_url_id');
-            foreach ($ownUrls as $u) {
-                $bc = $baseClusters[$u->id] ?? null;
-                $dims = ($dimsAll[$u->id] ?? collect())->groupBy('dimension');
-                $basisRows->push([
-                    'url' => $u,
-                    'dims' => $dims,
-                    'hasBasis' => $dims->has('basis') && $dims->get('basis')->isNotEmpty(),
-                    'cluster' => $bc,
-                    'kw' => (int) ($bc?->keyword_count ?? 0),
-                    'potential' => $bc ? (int) SeoKeyword::where('cluster_id', $bc->id)->sum('search_volume') : 0,
-                ]);
-            }
-            // Definierte Seiten nach oben — die positionierten Firmen zuerst.
-            $basisRows = $basisRows->sortByDesc('hasBasis')->values();
-        }
-
         return view('seo::livewire.seo-portfolio-detail', [
             'health' => $health,
             'view' => $this->view,
             'station' => $station,
             'hasBaseSettings' => $this->hasBaseSettings(),
-            'basisRows' => $basisRows,
             'activePhase' => $activePhase,
             'activePhaseLabel' => $activePhaseLabel,
             'bestandKeywords' => $this->view === 'keywords' ? $this->bestandKeywords($effectiveIds) : collect(),

@@ -25,13 +25,13 @@
         {{-- Stationen — der rote Faden --}}
         <div>
             <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-0.5 px-2">Stationen <span class="text-gray-300 normal-case font-normal">· der rote Faden</span></h3>
-            <p class="px-2 mb-1.5 text-[9px] text-gray-400 leading-tight">Meta → Daten → Ordnen → Verteilen → Wirkung</p>
-            <a href="{{ route('seo.portfolios.show', ['seoPortfolio' => $portfolio, 'view' => 'meta']) }}" wire:navigate class="{{ $navBtn($active === 'meta') }}">
+            <p class="px-2 mb-1.5 text-[9px] text-gray-400 leading-tight">Meta → Daten → Basis → Ordnen → Verteilen → Wirkung</p>
+            <a href="{{ route('seo.portfolios.station', ['seoPortfolio' => $portfolio, 'station' => 'meta']) }}" wire:navigate class="{{ $navBtn($active === 'meta') }}">
                 <span class="text-[10px] text-gray-400 w-3">◈</span>
                 <span class="flex-1 text-left">Meta <span class="text-gray-400 font-normal">· Steckbrief</span></span>
             </a>
-            @foreach(['measure' => 'Daten', 'organize' => 'Ordnen', 'distribute' => 'Verteilen', 'impact' => 'Wirkung'] as $stKey => $stLabel)
-                <a href="{{ route('seo.portfolios.show', ['seoPortfolio' => $portfolio, 'view' => $stKey]) }}" wire:navigate class="{{ $navBtn($active === $stKey) }}">
+            @foreach(['measure' => 'Daten', 'basis' => 'Basis', 'organize' => 'Ordnen', 'distribute' => 'Verteilen', 'act' => 'Maßnahmen', 'impact' => 'Wirkung'] as $stKey => $stLabel)
+                <a href="{{ route('seo.portfolios.station', ['seoPortfolio' => $portfolio, 'station' => $stKey]) }}" wire:navigate class="{{ $navBtn($active === $stKey) }}">
                     <span class="text-[10px] tabular-nums text-gray-400 w-3">{{ $loop->iteration }}</span>
                     <span class="flex-1 text-left">{{ $stLabel }}</span>
                     @if(($health['current'] ?? null) === $stKey)
@@ -45,7 +45,7 @@
         <div>
             <h3 class="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5 px-2">Bestand</h3>
             @foreach(['entities' => 'Entitäten', 'keywords' => 'Keywords', 'clusters' => 'Cluster', 'competitors' => 'Wettbewerber'] as $bKey => $bLabel)
-                <a href="{{ route('seo.portfolios.show', ['seoPortfolio' => $portfolio, 'view' => $bKey]) }}" wire:navigate class="{{ $navBtn($active === $bKey) }}">
+                <a href="{{ route('seo.portfolios.station', ['seoPortfolio' => $portfolio, 'station' => $bKey]) }}" wire:navigate class="{{ $navBtn($active === $bKey) }}">
                     <span class="flex-1 text-left">{{ $bLabel }}</span>
                 </a>
             @endforeach
