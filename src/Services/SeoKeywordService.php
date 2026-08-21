@@ -1136,7 +1136,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
         return [
             'monthly_volumes' => $byMonth,
             'peak_month' => (int) array_search(max($byMonth), $byMonth),
-            'seasonality_index' => $avg > 0 ? round(max($byMonth) / $avg, 2) : null,
+            'seasonality_index' => $avg > 0 ? min(round(max($byMonth) / $avg, 2), 9999.99) : null,
         ];
     }
 
