@@ -23,6 +23,7 @@ use Platform\Seo\Livewire\SeoUrlListManager;
 use Platform\Seo\Livewire\SeoKosmos;
 use Platform\Seo\Livewire\SeoPortfolioBasis;
 use Platform\Seo\Livewire\SeoPortfolioDetail;
+use Platform\Seo\Livewire\SeoPortfolioMeta;
 use Platform\Seo\Livewire\SeoPortfolioInbox;
 use Platform\Seo\Livewire\SeoPortfolioManager;
 
@@ -60,10 +61,11 @@ Route::get('/portfolios/{seoPortfolio}/kosmos', SeoKosmos::class)->name('seo.por
 // Herausgelöste Stationen als eigene Komponenten/Routen (Stufe-2-Entflechtung) —
 // gehen VOR dem {station}-Catch-all der Gott-Komponente.
 Route::get('/portfolios/{seoPortfolio}/basis', SeoPortfolioBasis::class)->name('seo.portfolios.basis');
+Route::get('/portfolios/{seoPortfolio}/meta', SeoPortfolioMeta::class)->name('seo.portfolios.meta');
 // Übrige Stationen laufen (noch) über die Gott-Komponente; sie liest {station}
 // in mount(). Englische Keys (= $view/PHASES), constrained.
 Route::get('/portfolios/{seoPortfolio}/{station}', SeoPortfolioDetail::class)
-    ->whereIn('station', ['dashboard', 'meta', 'measure', 'organize', 'distribute', 'act', 'impact', 'entities', 'keywords', 'clusters', 'competitors'])
+    ->whereIn('station', ['dashboard', 'measure', 'organize', 'distribute', 'act', 'impact', 'entities', 'keywords', 'clusters', 'competitors'])
     ->name('seo.portfolios.station');
 
 // URL-Kontext

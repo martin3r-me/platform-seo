@@ -82,11 +82,6 @@ class SeoPortfolioDetail extends Component
     public string $dataPlausibleSiteId = '';
     public string $dataProfile = '';
 
-    /** Meta-Steckbrief: Ziel + Auftrag des Wirkungsraums (bearbeitbar). */
-    public bool $metaEditing = false;
-    public string $metaGoal = '';
-    public string $metaDescription = '';
-
     /** Netto-neu-Bauziel: bewusst angelegter Cluster (nicht aus dem Ranking geerntet). */
     public bool $showBuildTarget = false;
     public string $btName = '';
@@ -126,36 +121,11 @@ class SeoPortfolioDetail extends Component
         $this->resolveSettings();
         abort_unless((int) $seoPortfolio->team_id === (int) $this->seoSettings->team_id, 404);
         $this->portfolio = $seoPortfolio;
-        $this->metaGoal = (string) ($seoPortfolio->goal ?? '');
-        $this->metaDescription = (string) ($seoPortfolio->description ?? '');
 
         // Station aus der Pfad-Route (/portfolios/{p}/{station}); Fallback auf ?view=
         // (Alt-Links). applyView setzt direkt, ohne erneute Navigation.
         $initial = $station ?: request()->query('view');
         $this->applyView(is_string($initial) && $initial !== '' ? $initial : 'dashboard');
-    }
-
-    /** Meta-Steckbrief bearbeiten: Ziel + Auftrag setzen. */
-    public function editMeta(): void
-    {
-        $this->metaGoal = (string) ($this->portfolio->goal ?? '');
-        $this->metaDescription = (string) ($this->portfolio->description ?? '');
-        $this->metaEditing = true;
-    }
-
-    public function cancelMeta(): void
-    {
-        $this->metaEditing = false;
-    }
-
-    public function saveMeta(): void
-    {
-        $this->portfolio->update([
-            'goal' => trim($this->metaGoal) ?: null,
-            'description' => trim($this->metaDescription) ?: null,
-        ]);
-        $this->portfolio->refresh();
-        $this->metaEditing = false;
     }
 
     public function openAddUrls(): void
@@ -201,63 +171,8 @@ class SeoPortfolioDetail extends Component
      */
     protected function propertyView(): array
     {
-        $members = $this->portfolio->urls()->orderByDesc('visibility_score')->get();
-        $memberIds = $members->pluck('id')->all();
-
-        if (empty($memberIds)) {
-            return ['members' => $members, 'effectiveIds' => [], 'memberTotals' => [],
-                'agg' => ['visibility' => 0.0, 'keywords' => 0, 'search_volume' => 0, 'urls' => 0]];
-        }
-
-        // Eigene Unterseiten je Mitglied (parent_child, eine Ebene).
-        $childRels = DB::table('seo_url_relationships as r')
-            ->join('seo_urls as c', 'c.id', '=', 'r.target_url_id')
-            ->whereIn('r.source_url_id', $memberIds)
-            ->where('r.type', 'parent_child')
-            ->where('c.is_own', true)
-            ->get(['r.source_url_id', 'r.target_url_id']);
-
-        $childrenByParent = $childRels->groupBy('source_url_id')
-            ->map(fn ($g) => $g->pluck('target_url_id')->all());
-
-        // Vereinigungsmenge, dedupliziert (keine Doppelzählung bei Überlapp).
-        $effectiveIds = array_values(array_unique(array_merge(
-            $memberIds, $childRels->pluck('target_url_id')->all()
-        )));
-
-        $metrics = SeoUrl::whereIn('id', $effectiveIds)
-            ->get(['id', 'keyword_count', 'total_search_volume', 'visibility_score'])
-            ->keyBy('id');
-
-        // Property-Total je Mitglied (Mitglied + eigene Unterseiten).
-        $memberTotals = [];
-        foreach ($members as $m) {
-            $ids = array_merge([$m->id], $childrenByParent->get($m->id, []));
-            $kw = 0; $sv = 0; $vis = 0.0;
-            foreach ($ids as $id) {
-                $row = $metrics->get($id);
-                if (! $row) {
-                    continue;
-                }
-                $kw += (int) $row->keyword_count;
-                $sv += (int) $row->total_search_volume;
-                $vis += (float) $row->visibility_score;
-            }
-            $memberTotals[$m->id] = ['keywords' => $kw, 'search_volume' => $sv,
-                'visibility' => $vis, 'subpages' => count($childrenByParent->get($m->id, []))];
-        }
-
-        // Nach Property-Sichtbarkeit sortieren (nicht nur Knoten).
-        $members = $members->sortByDesc(fn ($m) => $memberTotals[$m->id]['visibility'] ?? 0)->values();
-
-        $agg = [
-            'visibility' => (float) $metrics->sum('visibility_score'),
-            'keywords' => (int) $metrics->sum('keyword_count'),
-            'search_volume' => (int) $metrics->sum('total_search_volume'),
-            'urls' => count($memberIds),
-        ];
-
-        return compact('members', 'effectiveIds', 'memberTotals', 'agg');
+        // Geteilt mit den herausgelösten Stations-Komponenten (SeoPortfolioView).
+        return app(\Platform\Seo\Services\SeoPortfolioView::class)->forPortfolio($this->portfolio);
     }
 
     /**

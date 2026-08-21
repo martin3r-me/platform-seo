@@ -109,11 +109,6 @@
                 @include('seo::partials.wirkungsraum-dashboard', ['agg' => $agg, 'health' => $health, 'trend' => $trend, 'penetration' => $penetration, 'competitors' => $competitors, 'measureInbox' => $measureInbox])
             @endif
 
-            {{-- Meta — der Steckbrief: was ist dieser Wirkungsraum, was ist das Ziel. Steht vor den Gates. --}}
-            @if($view === 'meta')
-                @include('seo::partials.wirkungsraum-meta', ['portfolio' => $portfolio, 'agg' => $agg, 'health' => $health, 'penetration' => $penetration, 'metaEditing' => $metaEditing])
-            @endif
-
             {{-- Stationen — die Werkbank (Kontext + fokussiertes Phasen-Werkzeug).
                  Bestand-Views (Keywords/Cluster/Wettbewerber) zeigen ihre eigene
                  Liste weiter unten; das Dashboard seine gecraftete Sicht oben. --}}
