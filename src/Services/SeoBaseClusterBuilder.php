@@ -57,12 +57,24 @@ class SeoBaseClusterBuilder
         $geoShort = $geoLoc ? trim(explode(',', (string) $geoLoc->name)[0]) : null;
         $geoNative = SeoGeoLocation::nativeName($geoShort);
 
-        $seeds = [];
-        foreach ($basis as $b) {
-            $b = mb_strtolower(trim($b));
-            $seeds[] = $geoNative ? "{$b} {$geoNative}" : $b;
-        }
-        $seeds = array_values(array_unique($seeds));
+        // Seed-Achsen: Basis (Kern) + Anlass + Typ — jeder Wert eine eigene Achse
+        // × GEO. So fängt der Cluster auch Anlass-/Venue-Suchen OHNE „catering"
+        // ein („eventlocation düsseldorf", „areal böhler …"), die DataForSEO aus
+        // einem reinen „catering"-Seed nicht zurückgäbe. Zielgruppe taugt nicht
+        // als Standalone-Seed („b2b düsseldorf") und ist über Basis abgedeckt.
+        $seedTerms = array_values(array_unique(array_filter(array_map(
+            fn ($t) => mb_strtolower(trim((string) $t)),
+            array_merge(
+                $basis,
+                $dims->get(SeoUrlDimension::DIM_ANLASS, collect())->pluck('value')->all(),
+                $dims->get(SeoUrlDimension::DIM_TYP, collect())->pluck('value')->all(),
+            ),
+        ))));
+
+        $seeds = array_values(array_unique(array_map(
+            fn ($t) => $geoNative ? "{$t} {$geoNative}" : $t,
+            $seedTerms,
+        )));
 
         $connectionId = $settings->resolveConnectionId();
         if (! $connectionId) {
@@ -149,9 +161,9 @@ class SeoBaseClusterBuilder
         $sweepQuery = SeoKeyword::where('team_id', $teamId)
             ->whereNull('cluster_id')
             ->whereNull('retired_at')
-            ->where(function ($q) use ($basis) {
-                foreach ($basis as $b) {
-                    $q->orWhere('keyword', 'like', '%'.$b.'%');
+            ->where(function ($q) use ($seedTerms) {
+                foreach ($seedTerms as $t) {
+                    $q->orWhere('keyword', 'like', '%'.$t.'%');
                 }
             });
         if ($geoShort !== null && $geoShort !== '') {
