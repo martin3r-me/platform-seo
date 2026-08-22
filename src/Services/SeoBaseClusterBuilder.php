@@ -121,7 +121,17 @@ class SeoBaseClusterBuilder
                 $results,
                 fn ($r) => $needle !== '' && str_contains($this->stripAccents(mb_strtolower((string) $r->keyword)), $needle),
             ));
-            $use = count($matched) >= 3 ? $matched : $results;
+            // Genug lokale Treffer (Stadt/Region) → nur die. Sonst NICHT das ganze
+            // Universum anhängen (bei Land-GEO oder generischen Typ-Seeds wie
+            // „software" würde das den Marken-Cluster fluten) — nur markenrelevante
+            // Ergebnisse behalten. Der Marken-Anker unten hält den Cluster ohnehin
+            // nie leer.
+            $use = count($matched) >= 3
+                ? $matched
+                : array_values(array_filter(
+                    $results,
+                    fn ($r) => $this->containsAnyTerm((string) $r->keyword, $basis),
+                ));
         }
 
         // Keywords upserten + nur ungeclusterte anhängen (kein Cluster-Diebstahl).
@@ -171,6 +181,29 @@ class SeoBaseClusterBuilder
         }
         $swept = $sweepQuery->update(['cluster_id' => $cluster->id]);
 
+        // Marken-Anker garantieren: die Basis-Begriffe SIND der Basis-Cluster.
+        // Auch wenn DataForSEO kein Volumen liefert und nichts im Pool matcht,
+        // existiert der Cluster zwangsläufig mindestens mit der Marke. Zero-Volume
+        // ist ok — der Anker ist strukturell (die gesperrte Spine), nicht Ernte.
+        $anchored = 0;
+        foreach ($basis as $term) {
+            $kwText = mb_strtolower(trim((string) $term));
+            if ($kwText === '') {
+                continue;
+            }
+            $kw = SeoKeyword::firstOrNew(['team_id' => $teamId, 'keyword' => $kwText]);
+            if (! $kw->exists) {
+                $kw->last_fetched_at = now();
+            }
+            // Nur anhängen, wenn frei oder schon in genau diesem Basis-Cluster
+            // (kein Cluster-Diebstahl von geernteten Clustern).
+            if ($kw->cluster_id === null || (int) $kw->cluster_id === (int) $cluster->id) {
+                $kw->cluster_id = $cluster->id;
+                $anchored++;
+            }
+            $kw->save();
+        }
+
         $cluster->keyword_count = SeoKeyword::where('cluster_id', $cluster->id)->count();
         $cluster->save();
 
@@ -179,11 +212,26 @@ class SeoBaseClusterBuilder
         return [
             'cluster' => $cluster,
             'attached' => $attached,
+            'anchored' => $anchored,
             'fetched' => count($results),
             'swept' => $swept,
             'potential' => $potential,
             'seeds' => $seeds,
         ];
+    }
+
+    /** Enthält das Keyword mindestens einen der Begriffe (case-insensitiv)? */
+    protected function containsAnyTerm(string $keyword, array $terms): bool
+    {
+        $k = mb_strtolower($keyword);
+        foreach ($terms as $t) {
+            $t = mb_strtolower(trim((string) $t));
+            if ($t !== '' && str_contains($k, $t)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function clusterName(array $basis, ?string $geoShort): string

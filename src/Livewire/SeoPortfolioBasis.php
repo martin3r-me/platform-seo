@@ -51,8 +51,8 @@ class SeoPortfolioBasis extends Component
         $res = $builder->build($url);
         $this->clusterFlash = ! empty($res['error'])
             ? $res['error']
-            : sprintf('✓ „%s": %d neu, %d aus Bestand · Potenzial %s/Mon.',
-                $res['cluster']->name ?? 'Basis-Cluster', $res['attached'] ?? 0, $res['swept'] ?? 0,
+            : sprintf('✓ „%s": %d Anker · %d neu, %d aus Bestand · Potenzial %s/Mon.',
+                $res['cluster']->name ?? 'Basis-Cluster', $res['anchored'] ?? 0, $res['attached'] ?? 0, $res['swept'] ?? 0,
                 number_format($res['potential'] ?? 0, 0, ',', '.'));
     }
 

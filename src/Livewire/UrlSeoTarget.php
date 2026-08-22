@@ -208,8 +208,9 @@ class UrlSeoTarget extends Component
         }
 
         $this->buildResult = sprintf(
-            '✓ Basis-Cluster „%s": %d neu angehängt (%d gefunden), %d aus Bestand geordnet · Potenzial %s/Monat.',
+            '✓ Basis-Cluster „%s": %d Marken-Anker · %d neu angehängt (%d gefunden), %d aus Bestand geordnet · Potenzial %s/Monat.',
             $res['cluster']->name ?? 'Basis-Cluster',
+            $res['anchored'] ?? 0,
             $res['attached'] ?? 0,
             $res['fetched'] ?? 0,
             $res['swept'] ?? 0,
