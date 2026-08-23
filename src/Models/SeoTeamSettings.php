@@ -76,8 +76,11 @@ class SeoTeamSettings extends Model
     /**
      * Löst die DataForSEO Connection-ID auf.
      *
-     * 1. Explizit gesetzte connection_id
-     * 2. Fallback: über Team-Mitglieder automatisch auflösen
+     * 1. Explizit gesetzte connection_id (immer, unabhängig vom Status — bewusst
+     *    gepinnt, siehe Doku unten).
+     * 2. Aktive Connection über Team-Mitglieder/Team-Shares (resolveForTeam).
+     * 3. Fallback: nur-'error'-markierte Connection desselben Teams
+     *    (resolveErroredConnectionId) — härtet gegen Status-Drift, siehe dort.
      */
     public function resolveConnectionId(): ?int
     {
@@ -85,15 +88,85 @@ class SeoTeamSettings extends Model
             return $this->dataforseo_connection_id;
         }
 
-        if ($this->team) {
-            $resolver = app(\Platform\Integrations\Services\IntegrationConnectionResolver::class);
-            $connection = $resolver->resolveForTeam('dataforseo', $this->team);
-            if ($connection) {
-                return $connection->id;
-            }
+        if (! $this->team) {
+            return null;
         }
 
-        return null;
+        $resolver = app(\Platform\Integrations\Services\IntegrationConnectionResolver::class);
+        $connection = $resolver->resolveForTeam('dataforseo', $this->team);
+        if ($connection) {
+            return $connection->id;
+        }
+
+        return $this->resolveErroredConnectionId();
+    }
+
+    /**
+     * Fallback, wenn resolveForTeam() nichts liefert: resolveForTeam() blendet
+     * 'error'-Connections hart aus — auch wenn nur ein einzelner Testlauf
+     * fehlgeschlagen ist. Ohne diesen Fallback stoppt ein transienter
+     * DataForSEO-Fehler den Basis-Cluster-Build UND die nächtliche
+     * seo:pipeline dauerhaft ("Keine DataForSEO-Verbindung im Team"), obwohl
+     * dieselbe Connection im User-Kontext (resolveForUser prüft den Status
+     * der eigenen Connection gar nicht erst) anstandslos weiterläuft.
+     *
+     * Statt die Connection zu verstecken, wird sie hier zurückgegeben — der
+     * nächste echte API-Call in DataForSeoApiService testet sie live erneut
+     * und setzt status bei Erfolg zurück auf 'active' (Selbstheilung). Bleibt
+     * sie länger als eine Pipeline-Kadenz (24h) in 'error', ist das kein
+     * Ausrutscher mehr, sondern ein Dauerfehler — der wird laut geloggt statt
+     * still verschluckt (Log::error statt Log::warning).
+     */
+    protected function resolveErroredConnectionId(): ?int
+    {
+        $integration = \Platform\Integrations\Models\Integration::query()
+            ->where('key', 'dataforseo')
+            ->first();
+        if (! $integration || ! $integration->is_enabled) {
+            return null;
+        }
+
+        $teamMemberIds = $this->team->users()->pluck('users.id')->toArray();
+
+        $connection = null;
+        if (! empty($teamMemberIds)) {
+            $connection = \Platform\Integrations\Models\IntegrationConnection::query()
+                ->where('integration_id', $integration->id)
+                ->whereIn('owner_user_id', $teamMemberIds)
+                ->where('status', 'error')
+                ->orderByDesc('is_default')
+                ->orderByDesc('last_tested_at')
+                ->first();
+        }
+
+        if (! $connection) {
+            $connection = \Platform\Integrations\Models\IntegrationConnection::query()
+                ->where('integration_id', $integration->id)
+                ->where('status', 'error')
+                ->whereHas('shares', fn ($q) => $q->where('team_id', $this->team_id))
+                ->orderByDesc('last_tested_at')
+                ->first();
+        }
+
+        if (! $connection) {
+            return null;
+        }
+
+        $context = [
+            'team_id' => $this->team_id,
+            'connection_id' => $connection->id,
+            'last_error' => $connection->last_error,
+            'last_tested_at' => $connection->last_tested_at,
+        ];
+
+        $isStale = $connection->last_tested_at && $connection->last_tested_at->lt(now()->subDay());
+        if ($isStale) {
+            \Illuminate\Support\Facades\Log::error('SEO: DataForSEO-Connection seit über 24h in Fehlerstatus — vermutlich Dauerfehler, wird für Re-Test dennoch verwendet', $context);
+        } else {
+            \Illuminate\Support\Facades\Log::warning('SEO: DataForSEO-Connection in Fehlerstatus — wird für Re-Test erneut verwendet statt Team-Build/Pipeline zu blockieren', $context);
+        }
+
+        return $connection->id;
     }
 
     /**
