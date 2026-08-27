@@ -18,7 +18,7 @@ class ListUrlsTool implements ToolContract
 
     public function getDescription(): string
     {
-        return 'GET /seo/urls - Listet SEO-URLs des Teams. Optional: search (URL-Suche), is_own (true/false), status (active/redirected/deleted/error), url_id (Detail mit Metriken, Keywords, Relationships), domain, limit, offset. Ohne url_id: Übersicht.';
+        return 'GET /seo/urls - Listet SEO-URLs des Teams. Optional: search (URL-Suche), is_own (true/false), status (active/redirected/deleted/error), url_id (Detail mit Metriken, Keywords, Relationships), domain, portfolio_id (nur URLs eines Wirkungsraums), limit, offset. Ohne url_id: Übersicht.';
     }
 
     public function getSchema(): array
@@ -45,6 +45,10 @@ class ListUrlsTool implements ToolContract
                 'domain' => [
                     'type' => 'string',
                     'description' => 'Filter nach Domain',
+                ],
+                'portfolio_id' => [
+                    'type' => 'integer',
+                    'description' => 'Filter: nur URLs, die als kontrollierte URL an diesem Wirkungsraum (seo.portfolios) hängen.',
                 ],
                 'source' => [
                     'type' => 'string',
@@ -122,6 +126,10 @@ class ListUrlsTool implements ToolContract
             }
             if (!empty($arguments['domain'])) {
                 $query->where('domain', $arguments['domain']);
+            }
+            if (!empty($arguments['portfolio_id'])) {
+                $portfolioId = (int) $arguments['portfolio_id'];
+                $query->whereHas('portfolios', fn ($q) => $q->where('seo_portfolios.id', $portfolioId));
             }
             if (!empty($arguments['source'])) {
                 $source = $arguments['source'];
