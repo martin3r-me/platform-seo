@@ -305,6 +305,13 @@ class SeoUrl extends Model
             ->withPivot('added_at');
     }
 
+    /** Wirkungsräume, denen diese URL als kontrollierte URL angehört. */
+    public function portfolios(): BelongsToMany
+    {
+        return $this->belongsToMany(SeoPortfolio::class, 'seo_portfolio_urls', 'url_id', 'portfolio_id')
+            ->withPivot('role', 'added_at');
+    }
+
     public function getEffectiveRefreshInterval(int $baseIntervalHours): int
     {
         return (int) ($baseIntervalHours * (1 + (100 - $this->priority) / 100));
