@@ -3,7 +3,6 @@
 namespace Platform\Seo;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -124,7 +123,7 @@ class SeoServiceProvider extends ServiceProvider
         if (
             config()->has('seo.routing') &&
             config()->has('seo.navigation') &&
-            Schema::hasTable('modules')
+            PlatformCore::modulesTableExists()
         ) {
             PlatformCore::registerModule([
                 'key'        => 'seo',
