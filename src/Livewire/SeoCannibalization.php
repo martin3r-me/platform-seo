@@ -3,6 +3,8 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrlList;
 use Platform\Seo\Models\SeoUrlRelationship;
@@ -10,7 +12,7 @@ use Platform\Seo\Services\SeoUrlService;
 
 class SeoCannibalization extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoUrlList $seoUrlList;
 
@@ -18,6 +20,19 @@ class SeoCannibalization extends Component
     {
         $this->resolveSettings();
         $this->seoUrlList = $seoUrlList;
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->seoUrlList;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => route('seo.lists.cannibalization', $this->seoUrlList),
+            'source' => 'seo.url_list.view',
+        ];
     }
 
     public function render()

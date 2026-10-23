@@ -3,6 +3,8 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Services\SeoPortfolioHealth;
@@ -16,7 +18,7 @@ use Platform\Seo\Services\SeoScopeMetrics;
  */
 class SeoPortfolioMeta extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoPortfolio $portfolio;
 
@@ -33,6 +35,19 @@ class SeoPortfolioMeta extends Component
         $this->portfolio = $seoPortfolio;
         $this->metaGoal = (string) ($seoPortfolio->goal ?? '');
         $this->metaDescription = (string) ($seoPortfolio->description ?? '');
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->portfolio;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => route('seo.portfolios.meta', $this->portfolio),
+            'source' => 'seo.portfolio.view',
+        ];
     }
 
     public function editMeta(): void

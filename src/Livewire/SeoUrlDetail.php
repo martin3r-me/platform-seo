@@ -4,6 +4,8 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoRankingHistory;
@@ -14,7 +16,7 @@ use Platform\Seo\Services\SeoScoringService;
 
 class SeoUrlDetail extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoUrl $seoUrl;
 
@@ -72,6 +74,21 @@ class SeoUrlDetail extends Component
         $this->plausibleSiteId = (string) ($seoUrl->plausible_site_id ?? '');
         $this->gscProperty = (string) ($seoUrl->gsc_property ?? '');
         $this->loadSteckbrief();
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->seoUrl;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            // SeoUrl hat weder name noch title
+            'subject' => $this->seoUrl->url,
+            'url' => route('seo.urls.show', $this->seoUrl),
+            'source' => 'seo.url.view',
+        ];
     }
 
     /** Steckbrief aus der URL-Meta in den Formular-State laden. */

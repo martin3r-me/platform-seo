@@ -4,6 +4,8 @@ namespace Platform\Seo\Livewire;
 
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Jobs\ClusterPortfolioRestJob;
 use Platform\Seo\Jobs\BuildPortfolioSemanticMapJob;
 use Platform\Seo\Jobs\AdoptRoomJob;
@@ -32,7 +34,7 @@ use Platform\Seo\Services\SeoScopeMetrics;
  */
 class SeoPortfolioDetail extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoPortfolio $portfolio;
 
@@ -126,6 +128,23 @@ class SeoPortfolioDetail extends Component
         // (Alt-Links). applyView setzt direkt, ohne erneute Navigation.
         $initial = $station ?: request()->query('view');
         $this->applyView(is_string($initial) && $initial !== '' ? $initial : 'dashboard');
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->portfolio;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => match (true) {
+                in_array($this->view, ['basis', 'meta', 'measure'], true) => route('seo.portfolios.' . $this->view, $this->portfolio),
+                $this->view === 'dashboard' => route('seo.portfolios.show', $this->portfolio),
+                default => route('seo.portfolios.station', ['seoPortfolio' => $this->portfolio, 'station' => $this->view]),
+            },
+            'source' => 'seo.portfolio.view',
+        ];
     }
 
     public function openAddUrls(): void

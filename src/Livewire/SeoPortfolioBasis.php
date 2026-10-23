@@ -4,6 +4,8 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
@@ -21,7 +23,7 @@ use Platform\Seo\Services\SeoPortfolioHealth;
  */
 class SeoPortfolioBasis extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoPortfolio $portfolio;
 
@@ -32,6 +34,19 @@ class SeoPortfolioBasis extends Component
         $this->resolveSettings();
         abort_unless((int) $seoPortfolio->team_id === (int) $this->seoSettings->team_id, 404);
         $this->portfolio = $seoPortfolio;
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->portfolio;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => route('seo.portfolios.basis', $this->portfolio),
+            'source' => 'seo.portfolio.view',
+        ];
     }
 
     /** Nach dem Speichern eines SEO-Ziels (UrlSeoTarget-Modal) neu rendern. */

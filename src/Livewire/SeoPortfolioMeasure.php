@@ -3,6 +3,8 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoPortfolio;
 use Platform\Seo\Models\SeoUrl;
@@ -17,7 +19,7 @@ use Platform\Seo\Services\SeoPortfolioView;
  */
 class SeoPortfolioMeasure extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoPortfolio $portfolio;
 
@@ -43,6 +45,19 @@ class SeoPortfolioMeasure extends Component
         $this->resolveSettings();
         abort_unless((int) $seoPortfolio->team_id === (int) $this->seoSettings->team_id, 404);
         $this->portfolio = $seoPortfolio;
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->portfolio;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => route('seo.portfolios.measure', $this->portfolio),
+            'source' => 'seo.portfolio.view',
+        ];
     }
 
     public function openDataSettings(int $urlId): void

@@ -3,6 +3,8 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
@@ -11,7 +13,7 @@ use Platform\Seo\Services\SeoAnalysisService;
 
 class SeoCompetitorAnalysis extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoUrlList $seoUrlList;
     public ?string $filterDomain = null;
@@ -21,6 +23,19 @@ class SeoCompetitorAnalysis extends Component
     {
         $this->resolveSettings();
         $this->seoUrlList = $seoUrlList;
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->seoUrlList;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => route('seo.lists.competitors', $this->seoUrlList),
+            'source' => 'seo.url_list.view',
+        ];
     }
 
     public function setDomainFilter(?string $domain)

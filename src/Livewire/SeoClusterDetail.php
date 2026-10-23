@@ -4,6 +4,8 @@ namespace Platform\Seo\Livewire;
 
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoClusterSnapshot;
 use Platform\Seo\Models\SeoKeyword;
@@ -20,7 +22,7 @@ use Platform\Seo\Services\SeoOrganizationLinker;
  */
 class SeoClusterDetail extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoKeywordCluster $cluster;
 
@@ -28,6 +30,19 @@ class SeoClusterDetail extends Component
     {
         $this->resolveSettings();
         $this->cluster = $cluster;
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->cluster;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => route('seo.clusters.show', $this->cluster),
+            'source' => 'seo.cluster.view',
+        ];
     }
 
     public function assignToNode(int $entityId): void

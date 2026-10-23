@@ -4,6 +4,8 @@ namespace Platform\Seo\Livewire;
 
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoUrl;
 use Platform\Seo\Models\SeoUrlList;
@@ -11,6 +13,8 @@ use Platform\Seo\Models\SeoUrlRelationship;
 
 class SeoUrlListDetail extends Component
 {
+    use HasPageContext;
+
     public SeoUrlList $seoUrlList;
 
     // Add URLs modal
@@ -24,6 +28,19 @@ class SeoUrlListDetail extends Component
     public function mount(SeoUrlList $seoUrlList): void
     {
         $this->seoUrlList = $seoUrlList;
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->seoUrlList;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => route('seo.lists.show', $this->seoUrlList),
+            'source' => 'seo.url_list.view',
+        ];
     }
 
     public function selectUrl(int $urlId): void

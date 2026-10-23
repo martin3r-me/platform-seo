@@ -3,6 +3,8 @@
 namespace Platform\Seo\Livewire;
 
 use Livewire\Component;
+use Illuminate\Database\Eloquent\Model;
+use Platform\Core\Livewire\Concerns\HasPageContext;
 use Platform\Seo\Livewire\Concerns\ResolvesTeamSettings;
 use Platform\Seo\Models\SeoContentBrief;
 use Platform\Seo\Models\SeoKeyword;
@@ -17,7 +19,7 @@ use Platform\Seo\Models\SeoKeyword;
  */
 class SeoContentBriefDetail extends Component
 {
-    use ResolvesTeamSettings;
+    use ResolvesTeamSettings, HasPageContext;
 
     public SeoContentBrief $brief;
 
@@ -29,6 +31,19 @@ class SeoContentBriefDetail extends Component
         abort_unless((int) $brief->team_id === (int) $this->seoSettings->team_id, 404);
 
         $this->brief = $brief;
+    }
+
+    protected function pageContext(): ?Model
+    {
+        return $this->brief;
+    }
+
+    protected function pageContextOptions(): array
+    {
+        return [
+            'url' => route('seo.briefs.show', $this->brief),
+            'source' => 'seo.brief.view',
+        ];
     }
 
     /**
