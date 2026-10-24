@@ -34,6 +34,8 @@ class SeoKeywordExplorer extends Component
 
     public ?int $selectedKeywordId = null;
 
+    public bool $showKeywordDetail = false;
+
     public int $limit = 50;
 
     public function mount(SeoUrl $seoUrl)
@@ -83,7 +85,15 @@ class SeoKeywordExplorer extends Component
 
     public function selectKeyword(int $keywordId)
     {
-        $this->selectedKeywordId = $this->selectedKeywordId === $keywordId ? null : $keywordId;
+        $this->selectedKeywordId = $keywordId;
+        $this->showKeywordDetail = true;
+    }
+
+    public function updatedShowKeywordDetail(bool $open): void
+    {
+        if (! $open) {
+            $this->selectedKeywordId = null;
+        }
     }
 
     public function setCompetitorDepth(int $keywordId, ?int $depth): void

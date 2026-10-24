@@ -201,24 +201,15 @@
         </form>
     </x-ui-modal>
 
-    {{-- Right Detail Panel (KWFinder-style) --}}
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="{{ $this->selectedKeyword?->keyword ?? 'Keyword Details' }}" width="w-[440px]" :defaultOpen="true" storeKey="kwDetailOpen" side="right">
-            @if($this->selectedKeyword)
-                @include('seo::partials.keyword-detail-panel', [
-                    'keyword' => $this->selectedKeyword,
-                    'urls' => $this->selectedKeywordUrls,
-                    'positionHistory' => $this->selectedKeywordHistory,
-                ])
-            @else
-                <div class="flex flex-col items-center justify-center h-full py-20 text-center px-8">
-                    <div class="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
-                        @svg('heroicon-o-cursor-arrow-rays', 'w-7 h-7 text-indigo-300')
-                    </div>
-                    <p class="text-sm text-gray-500 font-medium mb-1">Kein Keyword ausgewählt</p>
-                    <p class="text-xs text-gray-400">Klicke auf ein Keyword in der Liste, um SERP-Daten, Suchvolumen-Trends und Schwierigkeitsgrad zu sehen.</p>
-                </div>
-            @endif
-        </x-ui-page-sidebar>
-    </x-slot>
+    {{-- Keyword-Details (KWFinder-style) --}}
+    <x-nx-modal wire:model="showKeywordDetail" size="lg" hideFooter>
+        <x-slot name="header">{{ $this->selectedKeyword?->keyword ?? 'Keyword Details' }}</x-slot>
+        @if($this->selectedKeyword)
+            @include('seo::partials.keyword-detail-panel', [
+                'keyword' => $this->selectedKeyword,
+                'urls' => $this->selectedKeywordUrls,
+                'positionHistory' => $this->selectedKeywordHistory,
+            ])
+        @endif
+    </x-nx-modal>
 </x-ui-page>

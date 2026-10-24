@@ -1278,30 +1278,4 @@
     <x-slot name="sidebar">
         <livewire:seo.sidebar />
     </x-slot>
-
-    <x-slot name="activity">
-        <x-ui-page-sidebar title="URL-Details" width="w-80" :defaultOpen="false" storeKey="activityOpen" side="right">
-            <div class="p-6 space-y-6">
-                {{-- Properties --}}
-                <div>
-                    <h3 class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-3">Eigenschaften</h3>
-                    <div class="space-y-3">
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <div class="text-[11px] text-gray-400">Domain</div>
-                            <div class="text-[13px] font-medium text-gray-900">{{ $seoUrl->domain }}</div>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <div class="text-[11px] text-gray-400">Pfad</div>
-                            <div class="text-[13px] font-medium text-gray-900">{{ $seoUrl->path ?: '/' }}</div>
-                        </div>
-                        <div class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <div class="text-[11px] text-gray-400">HTTP Status</div>
-                            <div class="text-[13px] font-medium text-gray-900">{{ $seoUrl->http_status ?? '—' }}</div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </x-ui-page-sidebar>
-    </x-slot>
 </x-ui-page>
