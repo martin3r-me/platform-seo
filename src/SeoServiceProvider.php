@@ -167,6 +167,12 @@ class SeoServiceProvider extends ServiceProvider
         try {
             resolve(\Platform\Organization\Services\EntityLinkRegistry::class)
                 ->register(new \Platform\Seo\Organization\SeoEntityLinkProvider());
+
+            // Kunden-Tor: Bereich „Sichtbarkeit" auf geteilten Knoten
+            $registry = resolve(\Platform\Organization\Services\EntityLinkRegistry::class);
+            if (method_exists($registry, 'registerShareView')) {
+                $registry->registerShareView(new \Platform\Seo\Organization\SeoShareView());
+            }
         } catch (\Throwable $e) {
             // Organization-Modul nicht geladen
         }
