@@ -18,7 +18,7 @@ class SeoPortfolioAdvisor
 
     public function advise(SeoPortfolio $portfolio, array $facets): array
     {
-        $provider = $this->registry->get('openai') ?? $this->registry->getDefaultProvider();
+        $provider = $this->registry->getDefaultProvider();
         if (! $provider || ! $provider->isAvailable()) {
             return ['error' => 'Kein KI-Provider verfügbar (services.openai.api_key gesetzt?).'];
         }

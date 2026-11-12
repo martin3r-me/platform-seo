@@ -21,7 +21,7 @@ class SeoMeasureAiAdvisor
      */
     public function propose(SeoPortfolio $portfolio, array $facets): array
     {
-        $provider = $this->registry->get('openai') ?? $this->registry->getDefaultProvider();
+        $provider = $this->registry->getDefaultProvider();
         if (! $provider || ! $provider->isAvailable()) {
             return [];
         }

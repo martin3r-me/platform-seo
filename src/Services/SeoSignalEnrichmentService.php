@@ -40,7 +40,7 @@ class SeoSignalEnrichmentService
         }
 
         // Bewusst OpenAI (der Default zeigt bei uns auf Anthropic mit ungültigem Key).
-        $provider = $this->registry->get('openai') ?? $this->registry->getDefaultProvider();
+        $provider = $this->registry->getDefaultProvider();
         if (! $provider || ! $provider->isAvailable()) {
             return ['enriched' => 0, 'skipped' => 0, 'error' => 'Kein OpenAI-Provider verfügbar (services.openai.api_key gesetzt?).'];
         }
