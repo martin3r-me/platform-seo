@@ -2,11 +2,12 @@
 
 namespace Platform\Seo\Tools;
 
+use Illuminate\Support\Facades\Cache;
 use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolResult;
+use Platform\Seo\Jobs\FetchSerpCompetitorsJob;
 use Platform\Seo\Models\SeoKeyword;
-use Platform\Seo\Services\SeoKeywordService;
 
 class FetchSerpCompetitorsTool implements ToolContract
 {
@@ -17,7 +18,7 @@ class FetchSerpCompetitorsTool implements ToolContract
 
     public function getDescription(): string
     {
-        return 'POST /seo/competitors/serp - Holt SERP-Competitors für Keywords und persistiert Top-10 Domains pro Keyword in seo_keyword_competitors. Nutzt getSerpOrganic() = 1 API-Call pro Keyword (~10 Cent). Nutze dry_run=true für Kostenvorschau.';
+        return 'POST /seo/competitors/serp - Holt SERP-Competitors für Keywords und persistiert Top-10 Domains pro Keyword in seo_keyword_competitors. 1 SERP-Call pro Keyword (~10 Cent). Pflicht: url_id oder domain (sonst würde das ganze Team abgefragt). Nutze dry_run=true für Kostenvorschau. Der echte Abruf läuft im Hintergrund (Queue) — Ergebnis via status=true.';
     }
 
     public function getSchema(): array
@@ -39,11 +40,15 @@ class FetchSerpCompetitorsTool implements ToolContract
                 ],
                 'limit' => [
                     'type' => 'integer',
-                    'description' => 'Maximale Anzahl Keywords (Default: alle).',
+                    'description' => 'Maximale Anzahl Keywords, die volumenstärksten zuerst (Default: alle).',
                 ],
                 'dry_run' => [
                     'type' => 'boolean',
                     'description' => 'Nur Kosten schätzen, kein API-Call.',
+                ],
+                'status' => [
+                    'type' => 'boolean',
+                    'description' => 'Nur Status/Ergebnis des letzten Hintergrund-Abrufs zurückgeben, nichts starten.',
                 ],
             ],
         ];
@@ -55,6 +60,18 @@ class FetchSerpCompetitorsTool implements ToolContract
             $team = $context->team;
             if (!$team) {
                 return ToolResult::error('Kein Team im Kontext.', 'MISSING_TEAM');
+            }
+
+            $current = Cache::get(FetchSerpCompetitorsJob::statusKey($team->id));
+
+            if (!empty($arguments['status'])) {
+                return ToolResult::success($current ?? ['status' => 'none', 'message' => 'Kein Wettbewerber-Abruf gelaufen.']);
+            }
+
+            // Ohne Scope liefen min_volume/limit über ALLE Keywords des Teams
+            // (alle Projekte) — teuer und fachlich falsch.
+            if (empty($arguments['url_id']) && empty($arguments['domain'])) {
+                return ToolResult::error('url_id oder domain ist erforderlich — sonst würden Keywords aller Projekte des Teams abgefragt.', 'MISSING_SCOPE');
             }
 
             $options = [
@@ -75,10 +92,10 @@ class FetchSerpCompetitorsTool implements ToolContract
             if (!empty($options['min_volume'])) {
                 $query->where('search_volume', '>=', $options['min_volume']);
             }
-            if ($options['limit'] > 0) {
-                $query->limit($options['limit']);
-            }
             $keywordCount = $query->count();
+            if ($options['limit'] > 0) {
+                $keywordCount = min($keywordCount, $options['limit']);
+            }
 
             if ($keywordCount === 0) {
                 return ToolResult::success([
@@ -100,22 +117,22 @@ class FetchSerpCompetitorsTool implements ToolContract
                 ]);
             }
 
-            $service = app(SeoKeywordService::class);
-            $result = $service->fetchRankings($team->id, $context->user, $options);
-
-            if (!empty($result['error'])) {
-                return ToolResult::error($result['error'], 'FETCH_ERROR');
+            // Echter Abruf → Hintergrund-Job (synchron riss das Gateway-Timeout).
+            // „running" älter als das Job-Timeout = toter Worker → neu starten erlaubt.
+            $running = ($current['status'] ?? null) === 'running'
+                && now()->subSeconds(FetchSerpCompetitorsJob::TIMEOUT)->lt($current['updated_at']);
+            if ($running) {
+                return ToolResult::success($current + ['message' => 'Wettbewerber-Abruf läuft bereits — Ergebnis via status=true.']);
             }
 
+            FetchSerpCompetitorsJob::markStatus($team->id, 'running', ['options' => $options, 'keywords' => $keywordCount]);
+            FetchSerpCompetitorsJob::dispatch($team->id, $context->user?->id, $options);
+
             return ToolResult::success([
-                'fetched' => $result['fetched'],
-                'position_snapshots' => $result['position_snapshots'],
-                'cost_cents' => $result['cost_cents'],
-                'top_competitors' => $result['top_competitors'] ?? [],
-                'message' => $result['fetched'] . ' Keywords abgefragt, '
-                    . $result['position_snapshots'] . ' Positionen getrackt, '
-                    . $result['cost_cents'] . ' Cent Kosten. '
-                    . 'Competitor-Daten in seo_keyword_competitors persistiert.',
+                'status' => 'started',
+                'keywords' => $keywordCount,
+                'estimated_cost_cents' => $estimatedCostCents,
+                'message' => "Wettbewerber-Abruf für {$keywordCount} Keywords gestartet (läuft im Hintergrund). Ergebnis via seo.competitors.serp.POST mit status=true.",
             ]);
         } catch (\Throwable $e) {
             return ToolResult::error('Fehler: ' . $e->getMessage(), 'EXECUTION_ERROR');

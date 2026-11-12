@@ -4,6 +4,7 @@ namespace Platform\Seo\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Platform\Core\Contracts\SeoKeywordServiceInterface;
 use Platform\Core\Models\Team;
 use Platform\Core\Models\User;
@@ -184,7 +185,8 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
         $limit = $options['limit'] ?? 0;
         if ($limit > 0) {
-            $query->limit($limit);
+            // „Top-N" heißt die volumenstärksten, nicht die zufällig ersten IDs.
+            $query->orderByDesc('search_volume')->limit($limit);
         }
         $keywords = $query->get();
 
@@ -215,7 +217,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
 
         foreach ($keywords as $keyword) {
             $serp = $api->getSerpWithFeatures($user, $keyword->keyword, $settings->location_code, $settings->resolveLanguageName());
-            $serpResults = $serp['organic'] ?? [];
+            $serpResults = $this->withoutGoogleOwned($serp['organic'] ?? [], $keyword);
             $serpFeaturesResult = $serp['features'] ?? null;
 
             // SERP-Features aus demselben (bezahlten) Call persistieren — auch wenn
@@ -338,6 +340,38 @@ class SeoKeywordService implements SeoKeywordServiceInterface
                 ->values()
                 ->toArray(),
         ];
+    }
+
+    /**
+     * Google-eigene Treffer (google.*) sind nie Wettbewerber. Sie tauchten als
+     * einzige „Wettbewerber" auf (alle Top-10 = google.com) — Ursache unklar,
+     * daher verwerfen + mit URL loggen, damit der nächste Lauf sie zeigt.
+     *
+     * @param \Platform\Integrations\DTOs\DataForSeo\SerpOrganicResult[] $results
+     */
+    protected function withoutGoogleOwned(array $results, SeoKeyword $keyword): array
+    {
+        $kept = [];
+        $dropped = [];
+        foreach ($results as $result) {
+            if (preg_match('/(^|\.)google\.[a-z.]+$/i', (string) $result->domain)) {
+                $dropped[] = ['position' => $result->position, 'domain' => $result->domain, 'url' => $result->url];
+            } else {
+                $kept[] = $result;
+            }
+        }
+
+        if ($dropped) {
+            Log::warning('SeoKeywordService: Google-eigene SERP-Treffer verworfen', [
+                'keyword_id' => $keyword->id,
+                'keyword' => $keyword->keyword,
+                'dropped' => count($dropped),
+                'kept' => count($kept),
+                'sample' => array_slice($dropped, 0, 5),
+            ]);
+        }
+
+        return $kept;
     }
 
     public function getKeywordsForProject(int $teamId): Collection
