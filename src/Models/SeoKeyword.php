@@ -83,7 +83,7 @@ class SeoKeyword extends Model implements HasDisplayName
 
     public function serp(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasOne(SeoKeywordSerp::class, 'keyword_id');
+        return $this->hasOne(SeoKeywordSerpFeature::class, 'keyword_id');
     }
 
     /** @deprecated Use SeoUrlRegistration instead */

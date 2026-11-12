@@ -14,7 +14,7 @@ use Platform\Seo\Models\SeoKeyword;
 use Platform\Seo\Models\SeoKeywordCluster;
 use Platform\Seo\Models\SeoKeywordPosition;
 use Platform\Seo\Models\SeoKeywordCompetitor;
-use Platform\Seo\Models\SeoKeywordSerp;
+use Platform\Seo\Models\SeoKeywordSerpFeature;
 use Platform\Seo\Models\SeoRankingHistory;
 use Platform\Seo\Models\SeoTeamSettings;
 use Platform\Seo\Models\SeoUrl;
@@ -221,7 +221,7 @@ class SeoKeywordService implements SeoKeywordServiceInterface
             // SERP-Features aus demselben (bezahlten) Call persistieren — auch wenn
             // wir organisch nicht ranken (dann bleibt die Features-Zeile trotzdem wertvoll).
             if ($serpFeaturesResult) {
-                SeoKeywordSerp::updateOrCreate(
+                SeoKeywordSerpFeature::updateOrCreate(
                     ['keyword_id' => $keyword->id],
                     [
                         'team_id' => $teamId,
