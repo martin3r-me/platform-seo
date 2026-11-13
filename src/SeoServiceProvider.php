@@ -359,6 +359,7 @@ class SeoServiceProvider extends ServiceProvider
 
             // Competitors
             $registry->register(new \Platform\Seo\Tools\FetchSerpCompetitorsTool());
+            $registry->register(new \Platform\Seo\Tools\DeleteCompetitorsTool());
             $registry->register(new \Platform\Seo\Tools\KeywordGapTool());
 
             // Wartung
